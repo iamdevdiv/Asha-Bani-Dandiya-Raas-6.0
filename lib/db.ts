@@ -512,6 +512,27 @@ export async function getCarouselImages() {
 export async function updateCarouselImages(
   images: Array<{ id?: string; imageUrl: string; title?: string | null; displayOrder: number; isActive: boolean }>
 ) {
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      await prisma.$transaction([
+        prisma.carouselImage.deleteMany({}),
+        prisma.carouselImage.createMany({
+          data: images.map((img, idx) => ({
+            imageUrl: img.imageUrl,
+            title: img.title || null,
+            displayOrder: img.displayOrder ?? idx + 1,
+            isActive: img.isActive !== false,
+          })),
+        }),
+      ]);
+      return await prisma.carouselImage.findMany({
+        orderBy: { displayOrder: 'asc' },
+      });
+    } catch (e) {
+      console.warn('Prisma error in updateCarouselImages, falling back to local store', e);
+    }
+  }
   const store = loadFallbackStore();
   store.carouselImages = images.map((img, idx) => ({
     id: img.id || `img_${Date.now()}_${idx}`,
