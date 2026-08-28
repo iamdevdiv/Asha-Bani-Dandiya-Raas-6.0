@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       const buffer = Buffer.from(await file.arrayBuffer());
       fs.writeFileSync(filePath, buffer);
 
-      uploadedUrls.push(`/images/carousel/${filename}`);
+      uploadedUrls.push(`/api/uploads/${filename}`);
     }
 
     return NextResponse.json({

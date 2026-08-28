@@ -23,6 +23,14 @@ const nextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: '/images/carousel/slide_:slug*',
+        destination: '/api/uploads/slide_:slug*',
+      },
+    ];
+  },
 };
 
 export default nextConfig;
