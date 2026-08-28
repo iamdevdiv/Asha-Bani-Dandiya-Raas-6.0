@@ -65,15 +65,7 @@ export default function VerifierScanPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const isScanningRef = useRef<boolean>(false);
-  const frameCountRef = useRef<number>(0);
   const [hasLiveCameraSupport, setHasLiveCameraSupport] = useState(true);
-
-  // Live Telemetry state for UI
-  const [telemetry, setTelemetry] = useState({
-    framesAnalyzed: 0,
-    status: 'Initializing camera...',
-    lastDecoded: 'None',
-  });
 
   // 1. Verify Authentication
   useEffect(() => {
@@ -106,7 +98,6 @@ export default function VerifierScanPage() {
         console.info('Live video stream requires HTTPS or localhost. Falling back to native camera photo snap.');
         setHasLiveCameraSupport(false);
         setCameraActive(false);
-        setTelemetry((t) => ({ ...t, status: 'Photo snap mode ready (HTTPS not detected)' }));
         return;
       }
 
@@ -129,7 +120,6 @@ export default function VerifierScanPage() {
             .then(() => {
               setCameraActive(true);
               isScanningRef.current = true;
-              setTelemetry((t) => ({ ...t, status: 'Scanning live video stream at 60 FPS...' }));
               if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
               animationFrameRef.current = requestAnimationFrame(tickScan);
             })
@@ -146,7 +136,6 @@ export default function VerifierScanPage() {
       }
       setCameraActive(false);
       isScanningRef.current = false;
-      setTelemetry((t) => ({ ...t, status: `Camera error: ${err.message || 'Permission denied'}` }));
     }
   };
 
@@ -165,7 +154,6 @@ export default function VerifierScanPage() {
       videoRef.current.srcObject = null;
     }
     setCameraActive(false);
-    setTelemetry((t) => ({ ...t, status: 'Camera paused.' }));
   };
 
   const toggleCameraFacing = () => {
@@ -181,7 +169,6 @@ export default function VerifierScanPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setTelemetry((t) => ({ ...t, status: 'Decoding uploaded pass photo...' }));
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new window.Image();
@@ -197,14 +184,8 @@ export default function VerifierScanPage() {
             inversionAttempts: 'attemptBoth',
           });
           if (code && code.data) {
-            setTelemetry((t) => ({
-              ...t,
-              lastDecoded: code.data.substring(0, 30),
-              status: 'QR Found! Verifying...',
-            }));
             handleVerifyCode(code.data);
           } else {
-            setTelemetry((t) => ({ ...t, status: 'Photo scanned: No valid QR code found.' }));
             notifications.show({
               title: 'No QR Code Detected',
               message: 'Could not detect a valid QR code in the photo. Please ensure clear lighting and steady focus.',
@@ -223,7 +204,6 @@ export default function VerifierScanPage() {
   const tickScan = () => {
     if (!isScanningRef.current) return;
 
-    frameCountRef.current++;
     const video = videoRef.current;
     const canvas = canvasRef.current;
 
@@ -241,22 +221,8 @@ export default function VerifierScanPage() {
           inversionAttempts: 'attemptBoth',
         });
 
-        if (frameCountRef.current % 20 === 0) {
-          setTelemetry((t) => ({
-            ...t,
-            framesAnalyzed: frameCountRef.current,
-            status: code ? 'QR Code Detected!' : `Scanning stream (${canvas.width}x${canvas.height})...`,
-          }));
-        }
-
         if (code && code.data && !processing) {
-          console.log('[QR SCANNER CLIENT] Found QR code:', code.data);
           isScanningRef.current = false;
-          setTelemetry((t) => ({
-            ...t,
-            lastDecoded: code.data.substring(0, 30),
-            status: 'Verifying code with server...',
-          }));
           handleVerifyCode(code.data);
           return;
         }
@@ -272,7 +238,6 @@ export default function VerifierScanPage() {
   const handleVerifyCode = async (code: string) => {
     if (!code.trim() || processing) return;
     setProcessing(true);
-    setTelemetry((t) => ({ ...t, status: `Sending verification request...` }));
 
     try {
       const res = await fetch('/api/verifier/scan', {
@@ -282,11 +247,6 @@ export default function VerifierScanPage() {
       });
 
       const data = await res.json();
-      console.log('[QR SCANNER CLIENT] Response from API:', data);
-      setTelemetry((t) => ({
-        ...t,
-        status: data.success ? (data.alreadyCheckedIn ? 'Duplicate Entry Alert' : 'Entry Approved') : `Rejected: ${data.message}`,
-      }));
 
       if (data.success) {
         if (data.alreadyCheckedIn) {
@@ -579,40 +539,6 @@ export default function VerifierScanPage() {
                 onChange={handlePhotoCapture}
                 style={{ display: 'none' }}
               />
-
-              {/* LIVE DIAGNOSTICS & TELEMETRY PANEL OVER UI */}
-              <Paper
-                p="xs"
-                radius="md"
-                mb="xs"
-                style={{
-                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                  border: '1px solid rgba(250, 204, 21, 0.4)',
-                  textAlign: 'left',
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <Group gap={6}>
-                    <Badge size="xs" color="yellow" variant="filled">
-                      DIAGNOSTICS HUD
-                    </Badge>
-                    <Badge size="xs" color={isScanningRef.current ? 'green' : 'gray'}>
-                      {isScanningRef.current ? 'SCANNER RUNNING' : 'IDLE'}
-                    </Badge>
-                  </Group>
-                  <Text size="xs" c="green.3" fw={700} style={{ fontFamily: 'monospace' }}>
-                    Frames: {telemetry.framesAnalyzed}
-                  </Text>
-                </Group>
-                <Text size="xs" c="yellow.3" mt={4} lineClamp={1} style={{ fontFamily: 'monospace' }}>
-                  Telemetry: <strong>{telemetry.status}</strong>
-                </Text>
-                {telemetry.lastDecoded !== 'None' && (
-                  <Text size="xs" c="cyan.3" mt={2} lineClamp={1} style={{ fontFamily: 'monospace' }}>
-                    Decoded: {telemetry.lastDecoded}
-                  </Text>
-                )}
-              </Paper>
 
               <Group justify="space-between" align="center" mb="xs">
                 <Text size="xs" fw={700} c="royalGold.3" style={{ letterSpacing: '0.1em' }}>
