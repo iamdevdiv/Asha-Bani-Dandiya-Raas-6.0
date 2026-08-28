@@ -84,6 +84,7 @@ export function StallMediaCarousel({ images }: StallMediaCarouselProps) {
                     src={img.imageUrl}
                     alt={img.title || `Asha Bani Dandiya Raas Moment ${index + 1}`}
                     fill
+                    unoptimized
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     style={{ objectFit: 'cover' }}
                   />

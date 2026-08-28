@@ -459,6 +459,7 @@ export default function AdminMediaPage() {
                   src={item.imageUrl}
                   alt={item.title || `Slide ${index + 1}`}
                   fill
+                  unoptimized
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
                   style={{ objectFit: 'cover' }}
                 />
@@ -676,7 +677,7 @@ export default function AdminMediaPage() {
                             border: '1px solid rgba(250, 204, 21, 0.3)',
                           }}
                         >
-                          <Image src={src} alt="Preview" fill style={{ objectFit: 'cover' }} />
+                          <Image src={src} alt="Preview" fill unoptimized style={{ objectFit: 'cover' }} />
                           <Text
                             size="10px"
                             c="white"
@@ -793,6 +794,7 @@ export default function AdminMediaPage() {
                 src={editImageUrl || editingImage.imageUrl}
                 alt={editTitle || 'Slide'}
                 fill
+                unoptimized
                 style={{ objectFit: 'cover' }}
               />
             </Box>

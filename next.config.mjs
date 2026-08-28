@@ -8,6 +8,9 @@ const nextConfig = {
     '127.0.0.1',
     ...(process.env.ALLOWED_DEV_ORIGINS ? process.env.ALLOWED_DEV_ORIGINS.split(',') : []),
   ],
+  images: {
+    unoptimized: true,
+  },
   experimental: {
     optimizePackageImports: ['@mantine/core', '@mantine/hooks', '@tabler/icons-react'],
   },
