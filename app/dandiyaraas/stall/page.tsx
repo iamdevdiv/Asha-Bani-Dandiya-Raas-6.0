@@ -210,12 +210,42 @@ export default function StallExhibitorPage() {
         </Container>
       </Box>
 
-      {/* WHAT'S DIFFERENT THIS YEAR SECTION */}
+      {/* STALL LAYOUT BLUEPRINTS GALLERY */}
       <Box
         py={70}
         style={{
           backgroundColor: 'rgba(20, 3, 5, 0.7)',
           borderTop: '1px solid rgba(234, 179, 8, 0.15)',
+          borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
+        }}
+      >
+        <Container size="xl">
+          <Stack align="center" gap="xs" mb="lg">
+            <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
+              DIMENSIONS &amp; ZONING
+            </Text>
+            <Title
+              order={2}
+              className="gold-gradient-text"
+              ta="center"
+              style={{ fontFamily: "'Cinzel', serif" }}
+            >
+              Stall Layout Blueprints &amp; Specifications
+            </Title>
+            <Text size="sm" c="gray.4" ta="center" maw={650}>
+              Click any blueprint below to inspect full-screen diagrams, dimensions, and zoning details.
+            </Text>
+          </Stack>
+
+          <LayoutLightbox />
+        </Container>
+      </Box>
+
+      {/* WHAT'S DIFFERENT THIS YEAR SECTION */}
+      <Box
+        py={70}
+        style={{
+          backgroundColor: 'rgba(20, 3, 5, 0.4)',
           borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
         }}
       >
@@ -309,37 +339,6 @@ export default function StallExhibitorPage() {
               </Paper>
             ))}
           </SimpleGrid>
-        </Container>
-      </Box>
-
-      {/* STALL LAYOUT BLUEPRINTS GALLERY */}
-      <Box
-        py={70}
-        style={{
-          backgroundColor: 'rgba(20, 3, 5, 0.7)',
-          borderTop: '1px solid rgba(234, 179, 8, 0.15)',
-          borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
-        }}
-      >
-        <Container size="xl">
-          <Stack align="center" gap="xs" mb="lg">
-            <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
-              DIMENSIONS &amp; ZONING
-            </Text>
-            <Title
-              order={2}
-              className="gold-gradient-text"
-              ta="center"
-              style={{ fontFamily: "'Cinzel', serif" }}
-            >
-              Stall Layout Blueprints &amp; Specifications
-            </Title>
-            <Text size="sm" c="gray.4" ta="center" maw={650}>
-              Click any blueprint below to inspect full-screen diagrams, dimensions, and zoning details.
-            </Text>
-          </Stack>
-
-          <LayoutLightbox />
         </Container>
       </Box>
 
