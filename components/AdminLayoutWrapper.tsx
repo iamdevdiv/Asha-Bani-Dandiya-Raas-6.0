@@ -17,6 +17,7 @@ import {
   Stack,
   Divider,
   Paper,
+  Loader,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
@@ -46,20 +47,23 @@ export function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps) {
 
   // If on login page, render children directly without admin shell
   const isLoginPage = pathname === '/admin/login';
+  const [loadingAuth, setLoadingAuth] = useState(!isLoginPage);
 
   useEffect(() => {
     if (!isLoginPage) {
+      setLoadingAuth(true);
       fetch('/api/admin/auth/me')
         .then((res) => res.json())
         .then((data) => {
           if (data.success) {
             setAdminUser(data.admin);
+            setLoadingAuth(false);
           } else {
-            router.push('/admin/login');
+            router.replace('/admin/login');
           }
         })
         .catch(() => {
-          router.push('/admin/login');
+          router.replace('/admin/login');
         });
     }
   }, [pathname, isLoginPage, router]);
@@ -72,14 +76,35 @@ export function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps) {
         message: 'You have been safely signed out.',
         color: 'yellow',
       });
-      router.push('/admin/login');
+      router.replace('/admin/login');
     } catch (err) {
-      router.push('/admin/login');
+      router.replace('/admin/login');
     }
   };
 
   if (isLoginPage) {
     return <>{children}</>;
+  }
+
+  if (loadingAuth || !adminUser) {
+    return (
+      <Box
+        style={{
+          minHeight: '100vh',
+          backgroundColor: '#0d0204',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Stack align="center" gap="sm">
+          <Loader color="royalGold" size="lg" />
+          <Text size="xs" c="gray.5" fw={600} style={{ letterSpacing: '0.05em' }}>
+            AUTHENTICATING ADMIN ACCESS...
+          </Text>
+        </Stack>
+      </Box>
+    );
   }
 
   const stallNavLinks = [
