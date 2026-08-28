@@ -260,7 +260,7 @@ export default function StallBookingPage() {
           </Text>
         </Stack>
 
-        <Grid gutter="xl" align="start">
+        <Grid gap="xl" align="start">
           {/* Left Column: Interactive Map (7 cols on lg) */}
           <Grid.Col span={{ base: 12, lg: 7 }}>
             <Paper

@@ -297,7 +297,6 @@ export default function VerifierScanPage() {
         message: err.message || 'Network error occurred.',
         color: 'red',
       });
-      setTelemetry((t) => ({ ...t, status: `Network error: ${err.message}` }));
     } finally {
       setProcessing(false);
     }
