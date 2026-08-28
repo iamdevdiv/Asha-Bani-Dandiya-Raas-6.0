@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String   @default("Admin")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Stall {
+  id             String    @id @default(cuid())
+  stallNumber    String    @unique
+  section        String    // "food", "turning_premium", "front_visibility", "outstanding_visibility"
+  price          Int
+  isBooked       Boolean   @default(false)
+  bookedByName   String?
+  bookedByBrand  String?
+  bookedByMobile String?
+  bookedByEmail  String?
+  bookedAt       DateTime?
+  bookingId      String?
+  isCheckedIn    Boolean   @default(false)
+  checkedInAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Booking {
+  id                 String    @id @default(cuid())
+  bookingNumber      String    @unique
+  stallNumber        String
+  amount             Int
+  bookerName         String
+  brandName          String
+  email              String
+  mobile             String
+  stallType          String
+  teamMembers        String
+  razorpayOrderId    String?
+  razorpayPaymentId  String?
+  razorpaySignature  String?
+  paymentStatus      String    @default("pending") // pending, success, failed
+  qrCodeDataUrl      String?   @db.Text
+  confirmationDocUrl String?
+  isCheckedIn        Boolean   @default(false)
+  checkedInAt        DateTime?
+  checkedInBy        String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model CarouselImage {
+  id           String   @id @default(cuid())
+  imageUrl     String
+  title        String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Inquiry {
+  id            String   @id @default(cuid())
+  name          String
+  phone         String
+  email         String
+  preferredDate String?
+  preferredTime String?
+  message       String   @db.Text
+  status        String   @default("new") // "new", "contacted", "resolved"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  mobile       String   @unique
+  passwordHash String
+  role         String   @default("entry_verifier") // "entry_verifier"
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

@@ -1,0 +1,57 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Next.js Build Output
+/.next/
+/out/
+/build
+
+# Environment Variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Debug & Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Local SSL & Certificates
+/certificates/
+*.pem
+*.key
+*.crt
+
+# Local Data / Fallback SQLite/JSON store
+/.data/
+
+# Local Reference, Design & Raw Assets (Not needed in deployment)
+/reference/
+/stall-layout/
+/assets/
+/carousel/
+/images/
+test-e2e.mjs
+*.docx
+*.pdf
+
+# OS Metadata & IDE
+.DS_Store
+*.pem
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Others
+deployment.md
