@@ -186,36 +186,11 @@ export default function StallExhibitorPage() {
         </Container>
       </Box>
 
-      {/* PREVIOUS YEAR STALLS CAROUSEL */}
-      <Box py={60}>
-        <Container size="xl">
-          <Stack align="center" gap="xs" mb="md">
-            <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
-              EVENT GALLERY
-            </Text>
-            <Title
-              order={2}
-              className="gold-gradient-text"
-              ta="center"
-              style={{ fontFamily: "'Cinzel', serif" }}
-            >
-              Glimpses of Previous Year Stalls &amp; Energy
-            </Title>
-            <Text size="sm" c="gray.4" ta="center">
-              Swipe or drag through moments of enthusiastic footfall, vibrant stalls, and festive celebrations.
-            </Text>
-          </Stack>
-
-          <StallMediaCarousel images={carouselImages} />
-        </Container>
-      </Box>
-
       {/* STALL LAYOUT BLUEPRINTS GALLERY */}
       <Box
         py={70}
         style={{
           backgroundColor: 'rgba(20, 3, 5, 0.7)',
-          borderTop: '1px solid rgba(234, 179, 8, 0.15)',
           borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
         }}
       >
@@ -238,6 +213,35 @@ export default function StallExhibitorPage() {
           </Stack>
 
           <LayoutLightbox />
+        </Container>
+      </Box>
+
+      {/* PREVIOUS YEAR STALLS CAROUSEL */}
+      <Box
+        py={60}
+        style={{
+          borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
+        }}
+      >
+        <Container size="xl">
+          <Stack align="center" gap="xs" mb="md">
+            <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
+              EVENT GALLERY
+            </Text>
+            <Title
+              order={2}
+              className="gold-gradient-text"
+              ta="center"
+              style={{ fontFamily: "'Cinzel', serif" }}
+            >
+              Glimpses of Previous Year Stalls &amp; Energy
+            </Title>
+            <Text size="sm" c="gray.4" ta="center">
+              Swipe or drag through moments of enthusiastic footfall, vibrant stalls, and festive celebrations.
+            </Text>
+          </Stack>
+
+          <StallMediaCarousel images={carouselImages} />
         </Container>
       </Box>
 
