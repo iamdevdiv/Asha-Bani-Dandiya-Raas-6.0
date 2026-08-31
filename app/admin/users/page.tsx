@@ -36,6 +36,7 @@ import {
   IconLock,
   IconCopy,
 } from '@tabler/icons-react';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 interface UserItem {
   id: string;
@@ -176,9 +177,9 @@ export default function AdminUsersPage() {
 
   return (
     <Container size="xl" py="md">
-      <Group justify="space-between" align="center" mb="lg" wrap="wrap" gap="md">
-        <Box>
-          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+      <Group justify="space-between" align="center" mb="lg" gap="md">
+        <Box style={{ flex: 1, minWidth: 'min(100%, 280px)' }}>
+          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", wordBreak: 'normal' }}>
             Administration &amp; Team Users
           </Title>
           <Text c="gray.4" size="sm">
@@ -190,6 +191,7 @@ export default function AdminUsersPage() {
           className="btn-auspicious-gold"
           leftSection={<IconUserPlus size={18} />}
           onClick={open}
+          style={{ flexShrink: 0 }}
         >
           Add New User
         </Button>
@@ -218,48 +220,49 @@ export default function AdminUsersPage() {
             </Text>
           </Stack>
         ) : (
-          <Table.ScrollContainer minWidth={600}>
-            <Table verticalSpacing="sm" highlightOnHover>
+          <Table.ScrollContainer minWidth={800}>
+            <Table verticalSpacing="sm" highlightOnHover style={{ minWidth: 800 }}>
               <Table.Thead>
                 <Table.Tr style={{ borderBottom: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                  <Table.Th style={{ color: '#facc15' }}>NAME</Table.Th>
-                  <Table.Th style={{ color: '#facc15' }}>MOBILE NUMBER</Table.Th>
-                  <Table.Th style={{ color: '#facc15' }}>ROLE</Table.Th>
-                  <Table.Th style={{ color: '#facc15' }}>STATUS</Table.Th>
-                  <Table.Th style={{ color: '#facc15' }}>PORTAL ROUTE</Table.Th>
-                  <Table.Th style={{ color: '#facc15', textAlign: 'right' }}>ACTIONS</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>NAME</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>MOBILE NUMBER</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>ROLE</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>STATUS</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>PORTAL ROUTE</Table.Th>
+                  <Table.Th style={{ color: '#facc15', textAlign: 'right', whiteSpace: 'nowrap' }}>ACTIONS</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {users.map((user) => (
                   <Table.Tr key={user.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <Table.Td>
-                      <Group gap="xs">
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Group gap="xs" wrap="nowrap">
                         <IconUser size={16} color="#facc15" />
                         <Text fw={600} size="sm" c="white">
                           {user.name}
                         </Text>
                       </Group>
                     </Table.Td>
-                    <Table.Td>
-                      <Group gap="xs">
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Group gap="xs" wrap="nowrap">
                         <IconPhone size={14} color="#94a3b8" />
                         <Text size="sm" c="gray.3">
                           +91 {user.mobile}
                         </Text>
                       </Group>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
                       <Badge
                         color={user.role === 'entry_verifier' ? 'cyan' : 'yellow'}
                         variant="light"
                         size="sm"
                         leftSection={<IconScan size={12} />}
+                        style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
                       >
                         {user.role === 'entry_verifier' ? 'Entry Verifier' : user.role}
                       </Badge>
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
                       <Switch
                         checked={user.isActive}
                         onChange={() => handleToggleStatus(user)}
@@ -269,7 +272,7 @@ export default function AdminUsersPage() {
                         styles={{ label: { color: user.isActive ? '#4ade80' : '#94a3b8', fontSize: '0.8rem' } }}
                       />
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
                       <CopyButton
                         value={typeof window !== 'undefined' ? `${window.location.origin}/verifier/login` : '/verifier/login'}
                         timeout={2000}
@@ -287,7 +290,7 @@ export default function AdminUsersPage() {
                         )}
                       </CopyButton>
                     </Table.Td>
-                    <Table.Td style={{ textAlign: 'right' }}>
+                    <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                       <ActionIcon
                         variant="subtle"
                         color="red"
@@ -332,7 +335,7 @@ export default function AdminUsersPage() {
           <Stack gap="md">
             <TextInput
               label="Full Name"
-              placeholder="e.g. Rahul Sharma"
+              placeholder="Enter full name"
               required
               leftSection={<IconUser size={16} color="#facc15" />}
               {...form.getInputProps('name')}
@@ -340,7 +343,7 @@ export default function AdminUsersPage() {
 
             <TextInput
               label="Mobile Number (10 Digits)"
-              placeholder="e.g. 9876543210"
+              placeholder="Enter 10-digit mobile number"
               required
               maxLength={10}
               leftSection={<IconPhone size={16} color="#facc15" />}
@@ -382,39 +385,19 @@ export default function AdminUsersPage() {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal
+      <ConfirmationModal
         opened={deleteOpened}
         onClose={closeDelete}
-        title={
-          <Text fw={700} c="red.4">
-            Confirm User Removal
-          </Text>
+        onConfirm={confirmDeleteUser}
+        title="Confirm User Removal"
+        description={
+          <span>
+            Are you sure you want to remove user <b>{userToDelete?.name}</b>? They will immediately lose access to the Entry Verifier scanning portal.
+          </span>
         }
-        styles={{
-          content: {
-            backgroundColor: '#140305',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-          },
-          header: {
-            backgroundColor: '#140305',
-            borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
-          },
-        }}
-      >
-        <Stack gap="md">
-          <Text size="sm" c="gray.2">
-            Are you sure you want to remove user <strong>{userToDelete?.name}</strong>? They will immediately lose access to the Entry Verifier scanning portal.
-          </Text>
-          <Group justify="flex-end">
-            <Button variant="subtle" color="gray" onClick={closeDelete}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={confirmDeleteUser} leftSection={<IconTrash size={16} />}>
-              Delete User
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        confirmLabel="Delete User"
+        variant="danger"
+      />
     </Container>
   );
 }

@@ -36,6 +36,7 @@ import {
   IconMessageCircle,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 export default function AdminInquiriesPage() {
   const [inquiries, setInquiries] = useState<any[]>([]);
@@ -156,7 +157,7 @@ export default function AdminInquiriesPage() {
       case 'new':
         return <Badge color="red" variant="filled">New</Badge>;
       case 'contacted':
-        return <Badge color="yellow" variant="filled">Contacted</Badge>;
+        return <Badge color="yellow" variant="filled" className="badge-gold-filled" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }}>Contacted</Badge>;
       case 'resolved':
         return <Badge color="green" variant="filled">Resolved</Badge>;
       default:
@@ -166,9 +167,9 @@ export default function AdminInquiriesPage() {
 
   return (
     <Container size="xl" py="md">
-      <Group justify="space-between" align="center" mb="lg" wrap="nowrap">
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+      <Group justify="space-between" align="center" mb="lg" gap="md">
+        <Box style={{ flex: 1, minWidth: 'min(100%, 280px)' }}>
+          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", wordBreak: 'normal' }}>
             Received Inquiries &amp; Messages
           </Title>
           <Text size="sm" c="gray.4">
@@ -181,6 +182,7 @@ export default function AdminInquiriesPage() {
           variant="light"
           color="royalGold"
           leftSection={<IconRefresh size={16} />}
+          style={{ flexShrink: 0 }}
         >
           Refresh Data
         </Button>
@@ -256,132 +258,134 @@ export default function AdminInquiriesPage() {
             </Text>
           </Stack>
         ) : (
-          <Table highlightOnHover verticalSpacing="sm">
-            <Table.Thead>
-              <Table.Tr style={{ borderBottom: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                <Table.Th style={{ color: '#facc15' }}>Date &amp; Time</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Sender Name</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Contact Info</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Callback Preference</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Message</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Status</Table.Th>
-                <Table.Th style={{ color: '#facc15', textAlign: 'right' }}>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredInquiries.map((inq) => (
-                <Table.Tr key={inq.id}>
-                  <Table.Td>
-                    <Text size="xs" c="white">
-                      {dayjs(inq.createdAt).format('DD MMM YYYY')}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {dayjs(inq.createdAt).format('hh:mm A')}
-                    </Text>
-                  </Table.Td>
-
-                  <Table.Td>
-                    <Text size="sm" fw={700} c="white">
-                      {inq.name}
-                    </Text>
-                  </Table.Td>
-
-                  <Table.Td>
-                    <Group gap="xs" wrap="nowrap">
-                      <IconPhoneCall size={14} color="#facc15" />
-                      <Text size="xs" c="yellow.2" component="a" href={`tel:${inq.phone}`} style={{ textDecoration: 'none' }}>
-                        {inq.phone}
+          <Table.ScrollContainer minWidth={850}>
+            <Table highlightOnHover verticalSpacing="sm" style={{ minWidth: 850 }}>
+              <Table.Thead>
+                <Table.Tr style={{ borderBottom: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Date &amp; Time</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Sender Name</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Contact Info</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Callback Preference</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Message</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Status</Table.Th>
+                  <Table.Th style={{ color: '#facc15', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredInquiries.map((inq) => (
+                  <Table.Tr key={inq.id}>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Text size="xs" c="white">
+                        {dayjs(inq.createdAt).format('DD MMM YYYY')}
                       </Text>
-                    </Group>
-                    <Group gap="xs" wrap="nowrap" mt={2}>
-                      <IconMail size={14} color="#94a3b8" />
-                      <Text size="xs" c="gray.3" component="a" href={`mailto:${inq.email}`} style={{ textDecoration: 'none' }}>
-                        {inq.email}
+                      <Text size="xs" c="dimmed">
+                        {dayjs(inq.createdAt).format('hh:mm A')}
                       </Text>
-                    </Group>
-                  </Table.Td>
+                    </Table.Td>
 
-                  <Table.Td>
-                    {inq.preferredDate ? (
-                      <Group gap={4} wrap="nowrap">
-                        <IconCalendar size={13} color="#facc15" />
-                        <Text size="xs" c="gray.2">
-                          {inq.preferredDate} ({inq.preferredTime || 'Anytime'})
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Text size="sm" fw={700} c="white">
+                        {inq.name}
+                      </Text>
+                    </Table.Td>
+
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Group gap="xs" wrap="nowrap">
+                        <IconPhoneCall size={14} color="#facc15" />
+                        <Text size="xs" c="yellow.2" component="a" href={`tel:${inq.phone}`} style={{ textDecoration: 'none' }}>
+                          {inq.phone}
                         </Text>
                       </Group>
-                    ) : (
-                      <Text size="xs" c="dimmed">
-                        {inq.preferredTime || 'Anytime'}
+                      <Group gap="xs" wrap="nowrap" mt={2}>
+                        <IconMail size={14} color="#94a3b8" />
+                        <Text size="xs" c="gray.3" component="a" href={`mailto:${inq.email}`} style={{ textDecoration: 'none' }}>
+                          {inq.email}
+                        </Text>
+                      </Group>
+                    </Table.Td>
+
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      {inq.preferredDate ? (
+                        <Group gap={4} wrap="nowrap">
+                          <IconCalendar size={13} color="#facc15" />
+                          <Text size="xs" c="gray.2">
+                            {inq.preferredDate} ({inq.preferredTime || 'Anytime'})
+                          </Text>
+                        </Group>
+                      ) : (
+                        <Text size="xs" c="dimmed">
+                          {inq.preferredTime || 'Anytime'}
+                        </Text>
+                      )}
+                    </Table.Td>
+
+                    <Table.Td style={{ minWidth: 200, maxWidth: 300 }}>
+                      <Text size="xs" c="gray.3" lineClamp={2}>
+                        {inq.message}
                       </Text>
-                    )}
-                  </Table.Td>
+                    </Table.Td>
 
-                  <Table.Td style={{ maxWidth: 300 }}>
-                    <Text size="xs" c="gray.3" lineClamp={2}>
-                      {inq.message}
-                    </Text>
-                  </Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>{getStatusBadge(inq.status)}</Table.Td>
 
-                  <Table.Td>{getStatusBadge(inq.status)}</Table.Td>
+                    <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <Group gap="xs" justify="flex-end" wrap="nowrap">
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="royalGold"
+                          leftSection={<IconEye size={14} />}
+                          onClick={() => {
+                            setSelectedInquiry(inq);
+                            open();
+                          }}
+                        >
+                          View
+                        </Button>
 
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Group gap="xs" justify="flex-end" wrap="nowrap">
-                      <Button
-                        size="xs"
-                        variant="subtle"
-                        color="royalGold"
-                        leftSection={<IconEye size={14} />}
-                        onClick={() => {
-                          setSelectedInquiry(inq);
-                          open();
-                        }}
-                      >
-                        View
-                      </Button>
+                        <Menu shadow="md" width={160} position="bottom-end">
+                          <Menu.Target>
+                            <ActionIcon variant="subtle" color="gray">
+                              <IconDotsVertical size={16} />
+                            </ActionIcon>
+                          </Menu.Target>
 
-                      <Menu shadow="md" width={160} position="bottom-end">
-                        <Menu.Target>
-                          <ActionIcon variant="subtle" color="gray">
-                            <IconDotsVertical size={16} />
-                          </ActionIcon>
-                        </Menu.Target>
-
-                        <Menu.Dropdown style={{ backgroundColor: '#1a0307', borderColor: 'rgba(234, 179, 8, 0.3)' }}>
-                          <Menu.Label>Update Status</Menu.Label>
-                          <Menu.Item
-                            onClick={() => handleUpdateStatus(inq.id, 'new')}
-                            color="red"
-                          >
-                            Mark New
-                          </Menu.Item>
-                          <Menu.Item
-                            onClick={() => handleUpdateStatus(inq.id, 'contacted')}
-                            color="yellow"
-                          >
-                            Mark Contacted
-                          </Menu.Item>
-                          <Menu.Item
-                            onClick={() => handleUpdateStatus(inq.id, 'resolved')}
-                            color="green"
-                          >
-                            Mark Resolved
-                          </Menu.Item>
-                          <Menu.Divider style={{ borderColor: 'rgba(234, 179, 8, 0.2)' }} />
-                          <Menu.Item
-                            color="red"
-                            leftSection={<IconTrash size={14} />}
-                            onClick={() => handleDeleteInquiry(inq.id)}
-                          >
-                            Delete Inquiry
-                          </Menu.Item>
-                        </Menu.Dropdown>
-                      </Menu>
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+                          <Menu.Dropdown style={{ backgroundColor: '#1a0307', borderColor: 'rgba(234, 179, 8, 0.3)' }}>
+                            <Menu.Label>Update Status</Menu.Label>
+                            <Menu.Item
+                              onClick={() => handleUpdateStatus(inq.id, 'new')}
+                              color="red"
+                            >
+                              Mark New
+                            </Menu.Item>
+                            <Menu.Item
+                              onClick={() => handleUpdateStatus(inq.id, 'contacted')}
+                              color="yellow"
+                            >
+                              Mark Contacted
+                            </Menu.Item>
+                            <Menu.Item
+                              onClick={() => handleUpdateStatus(inq.id, 'resolved')}
+                              color="green"
+                            >
+                              Mark Resolved
+                            </Menu.Item>
+                            <Menu.Divider style={{ borderColor: 'rgba(234, 179, 8, 0.2)' }} />
+                            <Menu.Item
+                              color="red"
+                              leftSection={<IconTrash size={14} />}
+                              onClick={() => handleDeleteInquiry(inq.id)}
+                            >
+                              Delete Inquiry
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         )}
       </Paper>
 
@@ -483,39 +487,15 @@ export default function AdminInquiriesPage() {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal
+      <ConfirmationModal
         opened={deleteModalOpened}
         onClose={closeDeleteModal}
-        title={
-          <Text fw={700} c="red.4">
-            Confirm Inquiry Deletion
-          </Text>
-        }
-        styles={{
-          content: {
-            backgroundColor: '#140305',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-          },
-          header: {
-            backgroundColor: '#140305',
-            borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
-          },
-        }}
-      >
-        <Stack gap="md">
-          <Text size="sm" c="gray.2">
-            Are you sure you want to delete this customer inquiry? This action cannot be undone.
-          </Text>
-          <Group justify="flex-end">
-            <Button variant="subtle" color="gray" onClick={closeDeleteModal}>
-              Cancel
-            </Button>
-            <Button color="red" onClick={confirmDeleteInquiry} leftSection={<IconTrash size={16} />}>
-              Delete Inquiry
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+        onConfirm={confirmDeleteInquiry}
+        title="Confirm Inquiry Deletion"
+        description="Are you sure you want to permanently delete this customer inquiry? This action cannot be undone."
+        confirmLabel="Delete Inquiry"
+        variant="danger"
+      />
     </Container>
   );
 }

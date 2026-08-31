@@ -1,3 +1,8 @@
+const envOrigins = (process.env.ALLOWED_DEV_ORIGINS || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -6,7 +11,7 @@ const nextConfig = {
     'localhost',
     '127.0.0.1:3000',
     '127.0.0.1',
-    ...(process.env.ALLOWED_DEV_ORIGINS ? process.env.ALLOWED_DEV_ORIGINS.split(',') : []),
+    ...envOrigins,
   ],
   images: {
     unoptimized: true,

@@ -1,0 +1,34 @@
+{
+    "name": "Ticket Booking Confirmation Pass",
+    "category": "transactional",
+    "nodes": [
+        {
+            "id": "trigger_api",
+            "type": "api",
+            "data": {
+                "title": "API Trigger",
+                "variables": [
+                    "name",
+                    "booking_id",
+                    "booking_link",
+                    "amount",
+                    "event_date",
+                    "venue"
+                ]
+            }
+        },
+        {
+            "id": "sms_node_1",
+            "type": "sms",
+            "data": {
+                "sender": "ASHABN",
+                "template": "Namaste ##name##, your pass for Asha Bani Dandiya Raas 6.0 is confirmed! Booking ID: ##booking_id##. Access your official digital pass here: ##booking_link## - Asha Bani",
+                "variables": {
+                    "name": "##name##",
+                    "booking_id": "##booking_id##",
+                    "booking_link": "##booking_link##"
+                }
+            }
+        }
+    ]
+}

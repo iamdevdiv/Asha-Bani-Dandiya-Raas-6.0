@@ -13,7 +13,10 @@ import {
   TextInput,
   Loader,
   SimpleGrid,
+  Grid,
   Badge,
+  Switch,
+  Select,
 } from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
 import { useForm } from '@mantine/form';
@@ -26,6 +29,7 @@ import {
   IconPhone,
   IconBrandInstagram,
   IconSparkles,
+  IconShieldLock,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 
@@ -52,6 +56,7 @@ export default function AdminSettingsPage() {
       venue_name: 'Maharaja Agrasen Bhavan',
       venue_address: 'Aggarwal Dharamshala, Saharanpur',
       instagram_url: 'https://www.instagram.com/asha_bani_dandiya_raas_6.0',
+      ticket_voucher_applicable_to: 'both',
     },
   });
 
@@ -132,9 +137,9 @@ export default function AdminSettingsPage() {
 
   return (
     <Container size="lg" py="md">
-      <Group justify="space-between" align="center" mb="lg" wrap="nowrap">
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+      <Group justify="space-between" align="center" mb="lg" gap="md">
+        <Box style={{ flex: 1, minWidth: 'min(100%, 280px)' }}>
+          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", wordBreak: 'normal' }}>
             Event &amp; Website Content Settings
           </Title>
           <Text size="sm" c="gray.4">
@@ -152,44 +157,61 @@ export default function AdminSettingsPage() {
           <Stack gap="xl">
             {/* Ticket Booking Announcement Card */}
             <Paper
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               radius="lg"
               style={{
                 backgroundColor: 'rgba(36, 8, 14, 0.7)',
                 border: '1px solid rgba(234, 179, 8, 0.25)',
               }}
             >
-              <Group justify="space-between" align="center" mb="md" wrap="nowrap">
+              <Group justify="space-between" align="center" mb="md" gap="xs" wrap="wrap">
                 <Title order={3} size="h4" c="white" style={{ fontFamily: "'Cinzel', serif" }}>
                   Ticket Booking Announcement
                 </Title>
-                <Badge color="royalGold" variant="light">
+                <Badge color="royalGold" variant="light" style={{ flexShrink: 0 }}>
                   Customer Home Banner
                 </Badge>
               </Group>
 
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                <DatePickerInput
-                  label="Ticket Booking Launch Date"
-                  placeholder="Select launch date"
-                  value={ticketDateVal}
-                  onChange={handleTicketDateChange}
-                  valueFormat="D MMMM YYYY"
-                  leftSection={<IconCalendar size={16} color="#facc15" />}
-                />
+              <Grid gap="md">
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <DatePickerInput
+                    label="Ticket Booking Launch Date"
+                    placeholder="Select launch date"
+                    value={ticketDateVal}
+                    onChange={handleTicketDateChange}
+                    valueFormat="D MMMM YYYY"
+                    leftSection={<IconCalendar size={16} color="#facc15" />}
+                  />
+                </Grid.Col>
 
-                <TextInput
-                  label="Announcement Banner Message"
-                  placeholder="Ticket bookings start from 1 September 2026"
-                  required
-                  {...form.getInputProps('ticket_booking_msg')}
-                />
-              </SimpleGrid>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <Select
+                    label="Universal Voucher Stall Usability"
+                    description="Stalls where customer pass vouchers are redeemable"
+                    data={[
+                      { value: 'both', label: 'All 35 Stalls (Food 1–15 + Commercial A–T)' },
+                      { value: 'food', label: 'Food Stalls Only (Stalls 1–15)' },
+                      { value: 'other', label: 'Commercial & Shopping Stalls (Stalls A–T)' },
+                    ]}
+                    {...form.getInputProps('ticket_voucher_applicable_to')}
+                  />
+                </Grid.Col>
+
+                <Grid.Col span={12}>
+                  <TextInput
+                    label="Announcement Banner Message"
+                    placeholder="Ticket bookings start from 1 September 2026"
+                    required
+                    {...form.getInputProps('ticket_booking_msg')}
+                  />
+                </Grid.Col>
+              </Grid>
             </Paper>
 
             {/* Event Schedule & Branding Card */}
             <Paper
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               radius="lg"
               style={{
                 backgroundColor: 'rgba(36, 8, 14, 0.7)',
@@ -200,59 +222,71 @@ export default function AdminSettingsPage() {
                 Event Schedule &amp; Branding Details
               </Title>
 
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                <DatePickerInput
-                  label="Official Event Date"
-                  placeholder="Pick event date"
-                  value={eventDateVal}
-                  onChange={handleEventDateChange}
-                  valueFormat="D MMMM YYYY"
-                  required
-                  leftSection={<IconCalendar size={16} color="#facc15" />}
-                />
+              <Grid gap="md">
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <DatePickerInput
+                    label="Official Event Date"
+                    placeholder="Pick event date"
+                    value={eventDateVal}
+                    onChange={handleEventDateChange}
+                    valueFormat="D MMMM YYYY"
+                    required
+                    leftSection={<IconCalendar size={16} color="#facc15" />}
+                  />
+                </Grid.Col>
 
-                <TextInput
-                  label="Event Operational Hours"
-                  placeholder="6:00 PM to 12:00 AM"
-                  required
-                  leftSection={<IconClock size={16} color="#facc15" />}
-                  {...form.getInputProps('event_time')}
-                />
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Event Operational Hours"
+                    placeholder="6:00 PM to 12:00 AM"
+                    required
+                    leftSection={<IconClock size={16} color="#facc15" />}
+                    {...form.getInputProps('event_time')}
+                  />
+                </Grid.Col>
 
-                <TextInput
-                  label="Stall Setup Entry Time"
-                  placeholder="4:00 PM"
-                  required
-                  leftSection={<IconClock size={16} color="#facc15" />}
-                  {...form.getInputProps('stall_setup_time')}
-                />
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Stall Setup Entry Time"
+                    placeholder="4:00 PM"
+                    required
+                    leftSection={<IconClock size={16} color="#facc15" />}
+                    {...form.getInputProps('stall_setup_time')}
+                  />
+                </Grid.Col>
 
-                <TextInput
-                  label="Event Name"
-                  placeholder="Asha Bani Dandiya Raas 6.0"
-                  required
-                  {...form.getInputProps('event_name')}
-                />
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Event Name"
+                    placeholder="Asha Bani Dandiya Raas 6.0"
+                    required
+                    {...form.getInputProps('event_name')}
+                  />
+                </Grid.Col>
 
-                <TextInput
-                  label="Edition / Headline"
-                  placeholder="6th Grand Dandiya Celebration"
-                  required
-                  {...form.getInputProps('event_edition')}
-                />
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Edition / Headline"
+                    placeholder="6th Grand Dandiya Celebration"
+                    required
+                    {...form.getInputProps('event_edition')}
+                  />
+                </Grid.Col>
 
-                <TextInput
-                  label="Event Tagline"
-                  placeholder="6 Years of Joy, Music & Togetherness"
-                  required
-                  {...form.getInputProps('event_tagline')}
-                />
-              </SimpleGrid>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Event Tagline"
+                    placeholder="6 Years of Joy, Music & Togetherness"
+                    required
+                    {...form.getInputProps('event_tagline')}
+                  />
+                </Grid.Col>
+              </Grid>
             </Paper>
 
             {/* Venue & Contact Card */}
             <Paper
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               radius="lg"
               style={{
                 backgroundColor: 'rgba(36, 8, 14, 0.7)',
@@ -262,36 +296,46 @@ export default function AdminSettingsPage() {
               <Title order={3} size="h4" c="white" mb="md" style={{ fontFamily: "'Cinzel', serif" }}>
                 Venue, Contact &amp; Social Links
               </Title>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                <TextInput
-                  label="Venue Name"
-                  placeholder="Maharaja Agrasen Bhavan"
-                  required
-                  leftSection={<IconMapPin size={16} color="#facc15" />}
-                  {...form.getInputProps('venue_name')}
-                />
-                <TextInput
-                  label="Venue Address / Landmark"
-                  placeholder="Aggarwal Dharamshala, Saharanpur"
-                  required
-                  {...form.getInputProps('venue_address')}
-                />
-                <TextInput
-                  label="Contact Phone / WhatsApp Helpline"
-                  placeholder="+91 6399063455"
-                  required
-                  leftSection={<IconPhone size={16} color="#facc15" />}
-                  {...form.getInputProps('contact_phone')}
-                />
-                <TextInput
-                  label="Official Instagram URL"
-                  placeholder="https://www.instagram.com/asha_bani_dandiya_raas_6.0"
-                  required
-                  leftSection={<IconBrandInstagram size={16} color="#facc15" />}
-                  {...form.getInputProps('instagram_url')}
-                />
-              </SimpleGrid>
+              <Grid gap="md">
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Venue Name"
+                    placeholder="Maharaja Agrasen Bhavan"
+                    required
+                    leftSection={<IconMapPin size={16} color="#facc15" />}
+                    {...form.getInputProps('venue_name')}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Venue Address / Landmark"
+                    placeholder="Aggarwal Dharamshala, Saharanpur"
+                    required
+                    {...form.getInputProps('venue_address')}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Contact Phone / WhatsApp Helpline"
+                    placeholder="+91 6399063455"
+                    required
+                    leftSection={<IconPhone size={16} color="#facc15" />}
+                    {...form.getInputProps('contact_phone')}
+                  />
+                </Grid.Col>
+                <Grid.Col span={{ base: 12, sm: 6 }}>
+                  <TextInput
+                    label="Official Instagram URL"
+                    placeholder="https://www.instagram.com/asha_bani_dandiya_raas_6.0"
+                    required
+                    leftSection={<IconBrandInstagram size={16} color="#facc15" />}
+                    {...form.getInputProps('instagram_url')}
+                  />
+                </Grid.Col>
+              </Grid>
             </Paper>
+
+
 
             <Group justify="flex-end">
               <Button

@@ -150,7 +150,7 @@ export function LayoutLightbox() {
             <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
               {selectedBlueprint.title}
             </Text>
-            <Badge color="royalGold" size="sm">
+            <Badge color="royalGold" size="sm" className="badge-gold-filled" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }}>
               {selectedBlueprint.tag}
             </Badge>
           </Group>

@@ -43,6 +43,8 @@ const royalBurgundy: MantineColorsTuple = [
 ];
 
 export const theme = createTheme({
+  autoContrast: true,
+  luminanceThreshold: 0.35,
   primaryColor: 'royalGold',
   primaryShade: { light: 6, dark: 5 },
   colors: {
@@ -90,6 +92,11 @@ export const theme = createTheme({
       },
     },
     TextInput: {
+      defaultProps: {
+        radius: 'md',
+      },
+    },
+    Badge: {
       defaultProps: {
         radius: 'md',
       },

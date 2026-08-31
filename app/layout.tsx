@@ -4,7 +4,7 @@ import '@mantine/notifications/styles.css';
 import '@mantine/dates/styles.css';
 import './globals.css';
 
-import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core';
+import { MantineProvider, mantineHtmlProps } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { ModalsProvider } from '@mantine/modals';
 import { Cinzel, Cinzel_Decorative, Outfit } from 'next/font/google';
@@ -58,7 +58,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <ColorSchemeScript defaultColorScheme="dark" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" type="image/png" sizes="192x192" href="/web-app-manifest-192x192.png" />
         <link rel="apple-touch-icon" href="/apple-icon.png" />

@@ -33,6 +33,8 @@ import {
   IconBuildingStore,
   IconTicket,
   IconArrowRight,
+  IconGift,
+  IconCalendar,
 } from '@tabler/icons-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -40,16 +42,50 @@ import { DEFAULT_SETTINGS } from '@/lib/stall-data';
 
 export default function CustomerHomePage() {
   const [settings, setSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
+  const [allPhases, setAllPhases] = useState<any[]>([]);
+  const [currentPhase, setCurrentPhase] = useState<any>(null);
+  const [isSalesOpen, setIsSalesOpen] = useState<boolean>(false);
 
   useEffect(() => {
+    // 1. Capture and persist referral code if present in URL
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refCode = urlParams.get('ref');
+      if (refCode) {
+        localStorage.setItem('asha_ref', refCode.trim());
+      }
+    }
+
+    // 2. Fetch dynamic settings
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.settings) {
           setSettings(data.settings);
+
+          // Evaluate IST Date/Time
+          const startDate = data.settings.ticket_booking_start_date || '2026-09-01';
+          const startTime = data.settings.ticket_booking_start_time || '00:00';
+          const istNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          
+          const [tH, tM] = startTime.split(':').map(Number);
+          const openTarget = new Date(`${startDate}T${String(tH || 0).padStart(2, '0')}:${String(tM || 0).padStart(2, '0')}:00+05:30`);
+          
+          setIsSalesOpen(istNow.getTime() >= openTarget.getTime());
         }
       })
       .catch((err) => console.warn('Could not fetch dynamic settings:', err));
+
+    // 3. Fetch active and all ticket phases
+    fetch('/api/tickets/phases')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          if (data.phases) setAllPhases(data.phases);
+          if (data.currentActive) setCurrentPhase(data.currentActive);
+        }
+      })
+      .catch((err) => console.warn('Could not fetch ticket phases:', err));
   }, []);
 
   const bookingNotice = settings.ticket_booking_msg || 'Ticket bookings start from 1 September 2026';
@@ -161,7 +197,8 @@ export default function CustomerHomePage() {
               style={{
                 borderColor: '#facc15',
                 color: '#fef08a',
-                padding: '12px 20px',
+                height: 'auto',
+                padding: '6px 18px',
                 letterSpacing: '0.12em',
                 fontSize: '0.85rem',
                 backgroundColor: 'rgba(234, 179, 8, 0.1)',
@@ -213,37 +250,325 @@ export default function CustomerHomePage() {
 
             {/* Action Section */}
             <Paper
-              p="md"
+              p="lg"
               radius="lg"
               style={{
-                backgroundColor: 'rgba(20, 3, 5, 0.7)',
-                border: '1px solid rgba(234, 179, 8, 0.35)',
-                backdropFilter: 'blur(10px)',
+                backgroundColor: 'rgba(20, 3, 5, 0.85)',
+                border: isSalesOpen ? '1px solid rgba(250, 204, 21, 0.6)' : '1px solid rgba(234, 179, 8, 0.35)',
+                boxShadow: isSalesOpen ? '0 0 30px rgba(234, 179, 8, 0.3)' : 'none',
+                backdropFilter: 'blur(12px)',
                 marginTop: 15,
-                maxWidth: 520,
+                maxWidth: 540,
                 width: '100%',
               }}
             >
-              <Stack gap="xs" align="center">
-                <Badge color="red" variant="filled" size="md">
-                  ANNOUNCEMENT
-                </Badge>
-                <Text fw={600} size="sm" c="yellow.2" ta="center">
-                  {bookingNotice}
-                </Text>
-                <Group justify="center" gap="sm" mt="xs">
-                  <Button
-                    className="btn-auspicious-gold"
+              {isSalesOpen ? (
+                <Stack gap="xs" align="center">
+                  <Badge
+                    color="green"
+                    variant="filled"
                     size="md"
-                    leftSection={<IconTicket size={20} />}
-                    disabled
+                    style={{ letterSpacing: '0.08em', fontWeight: 800 }}
                   >
-                    Ticket Booking Opens 1 Sept
-                  </Button>
-                </Group>
-              </Stack>
+                    ● PASSES NOW AVAILABLE
+                  </Badge>
+
+                  <Text fw={800} size="lg" className="gold-gradient-text" ta="center" style={{ fontFamily: "'Cinzel', serif" }}>
+                    {currentPhase?.name || 'Grand Dandiya Entry Passes'}
+                  </Text>
+
+                  <Text size="sm" c="gray.3" ta="center">
+                    ₹{currentPhase?.adultPrice || 499} / Adult • ₹{currentPhase?.childPrice || 199} / Child (Under 55&quot;)
+                  </Text>
+
+                  <Badge
+                    color="yellow"
+                    variant="light"
+                    size="sm"
+                    leftSection={<IconGift size={13} color="#facc15" />}
+                  >
+                    Includes ₹{currentPhase?.voucherAmount || 100} Free Stall Voucher
+                  </Badge>
+
+                  <Group justify="center" gap="sm" mt="xs" w="100%">
+                    <Button
+                      component={Link}
+                      href="/dandiyaraas/tickets/buy"
+                      className="btn-auspicious-gold"
+                      size="lg"
+                      leftSection={<IconTicket size={22} />}
+                      rightSection={<IconArrowRight size={18} />}
+                      fullWidth
+                    >
+                      Book Entry Passes Now
+                    </Button>
+                  </Group>
+                </Stack>
+              ) : (
+                <Stack gap="xs" align="center">
+                  <Badge color="red" variant="filled" size="md">
+                    ANNOUNCEMENT
+                  </Badge>
+                  <Text fw={600} size="sm" c="yellow.2" ta="center">
+                    {bookingNotice}
+                  </Text>
+                  <Group justify="center" gap="sm" mt="xs">
+                    <Button
+                      className="btn-auspicious-gold"
+                      size="md"
+                      leftSection={<IconTicket size={20} />}
+                      disabled
+                    >
+                      Ticket Booking Opens {settings.ticket_booking_start_date ? new Date(settings.ticket_booking_start_date + 'T00:00:00+05:30').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '1 Sept'}
+                    </Button>
+                  </Group>
+                </Stack>
+              )}
             </Paper>
           </Stack>
+        </Container>
+      </Box>
+
+      {/* FESTIVAL PASS PHASES & PRICING SECTION */}
+      <Box
+        id="pricing"
+        py={80}
+        style={{
+          background: 'linear-gradient(180deg, rgba(20, 3, 5, 0.95) 0%, rgba(38, 8, 14, 0.9) 50%, rgba(13, 2, 4, 0.95) 100%)',
+          borderTop: '1px solid rgba(234, 179, 8, 0.2)',
+        }}
+      >
+        <Container size="xl">
+          <Stack align="center" gap="xs" mb={50}>
+            <Badge
+              size="md"
+              style={{
+                backgroundColor: '#facc15',
+                color: '#140305',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+              }}
+            >
+              OFFICIAL ENTRY PASSES
+            </Badge>
+            <Title
+              order={2}
+              className="gold-gradient-text"
+              ta="center"
+              style={{ fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.8rem, 3.5vw, 2.6rem)' }}
+            >
+              Ticket Phases &amp; Pricing
+            </Title>
+            <Text c="gray.3" size="md" ta="center" maw={650}>
+              Book early to secure the best rates! Every entry pass includes an exclusive <b>₹100 Free Stall Voucher</b> to spend at our vibrant food street and shopping stalls.
+            </Text>
+          </Stack>
+
+          {/* Phases Grid */}
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+            {(allPhases.length > 0 ? allPhases : [
+              {
+                phaseNumber: 1,
+                name: 'Phase 1 - Early Bird',
+                startDate: '2026-09-01',
+                endDate: '2026-09-10',
+                adultPrice: 499,
+                childPrice: 199,
+                voucherAmount: 100,
+              },
+              {
+                phaseNumber: 2,
+                name: 'Phase 2 - Regular Entry',
+                startDate: '2026-09-11',
+                endDate: '2026-09-20',
+                adultPrice: 599,
+                childPrice: 199,
+                voucherAmount: 100,
+              },
+              {
+                phaseNumber: 3,
+                name: 'Phase 3 - Last Chance',
+                startDate: '2026-09-21',
+                endDate: '2026-10-13',
+                adultPrice: 699,
+                childPrice: 199,
+                voucherAmount: 100,
+              },
+            ]).map((p: any) => {
+              const istToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+              const isPhaseActive = isSalesOpen && (currentPhase?.id ? p.id === currentPhase?.id : (istToday >= p.startDate && istToday <= p.endDate));
+              const isPhasePassed = istToday > p.endDate;
+
+              const formatPhaseDate = (dateStr: string) => {
+                if (!dateStr) return '';
+                const d = new Date(dateStr + 'T00:00:00+05:30');
+                return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+              };
+
+              return (
+                <Paper
+                  key={p.phaseNumber || p.id}
+                  p="xl"
+                  radius="xl"
+                  style={{
+                    backgroundColor: isPhaseActive ? 'rgba(38, 8, 14, 0.95)' : 'rgba(20, 3, 5, 0.85)',
+                    border: isPhaseActive ? '2px solid #facc15' : '1px solid rgba(234, 179, 8, 0.25)',
+                    boxShadow: isPhaseActive ? '0 0 35px rgba(234, 179, 8, 0.35)' : 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    transform: isPhaseActive ? 'scale(1.03)' : 'none',
+                    transition: 'all 0.3s ease',
+                  }}
+                  className="festive-card"
+                >
+                  <Stack gap="md">
+                    {/* Badge and Dates */}
+                    <Group justify="space-between" align="center">
+                      <Badge
+                        size="sm"
+                        style={{
+                          backgroundColor: '#facc15',
+                          color: '#140305',
+                          fontWeight: 800,
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        PHASE {p.phaseNumber}
+                      </Badge>
+
+                      {isPhaseActive ? (
+                        <Badge color="green" variant="filled" size="sm" style={{ fontWeight: 800 }}>
+                          ● ACTIVE NOW
+                        </Badge>
+                      ) : isPhasePassed ? (
+                        <Badge color="gray" variant="light" size="sm">
+                          ENDED
+                        </Badge>
+                      ) : (
+                        <Badge color="yellow" variant="light" size="sm" style={{ fontWeight: 700 }}>
+                          OPENS {formatPhaseDate(p.startDate)}
+                        </Badge>
+                      )}
+                    </Group>
+
+                    {/* Phase Name & Schedule */}
+                    <Box>
+                      <Title order={3} size="h3" c="white" style={{ fontFamily: "'Cinzel', serif" }}>
+                        {p.name}
+                      </Title>
+                      <Group gap={6} mt={6} align="center" wrap="nowrap">
+                        <IconCalendar size={14} color="#facc15" style={{ flexShrink: 0 }} />
+                        <Text size="xs" c="royalGold.4" fw={600} lh={1}>
+                          {formatPhaseDate(p.startDate)} to {formatPhaseDate(p.endDate)}
+                        </Text>
+                      </Group>
+                    </Box>
+
+                    <Divider color="rgba(234, 179, 8, 0.2)" />
+
+                    {/* Pricing Breakdown */}
+                    <Stack gap={8}>
+                      <Group justify="space-between" align="baseline">
+                        <Text size="sm" c="gray.3">
+                          Adult Pass (1 Attendee):
+                        </Text>
+                        <Text size="xl" fw={900} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+                          ₹{p.adultPrice}
+                        </Text>
+                      </Group>
+
+                      <Group justify="space-between" align="baseline">
+                        <Box>
+                          <Text size="sm" c="gray.3">
+                            Child Pass:
+                          </Text>
+                          <Text size="10px" c="gray.5">
+                            Under 55&quot; Height (Verified at Entry)
+                          </Text>
+                        </Box>
+                        <Text size="md" fw={700} c="white">
+                          ₹{p.childPrice}
+                        </Text>
+                      </Group>
+                    </Stack>
+
+                    {/* Voucher Perk */}
+                    <Paper
+                      p="xs"
+                      radius="md"
+                      style={{
+                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                        border: '1px dashed rgba(250, 204, 21, 0.4)',
+                      }}
+                    >
+                      <Group gap="xs" align="center">
+                        <ThemeIcon size={26} radius="md" color="yellow" variant="filled">
+                          <IconBuildingStore size={15} color="#140305" />
+                        </ThemeIcon>
+                        <Text size="xs" fw={600} c="yellow.2" style={{ flex: 1 }}>
+                          Includes <b>₹{p.voucherAmount || 100} Free Stall Voucher</b> (Valid at{' '}
+                          <span style={{ color: '#ffffff' }}>
+                            {p.voucherApplicableTo === 'food'
+                              ? 'Food Stalls'
+                              : p.voucherApplicableTo === 'other'
+                              ? 'Commercial Stalls'
+                              : 'All 35 Stalls'}
+                          </span>
+                          )
+                        </Text>
+                      </Group>
+                    </Paper>
+                  </Stack>
+
+                  {/* Booking CTA Button */}
+                  <Box mt="lg">
+                    {isPhaseActive ? (
+                      <Button
+                        component={Link}
+                        href="/dandiyaraas/tickets/buy"
+                        className="btn-auspicious-gold"
+                        size="md"
+                        fullWidth
+                        leftSection={<IconTicket size={18} />}
+                        rightSection={<IconArrowRight size={16} />}
+                      >
+                        Book Passes Now
+                      </Button>
+                    ) : isPhasePassed ? (
+                      <Button size="md" fullWidth disabled variant="default">
+                        Phase Ended
+                      </Button>
+                    ) : (
+                      <Button size="md" fullWidth disabled variant="default">
+                        Opens {formatPhaseDate(p.startDate)}
+                      </Button>
+                    )}
+                  </Box>
+                </Paper>
+              );
+            })}
+          </SimpleGrid>
+
+          {/* Child Height Advisory */}
+          <Paper
+            p="md"
+            radius="lg"
+            mt="xl"
+            style={{
+              backgroundColor: 'rgba(234, 179, 8, 0.08)',
+              border: '1px solid rgba(234, 179, 8, 0.25)',
+              textAlign: 'center',
+            }}
+          >
+            <Group justify="center" gap="xs">
+              <IconSparkles size={18} color="#facc15" />
+              <Text size="xs" c="gray.3">
+                <b>Child Policy:</b> Children strictly under <b>55 inches (4&apos;7&quot;)</b> in height qualify for child passes. Physical height measurement will be verified at the gate.
+              </Text>
+            </Group>
+          </Paper>
         </Container>
       </Box>
 
@@ -491,7 +816,7 @@ export default function CustomerHomePage() {
           >
             <Group justify="space-between" align="center" wrap="wrap" gap="lg">
               <Box maw={600}>
-                <Badge color="royalGold" variant="filled" size="sm" mb="xs">
+                <Badge color="royalGold" variant="filled" size="sm" mb="xs" className="badge-gold-filled" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }}>
                   EXHIBITOR REGISTRATION OPEN
                 </Badge>
                 <Title order={3} c="white" style={{ fontFamily: "'Cinzel', serif" }}>

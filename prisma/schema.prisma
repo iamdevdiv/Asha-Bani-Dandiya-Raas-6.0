@@ -99,3 +99,115 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+model TicketPhase {
+  id                  String   @id @default(cuid())
+  phaseNumber         Int      @default(1)
+  name                String   // e.g. "Phase 1 - Early Bird"
+  startDate           String   // "2026-09-01"
+  endDate             String   // "2026-09-10"
+  adultPrice          Int      // 499
+  childPrice          Int      // 199
+  voucherAmount       Int      @default(100)
+  voucherApplicableTo String   @default("both") // "food", "other", "both"
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model TicketBooking {
+  id                     String    @id @default(cuid())
+  bookingNumber          String    @unique // e.g. "TK-2026-8942"
+  fullName               String
+  mobile                 String
+  email                  String?
+  address                String
+  adultCount             Int       @default(1)
+  childrenCount          Int       @default(0)
+  childrenNames          String?   @db.Text // JSON string array
+  phaseId                String?
+  phaseName              String    @default("Phase 1")
+  adultPrice             Int       @default(499)
+  childPrice             Int       @default(199)
+  totalAmount            Int
+  voucherAmount          Int       @default(100)
+  voucherBalance         Int       @default(100)
+  voucherApplicableTo    String    @default("both")
+  referredByAmbassadorId String?
+  couponCode             String?
+  discountAmount         Int       @default(0)
+  razorpayOrderId        String?
+  razorpayPaymentId      String?
+  razorpaySignature      String?
+  paymentStatus          String    @default("pending") // pending, success, failed
+  qrCodeDataUrl          String?   @db.Text
+  isCheckedIn            Boolean   @default(false)
+  checkedInAt            DateTime?
+  checkedInBy            String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+}
+
+model Coupon {
+  id             String    @id @default(cuid())
+  code           String    @unique // e.g. "TESTPASS2026", "VIP100", "FESTIVE20"
+  description    String?
+  discountType   String    @default("percentage") // "percentage" | "flat"
+  discountValue  Int       @default(100) // 100 for 100%, or 200 for ₹200 off
+  maxUses        Int?      // null = unlimited uses
+  usedCount      Int       @default(0)
+  minOrderAmount Int       @default(0)
+  expiresAt      DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model VoucherTransaction {
+  id              String   @id @default(cuid())
+  ticketBookingId String?
+  ambassadorId    String?
+  sourceType      String   @default("ticket_booking") // "ticket_booking", "ambassador_reward", "admin_adjustment"
+  sourceReference String   // e.g. "TK-2026-8942" or "AMB_102"
+  stallNumber     String?  // e.g. "1", "A" (null if credit)
+  stallOwnerName  String?
+  amount          Int      // transaction amount
+  type            String   // "credit" or "debit"
+  description     String
+  createdAt       DateTime @default(now())
+}
+
+model Ambassador {
+  id                   String    @id @default(cuid())
+  refCode              String    @unique // e.g. "AMB_DIV102"
+  name                 String
+  mobile               String    @unique
+  email                String
+  notes                String?   @db.Text
+  passwordHash         String?
+  status               String    @default("pending") // "pending", "approved", "rejected"
+  isActive             Boolean   @default(true)
+  referralCount        Int       @default(0)
+  currentTier          Int       @default(0)
+  earnedFreeTicket     Boolean   @default(false)
+  freeTicketBookingId  String?
+  voucherTotalCredited Int       @default(0)
+  voucherBalance       Int       @default(0)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}
+
+model AmbassadorTier {
+  id                  String   @id @default(cuid())
+  tierLevel           Int      @unique // 1, 2...
+  name                String   // "Tier 1 - Silver", "Tier 2 - Gold"
+  referralsRequired   Int      // 10, 25...
+  voucherAmount       Int      // 500, 1000...
+  voucherApplicableTo String   @default("both")
+  grantsFreeTicket    Boolean  @default(true)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+

@@ -146,7 +146,8 @@ export default function StallExhibitorPage() {
               style={{
                 borderColor: '#facc15',
                 color: '#fef08a',
-                padding: '10px 18px',
+                height: 'auto',
+                padding: '6px 18px',
                 letterSpacing: '0.1em',
               }}
             >

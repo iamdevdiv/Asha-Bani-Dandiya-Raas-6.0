@@ -277,17 +277,26 @@ export function ExhibitorPassCard({ booking, showDownloadButton = true }: Exhibi
               fontSize: '0.75rem',
             }}
           >
-            <Group justify="space-between" wrap="nowrap" mb={2}>
-              <Text size="xs" c="yellow.2" fw={600}>
-                📅 13 October 2026
-              </Text>
-              <Text size="xs" c="yellow.2" fw={600}>
-                ⏰ Setup 4 PM | Event 6 PM–12 AM
+            <Group justify="space-between" wrap="nowrap" mb={4}>
+              <Group gap={4} align="center">
+                <IconCalendar size={13} color="#facc15" />
+                <Text size="xs" c="yellow.2" fw={600}>
+                  13 October 2026
+                </Text>
+              </Group>
+              <Group gap={4} align="center">
+                <IconClock size={13} color="#facc15" />
+                <Text size="xs" c="yellow.2" fw={600}>
+                  Setup 4 PM | Event 6 PM–12 AM
+                </Text>
+              </Group>
+            </Group>
+            <Group gap={4} justify="center" align="center">
+              <IconMapPin size={13} color="#facc15" />
+              <Text size="xs" c="gray.3" ta="center">
+                Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur
               </Text>
             </Group>
-            <Text size="xs" c="gray.3" ta="center">
-              📍 Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur
-            </Text>
           </Box>
 
           {/* Footer Note */}

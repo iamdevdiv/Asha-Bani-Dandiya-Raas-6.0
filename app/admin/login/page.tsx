@@ -68,7 +68,7 @@ export default function AdminLoginPage() {
         color: 'green',
       });
 
-      router.push('/admin/stalls');
+      window.location.href = '/admin/stalls';
     } catch (err: any) {
       setErrorMsg(err.message || 'Login failed.');
     } finally {
@@ -155,7 +155,7 @@ export default function AdminLoginPage() {
             <Stack gap="md">
               <TextInput
                 label="Admin Email"
-                placeholder="admin@ashabani.com"
+                placeholder="Enter admin email"
                 required
                 leftSection={<IconMail size={16} color="#facc15" />}
                 {...form.getInputProps('email')}
@@ -177,16 +177,10 @@ export default function AdminLoginPage() {
                 className="btn-auspicious-gold"
                 loading={loading}
               >
-                Sign In to Dashboard
+                Sign In
               </Button>
             </Stack>
           </form>
-
-          <Box mt="xl" pt="md" style={{ borderTop: '1px solid rgba(234, 179, 8, 0.15)', textAlign: 'center' }}>
-            <Text size="xs" c="dimmed">
-              Default credentials in dev: admin@ashabani.com / admin@ashabani2026
-            </Text>
-          </Box>
         </Paper>
       </Container>
     </Box>

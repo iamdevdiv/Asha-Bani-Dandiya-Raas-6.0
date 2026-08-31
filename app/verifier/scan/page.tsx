@@ -42,6 +42,7 @@ import jsQR from 'jsqr';
 
 interface ScanResult {
   status: 'valid' | 'duplicate' | 'invalid';
+  passType?: 'ticket' | 'stall';
   message: string;
   booking?: any;
   checkedInAt?: string;
@@ -249,14 +250,16 @@ export default function VerifierScanPage() {
       const data = await res.json();
 
       if (data.success) {
+        const isTicket = data.passType === 'ticket' || Boolean(data.booking?.fullName) || Boolean(data.booking?.phaseName);
         if (data.alreadyCheckedIn) {
           // Duplicate entry attempt
           setScanResult({
             status: 'duplicate',
-            message: data.message || 'DUPLICATE ENTRY ALERT: Pass already scanned!',
+            passType: isTicket ? 'ticket' : 'stall',
+            message: data.message || (isTicket ? 'DUPLICATE ENTRY ALERT: Customer ticket pass already scanned!' : 'DUPLICATE ENTRY ALERT: Stall pass already scanned!'),
             booking: data.booking,
-            checkedInAt: data.checkedInAt,
-            checkedInBy: data.checkedInBy,
+            checkedInAt: data.checkedInAt || data.booking?.checkedInAt,
+            checkedInBy: data.checkedInBy || data.booking?.checkedInBy,
           });
 
           if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -266,16 +269,19 @@ export default function VerifierScanPage() {
           // Valid initial entry
           setScanResult({
             status: 'valid',
-            message: 'PASS VERIFIED - ENTRY APPROVED',
+            passType: isTicket ? 'ticket' : 'stall',
+            message: isTicket ? 'CUSTOMER TICKET PASS VERIFIED - ENTRY APPROVED' : 'STALL PASS VERIFIED - ENTRY APPROVED',
             booking: data.booking,
+            checkedInAt: data.booking?.checkedInAt || new Date().toISOString(),
+            checkedInBy: verifier?.name || data.checkedInBy || 'Gate Verifier',
           });
 
           setRecentScans((prev) => [
             {
-              stallNumber: data.booking.stallNumber,
-              brandName: data.booking.brandName,
-              bookerName: data.booking.bookerName,
-              time: new Date().toLocaleTimeString(),
+              stallNumber: isTicket ? (data.booking.bookingNumber || 'Ticket') : data.booking.stallNumber,
+              brandName: isTicket ? (data.booking.phaseName || 'Entry Pass') : data.booking.brandName,
+              bookerName: isTicket ? data.booking.fullName : data.booking.bookerName,
+              time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
               status: 'APPROVED',
             },
             ...prev.slice(0, 9),
@@ -373,149 +379,348 @@ export default function VerifierScanPage() {
 
         {/* Scan Result Modal / Card (Takes Over When Scanned) */}
         {scanResult ? (
-          <Paper
-            p="xl"
-            radius="xl"
-            mb="lg"
-            className="ornament-corner-container"
-            style={{
-              backgroundColor: scanResult.status === 'valid' ? 'rgba(6, 44, 20, 0.95)' : scanResult.status === 'duplicate' ? 'rgba(69, 10, 10, 0.95)' : 'rgba(30, 4, 8, 0.95)',
-              border: scanResult.status === 'valid' ? '3px solid #22c55e' : '3px solid #ef4444',
-              boxShadow: scanResult.status === 'valid' ? '0 0 35px rgba(34, 197, 94, 0.4)' : '0 0 40px rgba(239, 68, 68, 0.5)',
-              color: '#ffffff',
-            }}
-          >
-            <Stack align="center" gap="md" ta="center">
-              {scanResult.status === 'valid' && (
-                <>
-                  <ThemeIcon size={70} radius="50%" color="green" variant="filled">
-                    <IconCircleCheck size={46} color="#ffffff" />
-                  </ThemeIcon>
-
-                  <Badge color="green" size="xl" variant="filled" style={{ fontSize: '1rem', padding: '12px 20px' }}>
-                    ENTRY APPROVED • 1ST SCAN
-                  </Badge>
-
-                  <Title order={2} c="white" style={{ fontFamily: "'Cinzel', serif", fontSize: '2rem' }}>
-                    STALL {scanResult.booking?.stallNumber}
-                  </Title>
-
-                  <Paper
-                    w="100%"
-                    p="md"
-                    radius="md"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
-                  >
-                    <Stack gap="xs" ta="left">
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.3">BRAND / BUSINESS:</Text>
-                        <Text size="sm" fw={800} c="yellow.3">{scanResult.booking?.brandName}</Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.3">CONTACT PERSON:</Text>
-                        <Text size="sm" fw={700} c="white">{scanResult.booking?.bookerName}</Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.3">MOBILE:</Text>
-                        <Text size="xs" c="white">+91 {scanResult.booking?.mobile}</Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.3">ALLOTTED PASSES:</Text>
-                        <Text size="xs" fw={700} c="green.3">2 Team Members</Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.3">TEAM MEMBERS:</Text>
-                        <Text size="xs" c="white">{scanResult.booking?.teamMembers || scanResult.booking?.bookerName}</Text>
-                      </Group>
-                      <Divider my={4} color="rgba(255,255,255,0.1)" />
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.4">CHECKED IN AT:</Text>
-                        <Text size="xs" c="gray.3">{new Date().toLocaleTimeString()}</Text>
-                      </Group>
-                    </Stack>
-                  </Paper>
-                </>
-              )}
-
-              {scanResult.status === 'duplicate' && (
-                <>
-                  <ThemeIcon size={70} radius="50%" color="red" variant="filled">
-                    <IconAlertTriangle size={46} color="#ffffff" />
-                  </ThemeIcon>
-
-                  <Badge color="red" size="xl" variant="filled" style={{ fontSize: '1.05rem', padding: '14px 20px' }}>
-                    🚨 DUPLICATE ENTRY ALERT!
-                  </Badge>
-
-                  <Title order={2} c="red.2" style={{ fontFamily: "'Cinzel', serif", fontSize: '1.6rem' }}>
-                    PASS ALREADY SCANNED
-                  </Title>
-
-                  <Alert color="red" variant="filled" title="Theft Prevention Triggered" w="100%">
-                    This QR pass was already scanned and used to enter the venue! Do not permit secondary entry.
-                  </Alert>
-
-                  <Paper
-                    w="100%"
-                    p="md"
-                    radius="md"
-                    style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid rgba(239, 68, 68, 0.4)' }}
-                  >
-                    <Stack gap="xs" ta="left">
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.3">STALL NUMBER:</Text>
-                        <Text size="sm" fw={800} c="yellow.3">Stall {scanResult.booking?.stallNumber}</Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.3">BRAND NAME:</Text>
-                        <Text size="sm" fw={700} c="white">{scanResult.booking?.brandName}</Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.3">REGISTERED BOOKER:</Text>
-                        <Text size="xs" c="white">{scanResult.booking?.bookerName} ({scanResult.booking?.mobile})</Text>
-                      </Group>
-                      <Divider my={4} color="rgba(255,255,255,0.1)" />
-                      <Group justify="space-between">
-                        <Text size="xs" c="red.3" fw={700}>FIRST SCANNED AT:</Text>
-                        <Text size="xs" c="red.2" fw={800}>
-                          {scanResult.checkedInAt ? new Date(scanResult.checkedInAt).toLocaleTimeString() : 'Earlier'}
-                        </Text>
-                      </Group>
-                      <Group justify="space-between">
-                        <Text size="xs" c="gray.3">VERIFIED BY:</Text>
-                        <Text size="xs" c="white">{scanResult.checkedInBy || 'Gate Verifier'}</Text>
-                      </Group>
-                    </Stack>
-                  </Paper>
-                </>
-              )}
-
-              {scanResult.status === 'invalid' && (
-                <>
-                  <ThemeIcon size={64} radius="50%" color="red" variant="light">
-                    <IconAlertTriangle size={38} color="#f87171" />
-                  </ThemeIcon>
-                  <Title order={3} c="white">
-                    Invalid Pass Reference
-                  </Title>
-                  <Text size="sm" c="gray.3">
-                    {scanResult.message}
-                  </Text>
-                </>
-              )}
-
-              <Button
-                onClick={handleNextScan}
-                size="lg"
-                fullWidth
-                mt="md"
-                className="btn-auspicious-gold"
-                leftSection={<IconScan size={22} />}
+          (() => {
+            const isTicket = scanResult.passType === 'ticket' || Boolean(scanResult.booking?.fullName) || Boolean(scanResult.booking?.phaseName);
+            return (
+              <Paper
+                p="xl"
+                radius="xl"
+                mb="lg"
+                className="ornament-corner-container"
+                style={{
+                  backgroundColor: scanResult.status === 'valid' ? 'rgba(6, 44, 20, 0.95)' : scanResult.status === 'duplicate' ? 'rgba(69, 10, 10, 0.95)' : 'rgba(30, 4, 8, 0.95)',
+                  border: scanResult.status === 'valid' ? '3px solid #22c55e' : '3px solid #ef4444',
+                  boxShadow: scanResult.status === 'valid' ? '0 0 35px rgba(34, 197, 94, 0.4)' : '0 0 40px rgba(239, 68, 68, 0.5)',
+                  color: '#ffffff',
+                }}
               >
-                Scan Next Pass
-              </Button>
-            </Stack>
-          </Paper>
+                <Stack align="center" gap="md" ta="center">
+                  {scanResult.status === 'valid' && (
+                    <>
+                      <ThemeIcon size={70} radius="50%" color="green" variant="filled">
+                        <IconCircleCheck size={46} color="#ffffff" />
+                      </ThemeIcon>
+
+                      <Badge
+                        color="green"
+                        size="xl"
+                        variant="filled"
+                        style={{
+                          fontSize: '1rem',
+                          fontWeight: 800,
+                          height: 'auto',
+                          minHeight: '36px',
+                          padding: '8px 20px',
+                          lineHeight: 1.3,
+                          whiteSpace: 'normal',
+                          textAlign: 'center',
+                        }}
+                      >
+                        ENTRY APPROVED • 1ST SCAN
+                      </Badge>
+
+                      {isTicket ? (
+                        <>
+                          <Title order={2} c="white" style={{ fontFamily: "'Cinzel', serif", fontSize: '1.8rem' }}>
+                            {scanResult.booking?.fullName}
+                          </Title>
+                          <Badge
+                            color="yellow"
+                            variant="filled"
+                            size="md"
+                            className="badge-gold-filled"
+                            style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }}
+                          >
+                            {scanResult.booking?.bookingNumber} • {scanResult.booking?.phaseName || 'Festival Entry Pass'}
+                          </Badge>
+
+                          <Paper
+                            w="100%"
+                            p="md"
+                            radius="md"
+                            style={{ backgroundColor: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)' }}
+                          >
+                            <Stack gap="xs" ta="left">
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">REGISTERED ATTENDEE:</Text>
+                                <Text size="sm" fw={800} c="yellow.3">{scanResult.booking?.fullName}</Text>
+                              </Group>
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">MOBILE NUMBER:</Text>
+                                <Text size="xs" c="white">+91 {scanResult.booking?.mobile}</Text>
+                              </Group>
+                              {scanResult.booking?.email && (
+                                <Group justify="space-between">
+                                  <Text size="xs" c="gray.3">EMAIL:</Text>
+                                  <Text size="xs" c="gray.3">{scanResult.booking?.email}</Text>
+                                </Group>
+                              )}
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">ADULT PASSES:</Text>
+                                <Text size="xs" fw={700} c="green.3">1 Adult Pass</Text>
+                              </Group>
+                              {scanResult.booking?.childrenCount > 0 && (
+                                <>
+                                  <Group justify="space-between">
+                                    <Text size="xs" c="gray.3">CHILDREN PASSES:</Text>
+                                    <Text size="xs" fw={700} c="yellow.3">
+                                      {scanResult.booking.childrenCount} Child{scanResult.booking.childrenCount > 1 ? 'ren' : ''}
+                                    </Text>
+                                  </Group>
+                                  {scanResult.booking.childrenNames && (
+                                    <Group justify="space-between">
+                                      <Text size="xs" c="gray.3">CHILDREN NAMES:</Text>
+                                      <Text size="xs" c="white">
+                                        {Array.isArray(scanResult.booking.childrenNames)
+                                          ? scanResult.booking.childrenNames.join(', ')
+                                          : String(scanResult.booking.childrenNames)}
+                                      </Text>
+                                    </Group>
+                                  )}
+                                  <Alert color="yellow" p="xs" title="Gate Height Verification Required">
+                                    Children must measure strictly <b>below 55 inches</b> (under 4ft 7in) in height.
+                                  </Alert>
+                                </>
+                              )}
+                              {scanResult.booking?.voucherBalance !== undefined && (
+                                <Group justify="space-between">
+                                  <Text size="xs" c="gray.3">INCLUDED STALL VOUCHER:</Text>
+                                  <Text size="xs" fw={700} c="green.3">₹{scanResult.booking.voucherBalance}</Text>
+                                </Group>
+                              )}
+                              <Divider my={4} color="rgba(255,255,255,0.1)" />
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.4">CHECKED IN AT:</Text>
+                                <Text size="xs" c="gray.3">
+                                  {scanResult.checkedInAt
+                                    ? new Date(scanResult.checkedInAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+                                    : new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                                </Text>
+                              </Group>
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.4">VERIFIED BY:</Text>
+                                <Text size="xs" c="gray.3">{scanResult.checkedInBy || verifier?.name || 'Gate Verifier'}</Text>
+                              </Group>
+                            </Stack>
+                          </Paper>
+                        </>
+                      ) : (
+                        <>
+                          <Title order={2} c="white" style={{ fontFamily: "'Cinzel', serif", fontSize: '2rem' }}>
+                            STALL {scanResult.booking?.stallNumber}
+                          </Title>
+                          <Badge
+                            color="yellow"
+                            variant="filled"
+                            size="md"
+                            className="badge-gold-filled"
+                            style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }}
+                          >
+                            {scanResult.booking?.bookingNumber} • Exhibitor Pass
+                          </Badge>
+
+                          <Paper
+                            w="100%"
+                            p="md"
+                            radius="md"
+                            style={{ backgroundColor: 'rgba(0,0,0,0.35)', border: '1px solid rgba(255,255,255,0.1)' }}
+                          >
+                            <Stack gap="xs" ta="left">
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">BRAND / BUSINESS:</Text>
+                                <Text size="sm" fw={800} c="yellow.3">{scanResult.booking?.brandName}</Text>
+                              </Group>
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">CONTACT PERSON:</Text>
+                                <Text size="sm" fw={700} c="white">{scanResult.booking?.bookerName}</Text>
+                              </Group>
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">MOBILE NUMBER:</Text>
+                                <Text size="xs" c="white">+91 {scanResult.booking?.mobile}</Text>
+                              </Group>
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">ALLOTTED PASSES:</Text>
+                                <Text size="xs" fw={700} c="green.3">2 Team Members</Text>
+                              </Group>
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">TEAM MEMBERS:</Text>
+                                <Text size="xs" c="white">{scanResult.booking?.teamMembers || scanResult.booking?.bookerName}</Text>
+                              </Group>
+                              <Divider my={4} color="rgba(255,255,255,0.1)" />
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.4">CHECKED IN AT:</Text>
+                                <Text size="xs" c="gray.3">
+                                  {scanResult.checkedInAt
+                                    ? new Date(scanResult.checkedInAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+                                    : new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                                </Text>
+                              </Group>
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.4">VERIFIED BY:</Text>
+                                <Text size="xs" c="gray.3">{scanResult.checkedInBy || verifier?.name || 'Gate Verifier'}</Text>
+                              </Group>
+                            </Stack>
+                          </Paper>
+                        </>
+                      )}
+                    </>
+                  )}
+
+                  {scanResult.status === 'duplicate' && (
+                    <>
+                      <ThemeIcon size={70} radius="50%" color="red" variant="filled">
+                        <IconAlertTriangle size={46} color="#ffffff" />
+                      </ThemeIcon>
+
+                      <Badge
+                        color="red"
+                        size="xl"
+                        variant="filled"
+                        leftSection={<IconAlertTriangle size={18} color="#ffffff" />}
+                        style={{
+                          fontSize: '1rem',
+                          fontWeight: 800,
+                          height: 'auto',
+                          minHeight: '36px',
+                          padding: '8px 20px',
+                          lineHeight: 1.3,
+                          whiteSpace: 'normal',
+                          textAlign: 'center',
+                        }}
+                      >
+                        ENTRY RESTRICTED • DUPLICATE SCAN
+                      </Badge>
+
+                      <Title order={2} c="red.2" style={{ fontFamily: "'Cinzel', serif", fontSize: '1.6rem' }}>
+                        PASS ALREADY USED
+                      </Title>
+
+                      <Alert color="red" variant="filled" title="Entry Denied • Pass Already Checked In" w="100%">
+                        This digital QR pass was already scanned and checked into the venue earlier. Secondary entry is strictly restricted!
+                      </Alert>
+
+                      {isTicket ? (
+                        <Paper
+                          w="100%"
+                          p="md"
+                          radius="md"
+                          style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid rgba(239, 68, 68, 0.4)' }}
+                        >
+                          <Stack gap="xs" ta="left">
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">REGISTERED ATTENDEE:</Text>
+                              <Text size="sm" fw={800} c="yellow.3">{scanResult.booking?.fullName}</Text>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">BOOKING NUMBER:</Text>
+                              <Text size="xs" fw={700} c="white">{scanResult.booking?.bookingNumber}</Text>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">MOBILE NUMBER:</Text>
+                              <Text size="xs" c="white">+91 {scanResult.booking?.mobile}</Text>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">PASS TYPE:</Text>
+                              <Text size="xs" c="white">
+                                1 Adult{scanResult.booking?.childrenCount > 0 ? ` + ${scanResult.booking.childrenCount} Child${scanResult.booking.childrenCount > 1 ? 'ren' : ''}` : ''} • {scanResult.booking?.phaseName || 'Entry Pass'}
+                              </Text>
+                            </Group>
+                            {scanResult.booking?.childrenCount > 0 && scanResult.booking?.childrenNames && (
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">CHILDREN NAMES:</Text>
+                                <Text size="xs" c="white">
+                                  {Array.isArray(scanResult.booking.childrenNames)
+                                    ? scanResult.booking.childrenNames.join(', ')
+                                    : String(scanResult.booking.childrenNames)}
+                                </Text>
+                              </Group>
+                            )}
+                            <Divider my={4} color="rgba(255,255,255,0.1)" />
+                            <Group justify="space-between">
+                              <Text size="xs" c="red.3" fw={700}>FIRST SCANNED AT:</Text>
+                              <Text size="xs" c="red.2" fw={800}>
+                                {scanResult.checkedInAt
+                                  ? new Date(scanResult.checkedInAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+                                  : 'Earlier Today'}
+                              </Text>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">FIRST VERIFIED BY:</Text>
+                              <Text size="xs" c="white">{scanResult.checkedInBy || 'Gate Verifier'}</Text>
+                            </Group>
+                          </Stack>
+                        </Paper>
+                      ) : (
+                        <Paper
+                          w="100%"
+                          p="md"
+                          radius="md"
+                          style={{ backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid rgba(239, 68, 68, 0.4)' }}
+                        >
+                          <Stack gap="xs" ta="left">
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">STALL NUMBER:</Text>
+                              <Text size="sm" fw={800} c="yellow.3">Stall {scanResult.booking?.stallNumber}</Text>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">BRAND NAME:</Text>
+                              <Text size="sm" fw={700} c="white">{scanResult.booking?.brandName}</Text>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">REGISTERED BOOKER:</Text>
+                              <Text size="xs" c="white">{scanResult.booking?.bookerName} (+91 {scanResult.booking?.mobile})</Text>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">ALLOTTED PASSES:</Text>
+                              <Text size="xs" fw={700} c="green.3">2 Team Members</Text>
+                            </Group>
+                            <Divider my={4} color="rgba(255,255,255,0.1)" />
+                            <Group justify="space-between">
+                              <Text size="xs" c="red.3" fw={700}>FIRST SCANNED AT:</Text>
+                              <Text size="xs" c="red.2" fw={800}>
+                                {scanResult.checkedInAt
+                                  ? new Date(scanResult.checkedInAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+                                  : 'Earlier Today'}
+                              </Text>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">FIRST VERIFIED BY:</Text>
+                              <Text size="xs" c="white">{scanResult.checkedInBy || 'Gate Verifier'}</Text>
+                            </Group>
+                          </Stack>
+                        </Paper>
+                      )}
+                    </>
+                  )}
+
+                  {scanResult.status === 'invalid' && (
+                    <>
+                      <ThemeIcon size={64} radius="50%" color="red" variant="light">
+                        <IconAlertTriangle size={38} color="#f87171" />
+                      </ThemeIcon>
+                      <Title order={3} c="white">
+                        Invalid Pass Reference
+                      </Title>
+                      <Text size="sm" c="gray.3">
+                        {scanResult.message}
+                      </Text>
+                    </>
+                  )}
+
+                  <Button
+                    onClick={handleNextScan}
+                    size="lg"
+                    fullWidth
+                    mt="md"
+                    className="btn-auspicious-gold"
+                    leftSection={<IconScan size={22} />}
+                  >
+                    Scan Next Pass
+                  </Button>
+                </Stack>
+              </Paper>
+            );
+          })()
         ) : (
           /* Live Scanner & Camera Viewfinder */
           <Stack gap="md">
@@ -662,7 +867,7 @@ export default function VerifierScanPage() {
               </Text>
               <Group gap="xs">
                 <TextInput
-                  placeholder="e.g. ABDR-STALL-14-3815 or 14"
+                  placeholder="Enter Pass ID, Booking ID, or Stall Number"
                   value={manualCode}
                   onChange={(e) => setManualCode(e.currentTarget.value)}
                   onKeyDown={(e) => {

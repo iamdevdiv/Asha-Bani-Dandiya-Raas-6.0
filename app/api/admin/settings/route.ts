@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminFromRequest } from '@/lib/auth';
+import { getAdminFromRequest, getAdminSession } from '@/lib/auth';
 import { getSettings, updateSetting } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const admin = getAdminFromRequest(req);
+  const admin = getAdminFromRequest(req) || (await getAdminSession());
   if (!admin) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = getAdminFromRequest(req);
+  const admin = getAdminFromRequest(req) || (await getAdminSession());
   if (!admin) {
     return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 });
   }

@@ -26,15 +26,15 @@ body {
 }
 
 /* Ensure SVG icons in flex rows never squish or force text to wrap below */
-.mantine-Group-root > svg,
+.mantine-Group-root>svg,
 .mantine-ThemeIcon-root {
   flex-shrink: 0;
 }
 
 /* Ensure text inside flex groups wraps naturally */
-.mantine-Group-root > .mantine-Text-root,
-.mantine-Group-root > .mantine-Anchor-root,
-.mantine-Group-root > div {
+.mantine-Group-root>.mantine-Text-root,
+.mantine-Group-root>.mantine-Anchor-root,
+.mantine-Group-root>div {
   min-width: 0;
 }
 
@@ -48,6 +48,7 @@ body {
 .gold-gradient-text {
   background: linear-gradient(135deg, #fffbeb 0%, #fef08a 25%, #facc15 50%, #eab308 75%, #ca8a04 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -59,6 +60,186 @@ body {
   border: 1px solid #fef08a !important;
   box-shadow: 0 4px 20px rgba(234, 179, 8, 0.35);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Universal Button Text Wrapping & Natural Height with Perfect Vertical Centering */
+.mantine-Button-root {
+  height: auto !important;
+  min-height: var(--button-height, 36px);
+  max-height: max-content;
+  align-self: center;
+  white-space: normal !important;
+}
+
+.mantine-Button-inner {
+  height: 100% !important;
+  min-height: var(--button-height, 36px);
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: normal !important;
+}
+
+.mantine-Button-label {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  line-height: 1.25 !important;
+  text-align: center;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.mantine-Button-section {
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* ========================================================================= */
+/* UNIVERSAL HIGH-CONTRAST FOR YELLOW & ROYALGOLD UI COMPONENTS             */
+/* ========================================================================= */
+
+:root,
+[data-mantine-color-scheme="dark"],
+[data-mantine-color-scheme="light"],
+body {
+  --mantine-color-yellow-contrast: #140305 !important;
+  --mantine-color-royalGold-contrast: #140305 !important;
+  --mantine-color-yellow-filled-color: #140305 !important;
+  --mantine-color-royalGold-filled-color: #140305 !important;
+}
+
+/* Badges: ONLY solid FILLED yellow and royalGold badges have dark text */
+.badge-gold-filled,
+.mantine-Badge-root[data-variant="filled"][data-color="yellow"],
+.mantine-Badge-root[data-variant="filled"][data-color="royalGold"],
+.mantine-Badge-root[data-color="yellow"],
+.mantine-Badge-root[data-color="royalGold"],
+.mantine-Badge-root[style*="royalGold"],
+.mantine-Badge-root[style*="yellow"],
+.mantine-Badge-root[style*="#facc15"],
+.mantine-Badge-root[style*="#eab308"],
+.mantine-Badge-root[style*="250, 204, 21"],
+.mantine-Badge-root[style*="234, 179, 8"],
+.mantine-Badge-root[style*="--mantine-color-royalGold"],
+.mantine-Badge-root[style*="--mantine-color-yellow"] {
+  --badge-color: #140305 !important;
+  color: #140305 !important;
+  font-weight: 800 !important;
+}
+
+.badge-gold-filled .mantine-Badge-label,
+.mantine-Badge-root[data-variant="filled"][data-color="yellow"] .mantine-Badge-label,
+.mantine-Badge-root[data-variant="filled"][data-color="royalGold"] .mantine-Badge-label,
+.mantine-Badge-root[data-color="yellow"] .mantine-Badge-label,
+.mantine-Badge-root[data-color="royalGold"] .mantine-Badge-label,
+.mantine-Badge-root[style*="royalGold"] .mantine-Badge-label,
+.mantine-Badge-root[style*="yellow"] .mantine-Badge-label,
+.mantine-Badge-root[style*="#facc15"] .mantine-Badge-label,
+.mantine-Badge-root[style*="#eab308"] .mantine-Badge-label,
+.mantine-Badge-root[style*="250, 204, 21"] .mantine-Badge-label,
+.mantine-Badge-root[style*="234, 179, 8"] .mantine-Badge-label,
+.mantine-Badge-root[style*="--mantine-color-royalGold"] .mantine-Badge-label,
+.mantine-Badge-root[style*="--mantine-color-yellow"] .mantine-Badge-label {
+  color: #140305 !important;
+  font-weight: 800 !important;
+}
+
+/* Badges: ALL variant="light", "outline", "transparent" MUST have bright radiant gold text */
+.mantine-Badge-root[data-variant="light"] .mantine-Badge-label,
+.mantine-Badge-root[data-variant="outline"] .mantine-Badge-label,
+.mantine-Badge-root[data-variant="transparent"] .mantine-Badge-label {
+  color: #fef08a !important;
+  font-weight: 700 !important;
+}
+
+/* Badges: dark, gray, red, green, blue, cyan MUST be crisp white text */
+.mantine-Badge-root[data-variant="filled"][data-color="dark"] .mantine-Badge-label,
+.mantine-Badge-root[data-variant="filled"][data-color="gray"] .mantine-Badge-label,
+.mantine-Badge-root[data-variant="filled"][data-color="red"] .mantine-Badge-label,
+.mantine-Badge-root[data-variant="filled"][data-color="green"] .mantine-Badge-label,
+.mantine-Badge-root[data-variant="filled"][data-color="blue"] .mantine-Badge-label,
+.mantine-Badge-root[data-variant="filled"][data-color="cyan"] .mantine-Badge-label,
+.mantine-Badge-root[data-variant="filled"][data-color="grape"] .mantine-Badge-label {
+  color: #ffffff !important;
+}
+
+/* Badges: NEVER trim or truncate badge labels & always vertically center */
+.mantine-Badge-root {
+  flex-shrink: 0 !important;
+  max-width: none !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.mantine-Badge-label {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  margin-top: 1px !important;
+}
+
+/* Ensure Table cells with badges or data don't collapse */
+.mantine-Table-table {
+  min-width: 850px;
+}
+
+.mantine-Table-td,
+.mantine-Table-th {
+  white-space: nowrap;
+}
+
+/* Tabs: pills / active tabs in yellow / royalGold */
+.mantine-Tabs-tab[data-active="true"] {
+  color: #140305 !important;
+  font-weight: 800 !important;
+}
+
+.mantine-Tabs-tab[data-active="true"] .mantine-Tabs-tabLabel,
+.mantine-Tabs-tab[data-active="true"] .mantine-Tabs-tabSection,
+.mantine-Tabs-tab[data-active="true"] svg {
+  color: #140305 !important;
+  stroke: #140305 !important;
+  font-weight: 800 !important;
+}
+
+/* ThemeIcon with filled yellow / royalGold */
+.mantine-ThemeIcon-root[data-variant="filled"][data-color="yellow"],
+.mantine-ThemeIcon-root[data-variant="filled"][data-color="royalGold"] {
+  color: #140305 !important;
+}
+
+.mantine-ThemeIcon-root[data-variant="filled"][data-color="yellow"] svg,
+.mantine-ThemeIcon-root[data-variant="filled"][data-color="royalGold"] svg {
+  stroke: #140305 !important;
+  color: #140305 !important;
+}
+
+/* Buttons with filled yellow / royalGold */
+.mantine-Button-root[data-variant="filled"][data-color="yellow"],
+.mantine-Button-root[data-variant="filled"][data-color="royalGold"] {
+  color: #140305 !important;
+  font-weight: 700 !important;
+}
+
+.mantine-Button-root[data-variant="filled"][data-color="yellow"] .mantine-Button-label,
+.mantine-Button-root[data-variant="filled"][data-color="royalGold"] .mantine-Button-label {
+  color: #140305 !important;
 }
 
 .btn-auspicious-gold:hover {

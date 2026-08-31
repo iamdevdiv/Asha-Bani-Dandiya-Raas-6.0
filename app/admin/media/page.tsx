@@ -41,7 +41,9 @@ import {
   IconAlertCircle,
   IconEye,
   IconEyeOff,
+  IconFolder,
 } from '@tabler/icons-react';
+import ConfirmationModal from '@/components/ConfirmationModal';
 
 interface CarouselImageItem {
   id: string;
@@ -75,6 +77,9 @@ export default function AdminMediaPage() {
   const [editIsActive, setEditIsActive] = useState(true);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const [editUploading, setEditUploading] = useState(false);
+
+  // Delete Modal State
+  const [imageIndexToDelete, setImageIndexToDelete] = useState<number | null>(null);
 
   const fetchMedia = async () => {
     setLoading(true);
@@ -149,13 +154,24 @@ export default function AdminMediaPage() {
   };
 
   const handleDelete = (index: number) => {
-    const list = images.filter((_, i) => i !== index);
+    setImageIndexToDelete(index);
+  };
+
+  const confirmDeleteImage = () => {
+    if (imageIndexToDelete === null) return;
+    const list = images.filter((_, i) => i !== imageIndexToDelete);
     const reordered = list.map((item, idx) => ({
       ...item,
       displayOrder: idx + 1,
     }));
     setImages(reordered);
     handleSaveImages(reordered);
+    setImageIndexToDelete(null);
+    notifications.show({
+      title: 'Slide Deleted',
+      message: 'Carousel slide removed successfully.',
+      color: 'green',
+    });
   };
 
   // Open Edit Modal for a specific image
@@ -375,9 +391,9 @@ export default function AdminMediaPage() {
   return (
     <Container size="xl" py="md">
       {/* Header */}
-      <Group justify="space-between" align="center" mb="lg">
-        <Box>
-          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+      <Group justify="space-between" align="center" mb="lg" gap="md">
+        <Box style={{ flex: 1, minWidth: 'min(100%, 280px)' }}>
+          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", wordBreak: 'normal' }}>
             Carousel &amp; Media Gallery Manager
           </Title>
           <Text size="sm" c="gray.4">
@@ -385,7 +401,7 @@ export default function AdminMediaPage() {
           </Text>
         </Box>
 
-        <Group>
+        <Group gap="xs" wrap="wrap" style={{ flexShrink: 0 }}>
           <Button
             onClick={openAdd}
             className="btn-auspicious-gold"
@@ -473,7 +489,7 @@ export default function AdminMediaPage() {
                   >
                     {item.isActive ? 'Active' : 'Hidden'}
                   </Badge>
-                  <Badge size="xs" color="dark" variant="filled">
+                  <Badge size="xs" color="gray" variant="filled" style={{ color: '#ffffff' }}>
                     #{item.displayOrder || index + 1}
                   </Badge>
                 </Group>
@@ -705,7 +721,7 @@ export default function AdminMediaPage() {
                 {/* Caption Input */}
                 <TextInput
                   label="Default Caption / Title"
-                  placeholder="e.g. Grand Aarti &amp; Garba Moments 2026"
+                  placeholder="Enter caption or title for the slide"
                   description="Will be assigned to the uploaded slide(s). You can customize captions anytime."
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.currentTarget.value)}
@@ -718,7 +734,7 @@ export default function AdminMediaPage() {
               <Stack gap="md">
                 <TextInput
                   label="Image URL or Path"
-                  placeholder="e.g. /images/carousel/1U5A0775.JPG or https://..."
+                  placeholder="Enter image URL or local asset path (/images/...)"
                   required
                   value={newImageUrl}
                   onChange={(e) => setNewImageUrl(e.currentTarget.value)}
@@ -726,7 +742,7 @@ export default function AdminMediaPage() {
 
                 <TextInput
                   label="Slide Caption / Title"
-                  placeholder="e.g. Vibrant Garba Circles & Beats"
+                  placeholder="Enter slide caption or title"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.currentTarget.value)}
                 />
@@ -821,7 +837,7 @@ export default function AdminMediaPage() {
             {/* Editable Caption */}
             <TextInput
               label="Slide Caption / Title"
-              placeholder="e.g. Royal Garba Night with Live Orchestra"
+              placeholder="Enter slide caption or title"
               required
               value={editTitle}
               onChange={(e) => setEditTitle(e.currentTarget.value)}
@@ -854,6 +870,21 @@ export default function AdminMediaPage() {
           </Stack>
         )}
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        opened={imageIndexToDelete !== null}
+        onClose={() => setImageIndexToDelete(null)}
+        onConfirm={confirmDeleteImage}
+        title="Delete Carousel Slide"
+        description={
+          <span>
+            Are you sure you want to delete slide <b>#{imageIndexToDelete !== null ? imageIndexToDelete + 1 : ''} {imageIndexToDelete !== null && images[imageIndexToDelete]?.title ? `(${images[imageIndexToDelete].title})` : ''}</b> from the live carousel?
+          </span>
+        }
+        confirmLabel="Delete Slide"
+        variant="danger"
+      />
     </Container>
   );
 }

@@ -88,9 +88,116 @@ export const INITIAL_CAROUSEL_IMAGES = [
   { id: '25', imageUrl: '/images/carousel/1U5A0792.JPG', title: 'Grand Finale of Joy and Togetherness', displayOrder: 25, isActive: true },
 ];
 
+export const INITIAL_TICKET_PHASES = [
+  {
+    id: 'phase_1',
+    phaseNumber: 1,
+    name: 'Phase 1 - Early Bird',
+    startDate: '2026-09-01',
+    endDate: '2026-09-10',
+    adultPrice: 499,
+    childPrice: 199,
+    voucherAmount: 100,
+    voucherApplicableTo: 'both',
+    isActive: true,
+  },
+  {
+    id: 'phase_2',
+    phaseNumber: 2,
+    name: 'Phase 2 - Regular',
+    startDate: '2026-09-11',
+    endDate: '2026-09-20',
+    adultPrice: 599,
+    childPrice: 199,
+    voucherAmount: 100,
+    voucherApplicableTo: 'both',
+    isActive: true,
+  },
+  {
+    id: 'phase_3',
+    phaseNumber: 3,
+    name: 'Phase 3 - Grand Finale',
+    startDate: '2026-09-21',
+    endDate: '2026-10-13',
+    adultPrice: 699,
+    childPrice: 199,
+    voucherAmount: 100,
+    voucherApplicableTo: 'both',
+    isActive: true,
+  },
+];
+
+export const INITIAL_AMBASSADOR_TIERS = [
+  {
+    id: 'tier_1',
+    tierLevel: 1,
+    name: 'Tier 1 - Silver Ambassador',
+    referralsRequired: 10,
+    voucherAmount: 500,
+    voucherApplicableTo: 'both',
+    grantsFreeTicket: true,
+    isActive: true,
+  },
+  {
+    id: 'tier_2',
+    tierLevel: 2,
+    name: 'Tier 2 - Gold Ambassador',
+    referralsRequired: 25,
+    voucherAmount: 1000,
+    voucherApplicableTo: 'both',
+    grantsFreeTicket: true,
+    isActive: true,
+  },
+];
+
+export interface CouponDef {
+  id: string;
+  code: string;
+  description?: string;
+  discountType: 'percentage' | 'flat';
+  discountValue: number; // e.g. 100 for 100%, or 200 for ₹200
+  maxUses: number | null;
+  usedCount: number;
+  minOrderAmount: number;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const INITIAL_COUPONS: CouponDef[] = [
+  {
+    id: 'coupon_testpass',
+    code: 'TESTPASS2026',
+    description: 'Admin 100% Test Pass Voucher',
+    discountType: 'percentage',
+    discountValue: 100,
+    maxUses: null,
+    usedCount: 0,
+    minOrderAmount: 0,
+    expiresAt: null,
+    isActive: true,
+  },
+  {
+    id: 'coupon_festive10',
+    code: 'FESTIVE10',
+    description: '10% Festive Season Discount',
+    discountType: 'percentage',
+    discountValue: 10,
+    maxUses: 200,
+    usedCount: 0,
+    minOrderAmount: 400,
+    expiresAt: '2026-10-15',
+    isActive: true,
+  },
+];
+
 export const DEFAULT_SETTINGS = {
   ticket_booking_start_date: '2026-09-01',
+  ticket_booking_start_time: '00:00',
   ticket_booking_msg: 'Ticket bookings start from 1 September 2026',
+  max_children_per_ticket: '3',
+  child_height_limit_inches: '55',
   event_name: 'Asha Bani Dandiya Raas 6.0',
   event_edition: '6th Grand Dandiya Celebration',
   event_tagline: '6 Years of Joy, Music & Togetherness',
@@ -105,4 +212,21 @@ export const DEFAULT_SETTINGS = {
   hero_title_prefix: 'ASHA BANI DANDIYA RAAS PRESENTS',
   hero_title_main: '6th Grand Dandiya Celebration',
   hero_title_sub: '6 Years of Joy, Music & Togetherness',
+  ticket_voucher_applicable_to: 'both',
 };
+
+export function isFoodStall(stallNumber: string): boolean {
+  const clean = String(stallNumber || '').toUpperCase().replace(/^STALL\s*/i, '').trim();
+  const num = parseInt(clean, 10);
+  if (!isNaN(num) && num >= 1 && num <= 15) return true;
+  const def = INITIAL_STALLS.find((s) => s.stallNumber.toUpperCase() === clean);
+  return def ? def.section === 'food' : false;
+}
+
+export function isCommercialStall(stallNumber: string): boolean {
+  return !isFoodStall(stallNumber);
+}
+
+export function getStallCategoryLabel(stallNumber: string): string {
+  return isFoodStall(stallNumber) ? 'Food Stall (Stalls 1–15)' : 'Commercial & Shopping Stall (Stalls A–T)';
+}

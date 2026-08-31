@@ -213,14 +213,14 @@ export default function ContactPage() {
               <Stack gap="sm">
                 <TextInput
                   label="Your Full Name"
-                  placeholder="e.g. Ankit Verma"
+                  placeholder="Enter your full name"
                   required
                   {...form.getInputProps('name')}
                 />
 
                 <TextInput
                   label="Mobile Number"
-                  placeholder="e.g. 9876543210"
+                  placeholder="Enter 10-digit mobile number"
                   required
                   maxLength={10}
                   {...form.getInputProps('phone')}
@@ -228,7 +228,7 @@ export default function ContactPage() {
 
                 <TextInput
                   label="Email Address"
-                  placeholder="e.g. ankit@example.com"
+                  placeholder="Enter your email address"
                   required
                   type="email"
                   {...form.getInputProps('email')}

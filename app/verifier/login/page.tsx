@@ -129,7 +129,7 @@ export default function VerifierLoginPage() {
             <Stack gap="md" ta="left">
               <TextInput
                 label="Registered Mobile Number"
-                placeholder="e.g. 9876543210"
+                placeholder="Enter 10-digit mobile number"
                 required
                 maxLength={10}
                 leftSection={<IconPhone size={16} color="#facc15" />}

@@ -19,6 +19,7 @@ import {
   Loader,
   SimpleGrid,
   ActionIcon,
+  Tooltip,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { DatePickerInput } from '@mantine/dates';
@@ -37,9 +38,12 @@ import {
   IconCalendar,
   IconBrandWhatsapp,
   IconScan,
+  IconTrash,
+  IconExternalLink,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { ExhibitorPassCard } from '@/components/ExhibitorPassCard';
+import { openWhatsAppChat } from '@/lib/whatsapp';
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -51,38 +55,67 @@ export default function AdminBookingsPage() {
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [opened, { open, close }] = useDisclosure(false);
 
+  // Delete Order Confirmation State
+  const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
+  const [bookingToDelete, setBookingToDelete] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const sendWhatsAppMessage = (b: any) => {
-    const cleanMobile = (b.mobile || '').replace(/\D/g, '').slice(-10);
     const passUrl = typeof window !== 'undefined' ? `${window.location.origin}/dandiyaraas/stall/success?bookingId=${b.id}` : '';
     
-    const msg = `Dear ${b.brandName || b.bookerName},
+    const msg =
+      `*NAMASTE ${b.brandName ? b.brandName.toUpperCase() : b.bookerName.toUpperCase()}!*\n\n` +
+      `Thank you for being an integral part of Asha Bani Dandiya Raas 6.0.\n\n` +
+      `Your stall reservation has been confirmed as an official stall exhibitor:\n` +
+      `- *Stall:* Stall ${b.stallNumber}\n` +
+      `- *Booking ID:* ${b.bookingNumber}\n` +
+      `- *Date:* Tuesday, 13 October 2026\n` +
+      `- *Venue:* Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur\n` +
+      `- *Stall Setup Time:* 4:00 PM\n` +
+      `- *Event Hours:* 6:00 PM to 12:00 AM\n` +
+      `- *Passes Included:* 2 Official Exhibitor Passes (${b.teamMembers || b.bookerName})\n\n` +
+      `*Official Digital Pass Link:*\n${passUrl}\n\n` +
+      `Please show this pass at the gate for scanning and entry into the venue.\n\n` +
+      `*Helpline:* +91 6399063455`;
 
-Thank you for being an integral part of Asha Bani Dandiya Raas 6.0!
-
-Your stall reservation has been confirmed as an official stall exhibitor:
-• Stall: Stall ${b.stallNumber}
-• Booking ID: ${b.bookingNumber}
-• Date: Tuesday, 13 October 2026
-• Venue: Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur
-• Stall Setup Time: 4:00 PM
-• Event Hours: 6:00 PM - 12:00 AM
-• Passes Included: 2 Official Exhibitor Passes (${b.teamMembers || b.bookerName})
-
-Official Digital Pass Link:
-${passUrl}
-
-Please show this pass at the gate for scanning and entry into the venue.
-
-Helpline: +91 6399063455`;
-
-    const url = `https://wa.me/91${cleanMobile}?text=${encodeURIComponent(msg)}`;
-    window.open(url, '_blank');
+    openWhatsAppChat(b.mobile || '', msg);
 
     notifications.show({
       title: 'WhatsApp Opened',
-      message: `Message created for +91 ${cleanMobile}. You can also attach the downloaded pass image.`,
+      message: `Message dispatched for ${b.bookerName}.`,
       color: 'green',
     });
+  };
+
+  const handlePromptDelete = (b: any) => {
+    setBookingToDelete(b);
+    openDelete();
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!bookingToDelete) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingToDelete.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to delete stall booking');
+      }
+
+      notifications.show({
+        title: 'Booking Deleted',
+        message: `Stall booking ${bookingToDelete.bookingNumber} deleted and Stall ${bookingToDelete.stallNumber} is now available!`,
+        color: 'green',
+      });
+
+      closeDelete();
+      setBookingToDelete(null);
+      fetchBookings();
+    } catch (err: any) {
+      notifications.show({ title: 'Delete Failed', message: err.message, color: 'red' });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const fetchBookings = async () => {
@@ -139,9 +172,9 @@ Helpline: +91 6399063455`;
 
   return (
     <Container size="xl" py="md">
-      <Group justify="space-between" align="center" mb="lg" wrap="nowrap">
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+      <Group justify="space-between" align="center" mb="lg" gap="md">
+        <Box style={{ flex: 1, minWidth: 'min(100%, 280px)' }}>
+          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", wordBreak: 'normal' }}>
             Stall Bookings &amp; Transactions
           </Title>
           <Text size="sm" c="gray.4">
@@ -154,6 +187,7 @@ Helpline: +91 6399063455`;
           variant="light"
           color="royalGold"
           leftSection={<IconRefresh size={16} />}
+          style={{ flexShrink: 0 }}
         >
           Refresh Data
         </Button>
@@ -237,109 +271,137 @@ Helpline: +91 6399063455`;
             </Text>
           </Stack>
         ) : (
-          <Table verticalSpacing="sm" highlightOnHover>
-            <Table.Thead>
-              <Table.Tr style={{ borderBottom: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                <Table.Th style={{ color: '#facc15' }}>Booking Ref</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Stall</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Brand / Business</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Booker Contact</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Amount</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Payment</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Entry Status</Table.Th>
-                <Table.Th style={{ color: '#facc15' }}>Date &amp; Time</Table.Th>
-                <Table.Th style={{ color: '#facc15', textAlign: 'right' }}>Actions</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {filteredBookings.map((b) => (
-                <Table.Tr key={b.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                  <Table.Td>
-                    <Text size="xs" fw={700} c="yellow.3">
-                      {b.bookingNumber}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge color="royalGold" variant="filled" size="sm">
-                      Stall {b.stallNumber}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm" fw={700} c="white">
-                      {b.brandName}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {b.stallType}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm" c="gray.2">
-                      {b.bookerName}
-                    </Text>
-                    <Text size="xs" c="dimmed">
-                      {b.mobile} • {b.email}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="sm" fw={800} c="white">
-                      ₹{b.amount?.toLocaleString('en-IN')}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td>
-                    <Badge
-                      color={
-                        b.paymentStatus === 'success'
-                          ? 'green'
-                          : b.paymentStatus === 'pending'
-                          ? 'yellow'
-                          : 'red'
-                      }
-                      size="sm"
-                    >
-                      {b.paymentStatus.toUpperCase()}
-                    </Badge>
-                  </Table.Td>
-                  <Table.Td>
-                    {b.isCheckedIn ? (
-                      <Badge color="green" variant="light" size="sm" leftSection={<IconScan size={12} />}>
-                        CHECKED IN
-                      </Badge>
-                    ) : (
-                      <Badge color="gray" variant="light" size="sm">
-                        PENDING
-                      </Badge>
-                    )}
-                  </Table.Td>
-                  <Table.Td>
-                    <Text size="xs" c="gray.4">
-                      {b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : 'N/A'}
-                    </Text>
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Group gap="xs" justify="flex-end">
-                      <ActionIcon
-                        variant="light"
-                        color="green"
-                        onClick={() => sendWhatsAppMessage(b)}
-                        title="Send Official Pass on WhatsApp"
-                      >
-                        <IconBrandWhatsapp size={16} />
-                      </ActionIcon>
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="royalGold"
-                        onClick={() => handleViewBooking(b)}
-                        leftSection={<IconEye size={14} />}
-                      >
-                        Inspect
-                      </Button>
-                    </Group>
-                  </Table.Td>
+          <Table.ScrollContainer minWidth={950}>
+            <Table verticalSpacing="sm" highlightOnHover style={{ minWidth: 950 }}>
+              <Table.Thead>
+                <Table.Tr style={{ borderBottom: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Booking Ref</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Stall</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Brand / Business</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Booker Contact</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Amount</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Payment</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Entry Status</Table.Th>
+                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Date &amp; Time</Table.Th>
+                  <Table.Th style={{ color: '#facc15', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</Table.Th>
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredBookings.map((b) => (
+                  <Table.Tr key={b.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Text size="xs" fw={700} c="yellow.3">
+                        {b.bookingNumber}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Badge color="yellow" variant="filled" size="sm" className="badge-gold-filled" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                        Stall {b.stallNumber}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm" fw={700} c="white">
+                        {b.brandName}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {b.stallType}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td>
+                      <Text size="sm" c="gray.2">
+                        {b.bookerName}
+                      </Text>
+                      <Text size="xs" c="dimmed">
+                        {b.mobile} • {b.email}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Text size="sm" fw={800} c="white">
+                        ₹{b.amount?.toLocaleString('en-IN')}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Badge
+                        color={
+                          b.paymentStatus === 'success'
+                            ? 'green'
+                            : b.paymentStatus === 'pending'
+                            ? 'yellow'
+                            : 'red'
+                        }
+                        size="sm"
+                        style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                      >
+                        {b.paymentStatus.toUpperCase()}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      {b.isCheckedIn ? (
+                        <Badge color="green" variant="light" size="sm" leftSection={<IconScan size={12} />} style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                          CHECKED IN
+                        </Badge>
+                      ) : (
+                        <Badge color="gray" variant="light" size="sm" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                          PENDING
+                        </Badge>
+                      )}
+                    </Table.Td>
+                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                      <Text size="xs" c="gray.4">
+                        {b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : 'N/A'}
+                      </Text>
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <Group gap="xs" justify="flex-end" wrap="nowrap">
+                        <Tooltip label="Open Live Stall Pass (New Tab)">
+                          <ActionIcon
+                            component="a"
+                            href={`/dandiyaraas/stall/pass/${b.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            color="cyan"
+                            variant="light"
+                            size="sm"
+                            radius="md"
+                          >
+                            <IconExternalLink size={15} />
+                          </ActionIcon>
+                        </Tooltip>
+
+                        <Tooltip label="Send Pass on WhatsApp">
+                          <ActionIcon
+                            variant="light"
+                            color="green"
+                            onClick={() => sendWhatsAppMessage(b)}
+                          >
+                            <IconBrandWhatsapp size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Button
+                          size="xs"
+                          variant="light"
+                          color="royalGold"
+                          onClick={() => handleViewBooking(b)}
+                          leftSection={<IconEye size={14} />}
+                        >
+                          Inspect
+                        </Button>
+                        <Tooltip label="Delete Booking & Free Stall">
+                          <ActionIcon
+                            variant="light"
+                            color="red"
+                            onClick={() => handlePromptDelete(b)}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         )}
       </Paper>
 
@@ -488,6 +550,42 @@ Helpline: +91 6399063455`;
             </Group>
           </Stack>
         )}
+      </Modal>
+
+      {/* Delete Stall Order Confirmation Modal */}
+      <Modal
+        opened={deleteOpened}
+        onClose={closeDelete}
+        title={
+          <Text fw={700} size="md" c="red.4">
+            Delete Stall Booking Confirmation
+          </Text>
+        }
+        centered
+        radius="lg"
+        styles={{
+          content: { backgroundColor: '#140305', border: '1px solid rgba(239, 68, 68, 0.4)' },
+          header: { backgroundColor: '#140305' },
+        }}
+      >
+        <Stack gap="md">
+          <Text size="sm" c="gray.3">
+            Are you sure you want to delete Stall Booking <b style={{ color: '#facc15' }}>{bookingToDelete?.bookingNumber}</b> for{' '}
+            <b style={{ color: 'white' }}>Stall {bookingToDelete?.stallNumber}</b> ({bookingToDelete?.brandName || bookingToDelete?.bookerName})?
+          </Text>
+          <Text size="xs" c="gray.4">
+            This will permanently remove the booking record and immediately restore <b>Stall {bookingToDelete?.stallNumber}</b> as available for booking.
+          </Text>
+
+          <Group justify="flex-end" gap="sm" mt="md">
+            <Button variant="subtle" color="gray" onClick={closeDelete}>
+              Cancel
+            </Button>
+            <Button color="red" variant="filled" loading={deleting} onClick={handleConfirmDelete}>
+              Delete &amp; Free Stall
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
     </Container>
   );

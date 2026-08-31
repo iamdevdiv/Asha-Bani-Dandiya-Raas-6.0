@@ -141,9 +141,9 @@ export default function AdminStallsPage() {
   return (
     <Container size="xl" py="md">
       {/* Header */}
-      <Group justify="space-between" align="center" mb="lg">
-        <Box>
-          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+      <Group justify="space-between" align="center" mb="lg" gap="md">
+        <Box style={{ flex: 1, minWidth: 'min(100%, 280px)' }}>
+          <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", wordBreak: 'normal' }}>
             Interactive Stall Layout &amp; Pricing Manager
           </Title>
           <Text size="sm" c="gray.4">
@@ -156,13 +156,14 @@ export default function AdminStallsPage() {
           variant="light"
           color="royalGold"
           leftSection={<IconRefresh size={16} />}
+          style={{ flexShrink: 0 }}
         >
           Refresh Grid
         </Button>
       </Group>
 
       {/* Summary KPI Cards */}
-      <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="md" mb="xl">
+      <SimpleGrid cols={{ base: 1, xs: 2, sm: 4 }} spacing="md" mb="xl">
         <Paper
           p="md"
           radius="lg"
@@ -330,28 +331,28 @@ export default function AdminStallsPage() {
                   <Stack gap="xs">
                     <TextInput
                       label="Booker Full Name"
-                      placeholder="e.g. Ramesh Shah"
+                      placeholder="Enter booker full name"
                       leftSection={<IconUser size={14} color="#facc15" />}
                       {...form.getInputProps('bookedByName')}
                     />
 
                     <TextInput
                       label="Brand / Business Name"
-                      placeholder="e.g. Royal Sweets"
+                      placeholder="Enter business or brand name"
                       leftSection={<IconBuildingStore size={14} color="#facc15" />}
                       {...form.getInputProps('bookedByBrand')}
                     />
 
                     <TextInput
                       label="Mobile Number"
-                      placeholder="e.g. 9876543210"
+                      placeholder="Enter 10-digit mobile number"
                       leftSection={<IconPhone size={14} color="#facc15" />}
                       {...form.getInputProps('bookedByMobile')}
                     />
 
                     <TextInput
                       label="Email Address"
-                      placeholder="e.g. contact@brand.com"
+                      placeholder="Enter email address"
                       leftSection={<IconMail size={14} color="#facc15" />}
                       {...form.getInputProps('bookedByEmail')}
                     />

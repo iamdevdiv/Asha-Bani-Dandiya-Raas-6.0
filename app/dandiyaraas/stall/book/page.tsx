@@ -65,7 +65,7 @@ export default function StallBookingPage() {
       bookerName: (val) => (val.trim().length >= 2 ? null : 'Please enter contact person name'),
       mobile: (val) => (/^[6-9]\d{9}$/.test(val.trim()) ? null : 'Please enter a valid 10-digit Indian mobile number'),
       brandName: (val) => (val.trim().length >= 2 ? null : 'Please enter your brand or business name'),
-      stallType: (val) => (val.trim().length >= 2 ? null : 'Please specify stall category (e.g. Food, Jewellery)'),
+      stallType: (val) => (val.trim().length >= 2 ? null : 'Please specify stall category'),
       teamMember1: (val) => (val.trim().length >= 2 ? null : 'Please enter Team Member 1 Name'),
       teamMember2: (val) => (val.trim().length >= 2 ? null : 'Please enter Team Member 2 Name'),
       email: (val) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim()) ? null : 'Please enter a valid email address'),
@@ -245,7 +245,7 @@ export default function StallBookingPage() {
 
       <Container size="xl" py={40}>
         <Stack align="center" gap="xs" mb={35} ta="center">
-          <Badge color="royalGold" size="lg" variant="filled">
+          <Badge color="royalGold" size="lg" variant="filled" className="badge-gold-filled" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }}>
             OFFICIAL STALL ALLOTMENT PORTAL
           </Badge>
           <Title
@@ -282,7 +282,7 @@ export default function StallBookingPage() {
                 </Box>
 
                 {selectedStall && (
-                  <Badge color="yellow" size="lg" variant="filled">
+                  <Badge color="yellow" size="lg" variant="filled" className="badge-gold-filled" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }}>
                     Selected: Stall {selectedStall.stallNumber} (₹{selectedStall.price.toLocaleString('en-IN')})
                   </Badge>
                 )}
@@ -362,7 +362,7 @@ export default function StallBookingPage() {
                 <Stack gap="sm">
                   <TextInput
                     label="Booker / Contact Person Name"
-                    placeholder="e.g. Ramesh Shah"
+                    placeholder="Enter full name"
                     required
                     leftSection={<IconUser size={16} color="#facc15" />}
                     {...form.getInputProps('bookerName')}
@@ -370,16 +370,21 @@ export default function StallBookingPage() {
 
                   <TextInput
                     label="Mobile Number (10 Digits)"
-                    placeholder="e.g. 9876543210"
+                    placeholder="Enter 10-digit mobile number"
                     required
                     maxLength={10}
                     leftSection={<IconPhone size={16} color="#facc15" />}
-                    {...form.getInputProps('mobile')}
+                    value={form.values.mobile}
+                    onChange={(e) => {
+                      const val = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
+                      form.setFieldValue('mobile', val);
+                    }}
+                    error={form.errors.mobile}
                   />
 
                   <TextInput
                     label="Brand / Business Name"
-                    placeholder="e.g. Royal Gujarati Sweets & Chaat"
+                    placeholder="Enter brand or business name"
                     required
                     leftSection={<IconBuildingStore size={16} color="#facc15" />}
                     {...form.getInputProps('brandName')}
@@ -387,7 +392,7 @@ export default function StallBookingPage() {
 
                   <TextInput
                     label="Type of Stall / Products"
-                    placeholder="e.g. Food, Designer Jewellery, Apparel, Handicrafts"
+                    placeholder="Enter stall category (Food, Apparel, Handicrafts, etc.)"
                     required
                     leftSection={<IconTag size={16} color="#facc15" />}
                     {...form.getInputProps('stallType')}
@@ -397,14 +402,14 @@ export default function StallBookingPage() {
                   <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
                     <TextInput
                       label="Member 1 Name (Lead)"
-                      placeholder="e.g. Ramesh Shah"
+                      placeholder="Enter lead member full name"
                       required
                       leftSection={<IconUser size={15} color="#facc15" />}
                       {...form.getInputProps('teamMember1')}
                     />
                     <TextInput
                       label="Member 2 Name (Assistant)"
-                      placeholder="e.g. Priya Shah"
+                      placeholder="Enter assistant full name"
                       required
                       leftSection={<IconUser size={15} color="#facc15" />}
                       {...form.getInputProps('teamMember2')}
@@ -417,7 +422,7 @@ export default function StallBookingPage() {
 
                   <TextInput
                     label="Email Address"
-                    placeholder="e.g. brand@example.com"
+                    placeholder="Enter business email address"
                     required
                     type="email"
                     leftSection={<IconMail size={16} color="#facc15" />}
