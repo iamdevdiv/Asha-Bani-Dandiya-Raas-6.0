@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
     const transactions = await getVoucherTransactions({});
 
     const totalRedeemed = transactions
-      .filter((t) => t.type === 'debit')
-      .reduce((sum, t) => sum + (t.amount || 0), 0);
+      .filter((t: any) => t.type === 'debit')
+      .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
 
     return NextResponse.json({
       success: true,

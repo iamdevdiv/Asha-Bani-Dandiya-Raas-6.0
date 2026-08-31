@@ -533,7 +533,11 @@ export default function TicketPurchasePage() {
                     const val = e.currentTarget.value.replace(/\D/g, '').slice(0, 10);
                     setMobile(val);
                     if (errors.mobile) {
-                      setErrors((prev) => ({ ...prev, mobile: undefined }));
+                      setErrors((prev) => {
+                        const next = { ...prev };
+                        delete next.mobile;
+                        return next;
+                      });
                     }
                   }}
                   error={errors.mobile}

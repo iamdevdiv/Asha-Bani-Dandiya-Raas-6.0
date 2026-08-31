@@ -47,7 +47,7 @@ export async function GET(
 
     const ext = path.extname(targetFilePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
-    const fileBuffer = fs.readFileSync(targetFilePath);
+    const fileBuffer = fs.readFileSync(/*turbopackIgnore: true*/ targetFilePath);
 
     return new NextResponse(fileBuffer, {
       status: 200,
