@@ -38,13 +38,24 @@ import {
 } from '@tabler/icons-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { DEFAULT_SETTINGS } from '@/lib/stall-data';
+import { DEFAULT_SETTINGS, INITIAL_TICKET_PHASES } from '@/lib/stall-data';
 
 export default function CustomerHomePage() {
   const [settings, setSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
-  const [allPhases, setAllPhases] = useState<any[]>([]);
-  const [currentPhase, setCurrentPhase] = useState<any>(null);
-  const [isSalesOpen, setIsSalesOpen] = useState<boolean>(false);
+  const [allPhases, setAllPhases] = useState<any[]>(INITIAL_TICKET_PHASES);
+  const [currentPhase, setCurrentPhase] = useState<any>(INITIAL_TICKET_PHASES[0]);
+  const [isSalesOpen, setIsSalesOpen] = useState<boolean>(() => {
+    try {
+      const startDate = DEFAULT_SETTINGS.ticket_booking_start_date || '2026-09-01';
+      const startTime = DEFAULT_SETTINGS.ticket_booking_start_time || '00:00';
+      const istNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      const [tH, tM] = startTime.split(':').map(Number);
+      const openTarget = new Date(`${startDate}T${String(tH || 0).padStart(2, '0')}:${String(tM || 0).padStart(2, '0')}:00+05:30`);
+      return istNow.getTime() >= openTarget.getTime();
+    } catch {
+      return true;
+    }
+  });
 
   useEffect(() => {
     // 1. Capture and persist referral code if present in URL

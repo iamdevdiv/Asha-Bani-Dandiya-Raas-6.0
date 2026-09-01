@@ -18,6 +18,7 @@ import {
   ThemeIcon,
   Card,
   Alert,
+  Skeleton,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -43,6 +44,7 @@ export default function AmbassadorApplyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submittedCode, setSubmittedCode] = useState<string | null>(null);
   const [tiers, setTiers] = useState<any[]>([]);
+  const [loadingTiers, setLoadingTiers] = useState(true);
 
   useEffect(() => {
     fetch('/api/ambassadors/apply')
@@ -52,7 +54,8 @@ export default function AmbassadorApplyPage() {
           setTiers(data.tiers);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingTiers(false));
   }, []);
 
   const getUsabilityText = (applicability?: string) => {
@@ -149,15 +152,22 @@ export default function AmbassadorApplyPage() {
               <Text fw={700} size="md" c="white" style={{ fontFamily: "'Cinzel', serif" }}>
                 Tier 1 Milestone ({tier1.referralsRequired} Referrals)
               </Text>
-              <Text size="xs" c="gray.4" mt={4}>
-                Earn a <b>Free Official Adult Entry Pass</b> for yourself
-                {tier1.voucherAmount > 0 ? (
-                  <>
-                    {' '}+ <b>₹{tier1.voucherAmount} Free Stall Voucher</b> to spend at {getUsabilityText(tier1.voucherApplicableTo)}
-                  </>
-                ) : null}
-                {' '}upon reaching {tier1.referralsRequired} referrals!
-              </Text>
+              {loadingTiers ? (
+                <Stack gap={6} mt={6}>
+                  <Skeleton height={13} width="92%" radius="xl" />
+                  <Skeleton height={13} width="65%" radius="xl" />
+                </Stack>
+              ) : (
+                <Text size="xs" c="gray.4" mt={4}>
+                  Earn a <b>Free Official Adult Entry Pass</b> for yourself
+                  {tier1.voucherAmount > 0 ? (
+                    <>
+                      {' '}+ <b>₹{tier1.voucherAmount} Free Stall Voucher</b> to spend at {getUsabilityText(tier1.voucherApplicableTo)}
+                    </>
+                  ) : null}
+                  {' '}upon reaching {tier1.referralsRequired} referrals!
+                </Text>
+              )}
             </Card>
 
             <Card className="festive-card" p="lg">
@@ -167,17 +177,24 @@ export default function AmbassadorApplyPage() {
               <Text fw={700} size="md" c="white" style={{ fontFamily: "'Cinzel', serif" }}>
                 Tier 2 Milestone ({tier2.referralsRequired} Referrals)
               </Text>
-              <Text size="xs" c="gray.4" mt={4}>
-                {tier2.voucherAmount > 0 ? (
-                  <>
-                    Upgrade your stall voucher balance to a whopping <b>₹{tier2.voucherAmount} Total Voucher</b> (valid at {getUsabilityText(tier2.voucherApplicableTo)}) &amp; Free Entry Pass upon reaching {tier2.referralsRequired} referrals!
-                  </>
-                ) : (
-                  <>
-                    Earn a <b>Free Official Adult Entry Pass</b> upon reaching {tier2.referralsRequired} referrals!
-                  </>
-                )}
-              </Text>
+              {loadingTiers ? (
+                <Stack gap={6} mt={6}>
+                  <Skeleton height={13} width="92%" radius="xl" />
+                  <Skeleton height={13} width="65%" radius="xl" />
+                </Stack>
+              ) : (
+                <Text size="xs" c="gray.4" mt={4}>
+                  {tier2.voucherAmount > 0 ? (
+                    <>
+                      Upgrade your stall voucher balance to a whopping <b>₹{tier2.voucherAmount} Total Voucher</b> (valid at {getUsabilityText(tier2.voucherApplicableTo)}) &amp; Free Entry Pass upon reaching {tier2.referralsRequired} referrals!
+                    </>
+                  ) : (
+                    <>
+                      Earn a <b>Free Official Adult Entry Pass</b> upon reaching {tier2.referralsRequired} referrals!
+                    </>
+                  )}
+                </Text>
+              )}
             </Card>
           </SimpleGrid>
 

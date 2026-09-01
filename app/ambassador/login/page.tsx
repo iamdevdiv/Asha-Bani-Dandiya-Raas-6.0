@@ -148,7 +148,6 @@ export default function AmbassadorLoginPage() {
                   className="btn-auspicious-gold"
                   loading={loading}
                   mt="sm"
-                  leftSection={<IconLogin size={20} />}
                   fullWidth
                 >
                   Sign In

@@ -44,6 +44,7 @@ import {
 } from '@tabler/icons-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
+import { INITIAL_TICKET_PHASES } from '@/lib/stall-data';
 
 declare global {
   interface Window {
@@ -54,7 +55,7 @@ declare global {
 export default function TicketPurchasePage() {
   const router = useRouter();
   const [loadingPhase, setLoadingPhase] = useState(true);
-  const [phase, setPhase] = useState<any>(null);
+  const [phase, setPhase] = useState<any>(INITIAL_TICKET_PHASES[0]);
   const [settings, setSettings] = useState<any>({});
   const [submitting, setSubmitting] = useState(false);
 
