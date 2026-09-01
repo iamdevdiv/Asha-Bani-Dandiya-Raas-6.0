@@ -184,18 +184,13 @@ export default function AdminTicketBookingsPage() {
     if (typeof window !== 'undefined') {
       const origin = window.location.origin;
       const passUrl = `${origin}/dandiyaraas/tickets/pass/${b.id}`;
-      const usability = b.voucherApplicableTo === 'food'
-        ? 'Food Stalls Only (Stalls 1-15)'
-        : b.voucherApplicableTo === 'other'
-        ? 'Commercial & Shopping Stalls (Stalls A-T)'
-        : 'All 35 Stalls (Food + Commercial)';
 
       const msg =
         `*NAMASTE ${b.fullName.toUpperCase()}!*\n\n` +
         `Your official entry pass for *Asha Bani Dandiya Raas 6.0* is confirmed.\n\n` +
         `*Booking ID:* ${b.bookingNumber}\n` +
         `*Passes:* 1 Adult${b.childrenCount > 0 ? ` + ${b.childrenCount} Children` : ''}\n` +
-        `*Included Stall Voucher:* Rs. ${b.voucherAmount} (Valid at: ${usability})\n` +
+        `*Included Stall Voucher:* Rs. ${b.voucherAmount}\n` +
         `*Date:* 13 October 2026 (6:00 PM onwards)\n` +
         `*Venue:* Maharaja Agrasen Bhavan, Saharanpur\n\n` +
         `*View / Scan Your Pass:*\n${passUrl}`;

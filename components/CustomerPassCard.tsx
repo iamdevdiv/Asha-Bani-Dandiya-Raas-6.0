@@ -37,6 +37,7 @@ export interface CustomerPassData {
   voucherAmount?: number;
   voucherBalance?: number;
   voucherApplicableTo?: string;
+  effectiveVoucherApplicableTo?: string;
   qrCodeDataUrl?: string | null;
   isCheckedIn?: boolean;
   checkedInAt?: string | null;
@@ -76,10 +77,17 @@ export function CustomerPassCard({
 
   const childCount = booking.childrenCount ?? parsedChildren.length;
   const voucherAmt = booking.voucherAmount ?? 100;
+  const effectiveRule =
+    booking.effectiveVoucherApplicableTo ||
+    (booking.voucherApplicableTo && booking.voucherApplicableTo !== 'default' && booking.voucherApplicableTo !== 'inherit'
+      ? booking.voucherApplicableTo
+      : null) ||
+    'both';
+
   const voucherUsability =
-    booking.voucherApplicableTo === 'food'
+    effectiveRule === 'food'
       ? 'Food Stalls Only (Stalls 1–15)'
-      : booking.voucherApplicableTo === 'other'
+      : effectiveRule === 'other'
       ? 'Commercial & Shopping Stalls (Stalls A–T)'
       : 'All 35 Stalls (Food + Commercial)';
 
@@ -249,27 +257,29 @@ export function CustomerPassCard({
           </Box>
 
           {/* Included Free Stall Voucher Perk Banner */}
-          <Box
-            w="100%"
-            p="xs"
-            style={{
-              background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.2) 0%, rgba(36, 8, 14, 0.7) 100%)',
-              borderRadius: 12,
-              border: '1px dashed rgba(250, 204, 21, 0.5)',
-            }}
-          >
-            <Group gap="xs" wrap="nowrap" align="center">
-              <IconBuildingStore size={22} color="#facc15" style={{ flexShrink: 0 }} />
-              <Box style={{ flex: 1 }}>
-                <Text size="xs" fw={800} c="yellow.3">
-                  INCLUDED ₹{voucherAmt} STALL VOUCHER
-                </Text>
-                <Text size="xs" c="gray.3" style={{ fontSize: '0.72rem', lineHeight: 1.25 }}>
-                  Valid at: <strong style={{ color: '#fef08a' }}>{voucherUsability}</strong>
-                </Text>
-              </Box>
-            </Group>
-          </Box>
+          {voucherAmt > 0 && (
+            <Box
+              w="100%"
+              p="xs"
+              style={{
+                background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.2) 0%, rgba(36, 8, 14, 0.7) 100%)',
+                borderRadius: 12,
+                border: '1px dashed rgba(250, 204, 21, 0.5)',
+              }}
+            >
+              <Group gap="xs" wrap="nowrap" align="center">
+                <IconBuildingStore size={22} color="#facc15" style={{ flexShrink: 0 }} />
+                <Box style={{ flex: 1 }}>
+                  <Text size="xs" fw={800} c="yellow.3">
+                    INCLUDED ₹{voucherAmt} STALL VOUCHER
+                  </Text>
+                  <Text size="xs" c="gray.3" style={{ fontSize: '0.72rem', lineHeight: 1.25 }}>
+                    Valid at: <strong style={{ color: '#fef08a' }}>{voucherUsability}</strong>
+                  </Text>
+                </Box>
+              </Group>
+            </Box>
+          )}
 
           {/* QR Code Container */}
           {booking.qrCodeDataUrl ? (

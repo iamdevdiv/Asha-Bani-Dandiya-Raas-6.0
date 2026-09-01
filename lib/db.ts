@@ -1744,10 +1744,11 @@ export async function getTicketBookingById(idOrBookingNumber: string) {
 
     return {
       ...rawBooking,
-      voucherAmount: ambassador.voucherTotalCredited || rawBooking.voucherAmount,
-      voucherBalance: ambassador.voucherBalance ?? rawBooking.voucherBalance,
-      voucherApplicableTo: isCustomException && exceptionRule ? exceptionRule : 'default',
+      voucherAmount: typeof ambassador.voucherTotalCredited === 'number' ? ambassador.voucherTotalCredited : (rawBooking.voucherAmount ?? 0),
+      voucherBalance: typeof ambassador.voucherBalance === 'number' ? ambassador.voucherBalance : (rawBooking.voucherBalance ?? 0),
+      voucherApplicableTo: effectiveApplicableTo,
       effectiveVoucherApplicableTo: effectiveApplicableTo,
+      rawVoucherRule: rawBooking.voucherApplicableTo,
       isAmbassadorPass: true,
       ambassadorId: ambassador.id,
       ambassadorRefCode: ambassador.refCode,
@@ -1763,8 +1764,9 @@ export async function getTicketBookingById(idOrBookingNumber: string) {
   return {
     ...rawBooking,
     isAmbassadorPass: false,
-    voucherApplicableTo: isCustomException && exceptionRule ? exceptionRule : 'default',
+    voucherApplicableTo: effectiveApplicableTo,
     effectiveVoucherApplicableTo: effectiveApplicableTo,
+    rawVoucherRule: rawBooking.voucherApplicableTo,
     ruleSource: isCustomException ? ('custom_exception' as const) : ('global' as const),
     isCustomVoucherRule: isCustomException,
   };
@@ -1799,8 +1801,9 @@ export async function getTicketBookings(filters?: { phaseId?: string; paymentSta
         ambassadorId: amb.id,
         ambassadorRefCode: amb.refCode,
         voucherBalance: amb.voucherBalance ?? b.voucherBalance,
-        voucherApplicableTo: isCustomException && exceptionRule ? exceptionRule : 'default',
+        voucherApplicableTo: effectiveApplicableTo,
         effectiveVoucherApplicableTo: effectiveApplicableTo,
+        rawVoucherRule: b.voucherApplicableTo,
         tierVoucherApplicableTo: tierApplicableTo,
         ruleSource: isCustomException ? ('custom_exception' as const) : ('ambassador_tier' as const),
         isCustomVoucherRule: isCustomException,
@@ -1813,8 +1816,9 @@ export async function getTicketBookings(filters?: { phaseId?: string; paymentSta
     return {
       ...b,
       isAmbassadorPass: false,
-      voucherApplicableTo: isCustomException && exceptionRule ? exceptionRule : 'default',
+      voucherApplicableTo: effectiveApplicableTo,
       effectiveVoucherApplicableTo: effectiveApplicableTo,
+      rawVoucherRule: b.voucherApplicableTo,
       ruleSource: isCustomException ? ('custom_exception' as const) : ('global' as const),
       isCustomVoucherRule: isCustomException,
     };
@@ -2245,14 +2249,72 @@ export async function getStallVoucherEarnings() {
         checkedInBy: b.checkedInBy,
         createdAt: b.createdAt,
       } : (s.bookedByName || s.bookedByBrand ? {
-        bookerName: s.bookedByName,
-        brandName: s.bookedByBrand,
-        mobile: s.bookedByMobile,
-        email: s.bookedByEmail,
         bookedAt: s.bookedAt,
       } : null),
     };
   });
+}
+
+export async function getStallVoucherTransactionsWithSender(stallNumber: string) {
+  const cleanStall = String(stallNumber || '').toUpperCase().replace(/^STALL\s*/i, '').trim();
+  const allTxs = await getVoucherTransactions({ stallNumber: cleanStall });
+  const ticketBookings = await getTicketBookings();
+  const ambassadors = await getAmbassadors();
+
+  const bookingMap = new Map<string, any>();
+  const bookingRefMap = new Map<string, any>();
+  for (const b of ticketBookings) {
+    if (b.id) bookingMap.set(b.id, b);
+    if (b.bookingNumber) bookingRefMap.set(b.bookingNumber.toUpperCase(), b);
+  }
+
+  const ambMap = new Map<string, any>();
+  const ambRefMap = new Map<string, any>();
+  for (const a of ambassadors) {
+    if (a.id) ambMap.set(a.id, a);
+    if (a.refCode) ambRefMap.set(a.refCode.toUpperCase(), a);
+  }
+
+  const transactions = allTxs
+    .filter((tx: any) => {
+      const s = String(tx.stallNumber || '').toUpperCase().replace(/^STALL\s*/i, '').trim();
+      return s === cleanStall;
+    })
+    .map((tx: any) => {
+      const b =
+        (tx.ticketBookingId && bookingMap.get(tx.ticketBookingId)) ||
+        (tx.sourceReference && bookingRefMap.get(tx.sourceReference.toUpperCase()));
+      const amb =
+        (tx.ambassadorId && ambMap.get(tx.ambassadorId)) ||
+        (tx.sourceReference && ambRefMap.get(tx.sourceReference.toUpperCase()));
+
+      const senderName = b?.fullName || (amb ? `${amb.name} (Ambassador)` : null) || 'Festival Attendee';
+      const senderMobile = b?.mobile || amb?.mobile || null;
+      const senderRef = tx.sourceReference || b?.bookingNumber || amb?.refCode || 'N/A';
+
+      return {
+        id: tx.id,
+        amount: tx.amount,
+        type: tx.type,
+        senderName,
+        senderMobile,
+        senderRef,
+        sourceType: tx.sourceType,
+        description: tx.description,
+        createdAt: tx.createdAt,
+      };
+    });
+
+  const totalEarned = transactions
+    .filter((t: any) => t.type === 'debit')
+    .reduce((sum: number, t: any) => sum + (t.amount || 0), 0);
+
+  return {
+    stallNumber: cleanStall,
+    totalEarned,
+    transactionCount: transactions.length,
+    transactions,
+  };
 }
 
 // =========================================================================

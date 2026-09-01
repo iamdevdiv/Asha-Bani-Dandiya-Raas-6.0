@@ -113,7 +113,7 @@ export default function AmbassadorDashboardPage() {
         `*JOIN US AT ASHA BANI DANDIYA RAAS 6.0!*\n\n` +
         `Enjoy a grand festive night of energetic Garba, live orchestra, and delicious Gujarati food stalls on *13 October 2026* at Maharaja Agrasen Bhavan, Saharanpur!\n\n` +
         `*Book Official Passes Here:*\n${url}\n\n` +
-        `*Special Included Perk:* Every pass includes a *Rs. ${voucherAmount} Free Stall Voucher* (Valid at: ${usability})!`;
+        `*Special Included Perk:* Every pass includes a *Rs. ${voucherAmount} Free Stall Voucher*!`;
 
       openWhatsAppChat('', msg);
     }
@@ -143,8 +143,8 @@ export default function AmbassadorDashboardPage() {
   const referrals = data.referralsList || [];
 
   // Next milestone calculation
-  const tier1 = tiers.find((t: any) => t.tierLevel === 1) || { referralsRequired: 10, voucherAmount: 500 };
-  const tier2 = tiers.find((t: any) => t.tierLevel === 2) || { referralsRequired: 25, voucherAmount: 1000 };
+  const tier1 = tiers.find((t: any) => Number(t.tierLevel) === 1) || { referralsRequired: 10, voucherAmount: 0, voucherApplicableTo: 'food', grantsFreeTicket: true };
+  const tier2 = tiers.find((t: any) => Number(t.tierLevel) === 2) || { referralsRequired: 25, voucherAmount: 1000, voucherApplicableTo: 'both', grantsFreeTicket: true };
 
   const currentRefs = amb.referralCount || 0;
   const nextTarget = currentRefs < tier1.referralsRequired ? tier1.referralsRequired : tier2.referralsRequired;
@@ -331,7 +331,14 @@ export default function AmbassadorDashboardPage() {
                   <Group gap={6} mt={4} align="center" wrap="nowrap">
                     <IconGift size={14} color="#facc15" style={{ flexShrink: 0 }} />
                     <Text size="xs" c="gray.3" lh={1}>
-                      <b>₹{tier1.voucherAmount} Stall Voucher</b>{tier1.grantsFreeTicket ? <> + <b>1 Free Official Adult Entry Pass</b></> : null}
+                      {tier1.voucherAmount > 0 ? (
+                        <>
+                          <b>₹{tier1.voucherAmount} Stall Voucher</b> ({tier1.voucherApplicableTo === 'food' ? 'Food Stalls' : tier1.voucherApplicableTo === 'other' ? 'Commercial Stalls' : 'All Stalls'})
+                          {tier1.grantsFreeTicket ? <> + <b>1 Free Entry Pass</b></> : null}
+                        </>
+                      ) : (
+                        <>{tier1.grantsFreeTicket ? <b>1 Free Official Adult Entry Pass</b> : <b>Tier 1 Unlocked</b>}</>
+                      )}
                     </Text>
                   </Group>
                 </Card>
@@ -359,7 +366,14 @@ export default function AmbassadorDashboardPage() {
                   <Group gap={6} mt={4} align="center" wrap="nowrap">
                     <IconGift size={14} color="#facc15" style={{ flexShrink: 0 }} />
                     <Text size="xs" c="gray.3" lh={1}>
-                      <b>₹{tier2.voucherAmount} Total Stall Voucher</b>{tier2.grantsFreeTicket ? <> + <b>Free Entry Pass</b></> : null}
+                      {tier2.voucherAmount > 0 ? (
+                        <>
+                          <b>₹{tier2.voucherAmount} Total Voucher</b> ({tier2.voucherApplicableTo === 'food' ? 'Food Stalls' : tier2.voucherApplicableTo === 'other' ? 'Commercial Stalls' : 'All Stalls'})
+                          {tier2.grantsFreeTicket ? <> + <b>Free Entry Pass</b></> : null}
+                        </>
+                      ) : (
+                        <>{tier2.grantsFreeTicket ? <b>Free Official Entry Pass</b> : <b>Tier 2 Unlocked</b>}</>
+                      )}
                     </Text>
                   </Group>
                 </Card>

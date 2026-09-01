@@ -55,8 +55,14 @@ export default function AmbassadorApplyPage() {
       .catch(() => {});
   }, []);
 
-  const tier1 = tiers.find((t) => t.tierLevel === 1) || { referralsRequired: 10, voucherAmount: 500 };
-  const tier2 = tiers.find((t) => t.tierLevel === 2) || { referralsRequired: 25, voucherAmount: 1000 };
+  const getUsabilityText = (applicability?: string) => {
+    if (applicability === 'food') return 'food stalls only (Stalls 1–15)';
+    if (applicability === 'other') return 'commercial & shopping stalls only (Stalls A–T)';
+    return 'food and commercial stalls';
+  };
+
+  const tier1 = tiers.find((t) => Number(t.tierLevel) === 1) || { referralsRequired: 10, voucherAmount: 0, voucherApplicableTo: 'food' };
+  const tier2 = tiers.find((t) => Number(t.tierLevel) === 2) || { referralsRequired: 25, voucherAmount: 1000, voucherApplicableTo: 'both' };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,14 +125,13 @@ export default function AmbassadorApplyPage() {
         <Stack gap="xl">
           {/* Header */}
           <Box ta="center">
-            <Badge color="royalGold" variant="filled" size="md">
-              OFFICIAL AMBASSADOR PROGRAM
+            <Badge color="royalGold" size="lg" variant="filled" className="badge-gold-filled" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }} mb="xs">
+              OFFICIAL AMBASSADOR INITIATIVE
             </Badge>
             <Title
               order={1}
               className="gold-gradient-text"
-              mt={6}
-              style={{ fontFamily: "'Cinzel', serif", fontSize: 'clamp(2rem, 4.5vw, 3rem)' }}
+              style={{ fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.8rem, 4vw, 2.8rem)' }}
             >
               Become an Ambassador
             </Title>
@@ -145,7 +150,13 @@ export default function AmbassadorApplyPage() {
                 Tier 1 Milestone ({tier1.referralsRequired} Referrals)
               </Text>
               <Text size="xs" c="gray.4" mt={4}>
-                Earn a <b>Free Official Adult Entry Pass</b> for yourself + <b>₹{tier1.voucherAmount} Free Stall Voucher</b> to spend at food and commercial stalls!
+                Earn a <b>Free Official Adult Entry Pass</b> for yourself
+                {tier1.voucherAmount > 0 ? (
+                  <>
+                    {' '}+ <b>₹{tier1.voucherAmount} Free Stall Voucher</b> to spend at {getUsabilityText(tier1.voucherApplicableTo)}
+                  </>
+                ) : null}
+                {' '}upon reaching {tier1.referralsRequired} referrals!
               </Text>
             </Card>
 
@@ -157,7 +168,15 @@ export default function AmbassadorApplyPage() {
                 Tier 2 Milestone ({tier2.referralsRequired} Referrals)
               </Text>
               <Text size="xs" c="gray.4" mt={4}>
-                Upgrade your stall voucher balance to a whopping <b>₹{tier2.voucherAmount} Total Voucher</b> &amp; Free Entry Pass!
+                {tier2.voucherAmount > 0 ? (
+                  <>
+                    Upgrade your stall voucher balance to a whopping <b>₹{tier2.voucherAmount} Total Voucher</b> (valid at {getUsabilityText(tier2.voucherApplicableTo)}) &amp; Free Entry Pass upon reaching {tier2.referralsRequired} referrals!
+                  </>
+                ) : (
+                  <>
+                    Earn a <b>Free Official Adult Entry Pass</b> upon reaching {tier2.referralsRequired} referrals!
+                  </>
+                )}
               </Text>
             </Card>
           </SimpleGrid>

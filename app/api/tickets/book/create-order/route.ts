@@ -9,6 +9,7 @@ import {
   recordCouponUsage,
 } from '@/lib/db';
 import { createRazorpayOrder } from '@/lib/razorpay';
+import { sendTicketBookingSms } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,6 +109,11 @@ export async function POST(req: NextRequest) {
         if (couponRes.coupon?.id) {
           await recordCouponUsage(couponRes.coupon.id);
         }
+
+        // Fire SMS for free coupon pass
+        sendTicketBookingSms(completedBooking).catch((smsErr) => {
+          console.error('[SMS Dispatch Error] Free coupon ticket booking:', smsErr);
+        });
 
         return NextResponse.json({
           success: true,

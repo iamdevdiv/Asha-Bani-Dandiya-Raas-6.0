@@ -3,6 +3,7 @@ import { getBookingById, updateBookingPayment, markStallBooked, getSettings } fr
 import { verifyRazorpaySignature } from '@/lib/razorpay';
 import { generateStallQrCode } from '@/lib/qr-service';
 import { generateBookingConfirmationPackage } from '@/lib/docx-pdf-service';
+import { sendStallBookingSms } from '@/lib/sms';
 
 export async function POST(req: NextRequest) {
   try {
@@ -83,6 +84,13 @@ export async function POST(req: NextRequest) {
       qrCodeDataUrl,
       confirmationDocUrl: docxPackage.image1080DataUrl,
     });
+
+    // Fire stall booking SMS asynchronously
+    if (updatedBooking) {
+      sendStallBookingSms(updatedBooking).catch((smsErr) => {
+        console.error('[SMS Dispatch Error] Stall booking:', smsErr);
+      });
+    }
 
     return NextResponse.json({
       success: true,

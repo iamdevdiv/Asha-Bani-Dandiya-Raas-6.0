@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { completeTicketBookingPayment, getTicketBookingById, recordCouponUsage } from '@/lib/db';
 import { verifyRazorpaySignature } from '@/lib/razorpay';
+import { sendTicketBookingSms } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,6 +45,11 @@ export async function POST(req: NextRequest) {
     if (booking.couponCode) {
       await recordCouponUsage(booking.couponCode);
     }
+
+    // Fire SMS asynchronously without blocking the user response
+    sendTicketBookingSms(completedBooking).catch((smsErr) => {
+      console.error('[SMS Dispatch Error] Ticket booking:', smsErr);
+    });
 
     return NextResponse.json({
       success: true,

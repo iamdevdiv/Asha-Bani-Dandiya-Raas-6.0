@@ -30,6 +30,7 @@ import {
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { ExhibitorPassCard } from '@/components/ExhibitorPassCard';
+import { StallVoucherLiveFeed } from '@/components/StallVoucherLiveFeed';
 
 function SuccessContent() {
   const searchParams = useSearchParams();
@@ -218,6 +219,15 @@ function SuccessContent() {
           </Paper>
         </Stack>
       </SimpleGrid>
+
+      {/* Live Voucher Settlements & Payments Received Section */}
+      <Box mb="xl">
+        <StallVoucherLiveFeed
+          bookingId={booking.id}
+          stallNumber={booking.stallNumber}
+          brandName={booking.brandName || booking.bookerName}
+        />
+      </Box>
 
       {/* Navigation Buttons */}
       <Group justify="center" gap="md" mt="xl">

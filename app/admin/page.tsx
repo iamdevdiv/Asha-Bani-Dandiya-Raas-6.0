@@ -6,6 +6,6 @@ export default async function AdminRootPage() {
   if (!admin) {
     redirect('/admin/login');
   }
-  redirect('/admin/stalls');
+  redirect('/admin/ticket-bookings');
 }
 

@@ -184,7 +184,7 @@ export function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps) {
         <Group justify="space-between" align="center" h="100%" px={{ base: 'xs', sm: 'md' }} wrap="nowrap">
           <Group gap="xs" wrap="nowrap" style={{ flexShrink: 1, minWidth: 0 }}>
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" color="#facc15" />
-            <Link href="/admin/stalls" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+            <Link href="/admin/ticket-bookings" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', minWidth: 0 }}>
               <Group gap="xs" align="center" wrap="nowrap">
                 <Box
                   style={{

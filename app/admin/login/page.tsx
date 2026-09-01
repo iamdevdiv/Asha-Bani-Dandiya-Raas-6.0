@@ -68,7 +68,7 @@ export default function AdminLoginPage() {
         color: 'green',
       });
 
-      window.location.href = '/admin/stalls';
+      window.location.href = '/admin/ticket-bookings';
     } catch (err: any) {
       setErrorMsg(err.message || 'Login failed.');
     } finally {

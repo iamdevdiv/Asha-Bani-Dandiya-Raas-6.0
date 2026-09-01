@@ -174,9 +174,9 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
                       INCLUDED STALL VOUCHER
                     </Text>
                     <Badge size="xs" color="yellow" variant="light">
-                      {booking.voucherApplicableTo === 'food'
+                      {(booking.effectiveVoucherApplicableTo || booking.voucherApplicableTo) === 'food'
                         ? 'Food Stalls (1–15)'
-                        : booking.voucherApplicableTo === 'other'
+                        : (booking.effectiveVoucherApplicableTo || booking.voucherApplicableTo) === 'other'
                         ? 'Commercial Stalls (A–T)'
                         : 'All 35 Stalls'}
                     </Badge>

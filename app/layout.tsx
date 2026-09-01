@@ -33,7 +33,10 @@ const outfit = Outfit({
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://ashabani.com'),
-  title: 'Asha Bani Dandiya Raas 2026 | 6th Grand Dandiya Celebration',
+  title: {
+    default: 'Asha Bani Dandiya Raas 2026 | 6th Grand Dandiya Celebration',
+    template: '%s | Asha Bani Dandiya Raas 2026',
+  },
   description:
     'Experience the 6th Grand Dandiya Celebration of Asha Bani Dandiya Raas in Saharanpur. Book your exclusive shopping & food stall or passes for an auspicious evening of joy, music, and festivities.',
   keywords: 'Dandiya Raas, Garba 2026, Asha Bani, Saharanpur Dandiya, Stall Booking, Festival of Lights',
@@ -43,6 +46,8 @@ export const metadata = {
     images: ['/images/hero.jpg'],
   },
 };
+
+import { PageTitleListener } from '@/components/PageTitleListener';
 
 export default function RootLayout({
   children,
@@ -68,6 +73,7 @@ export default function RootLayout({
         <MantineProvider theme={theme} defaultColorScheme="dark">
           <ModalsProvider>
             <Notifications position="top-right" zIndex={2000} />
+            <PageTitleListener />
             {children}
           </ModalsProvider>
         </MantineProvider>
