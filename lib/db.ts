@@ -283,21 +283,12 @@ function saveFallbackStore(store: FallbackStore) {
 }
 
 // Check if Prisma connection to PostgreSQL succeeds
-let isPrismaAvailable: boolean | null = null;
-async function checkPrisma(): Promise<boolean> {
-  if (isPrismaAvailable !== null) return isPrismaAvailable;
-  if (!process.env.DATABASE_URL) {
-    isPrismaAvailable = false;
-    return false;
-  }
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    isPrismaAvailable = true;
+export async function checkPrisma(): Promise<boolean> {
+  // If DATABASE_URL is set (Production / Connected), strictly use Neon PostgreSQL
+  if (process.env.DATABASE_URL) {
     return true;
-  } catch {
-    isPrismaAvailable = false;
-    return false;
   }
+  return false;
 }
 
 // Database helper functions
