@@ -1092,6 +1092,15 @@ export async function verifyAndCheckInBooking(codeOrRef: string, verifierName: s
       });
 
       if (stallBooking) {
+        if (stallBooking.paymentStatus && stallBooking.paymentStatus !== 'success') {
+          return {
+            success: false,
+            passType: 'stall' as const,
+            booking: stallBooking,
+            message: `PAYMENT PENDING / INCOMPLETE: Stall booking (#${stallBooking.bookingNumber}) is not valid for entry because payment is not completed.`,
+          };
+        }
+
         if (stallBooking.isCheckedIn) {
           return {
             success: true,
@@ -1143,6 +1152,15 @@ export async function verifyAndCheckInBooking(codeOrRef: string, verifierName: s
       });
 
       if (ticketBooking) {
+        if (ticketBooking.paymentStatus && ticketBooking.paymentStatus !== 'success') {
+          return {
+            success: false,
+            passType: 'ticket' as const,
+            booking: ticketBooking,
+            message: `PAYMENT PENDING / INCOMPLETE: Ticket booking (#${ticketBooking.bookingNumber}) is not valid for entry because payment is not completed.`,
+          };
+        }
+
         if (ticketBooking.isCheckedIn) {
           return {
             success: true,
@@ -1191,6 +1209,15 @@ export async function verifyAndCheckInBooking(codeOrRef: string, verifierName: s
   );
 
   if (stallBooking) {
+    if (stallBooking.paymentStatus && stallBooking.paymentStatus !== 'success') {
+      return {
+        success: false,
+        passType: 'stall' as const,
+        booking: stallBooking,
+        message: `PAYMENT PENDING / INCOMPLETE: Stall booking (#${stallBooking.bookingNumber}) is not valid for entry because payment is not completed.`,
+      };
+    }
+
     if (stallBooking.isCheckedIn) {
       return {
         success: true,
@@ -1233,6 +1260,15 @@ export async function verifyAndCheckInBooking(codeOrRef: string, verifierName: s
   );
 
   if (ticketBooking) {
+    if (ticketBooking.paymentStatus && ticketBooking.paymentStatus !== 'success') {
+      return {
+        success: false,
+        passType: 'ticket' as const,
+        booking: ticketBooking,
+        message: `PAYMENT PENDING / INCOMPLETE: Ticket booking (#${ticketBooking.bookingNumber}) is not valid for entry because payment is not completed.`,
+      };
+    }
+
     if (ticketBooking.isCheckedIn) {
       return {
         success: true,
