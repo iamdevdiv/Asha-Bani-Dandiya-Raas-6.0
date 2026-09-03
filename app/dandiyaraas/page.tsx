@@ -35,6 +35,9 @@ import {
   IconArrowRight,
   IconGift,
   IconCalendar,
+  IconTrophy,
+  IconCrown,
+  IconFlame,
 } from '@tabler/icons-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -292,14 +295,24 @@ export default function CustomerHomePage() {
                     ₹{currentPhase?.adultPrice || 499} / Adult • ₹{currentPhase?.childPrice || 199} / Child (Under 55&quot;)
                   </Text>
 
-                  <Badge
-                    color="yellow"
-                    variant="light"
-                    size="sm"
-                    leftSection={<IconGift size={13} color="#facc15" />}
-                  >
-                    Includes ₹{currentPhase?.voucherAmount || 100} Free Stall Voucher
-                  </Badge>
+                  <Group gap={6} justify="center" wrap="wrap">
+                    <Badge
+                      color="yellow"
+                      variant="light"
+                      size="sm"
+                      leftSection={<IconGift size={13} color="#facc15" />}
+                    >
+                      Includes ₹{currentPhase?.voucherAmount || 100} Free Stall Voucher
+                    </Badge>
+                    <Badge
+                      color="yellow"
+                      variant="light"
+                      size="sm"
+                      leftSection={<IconSparkles size={13} color="#facc15" />}
+                    >
+                      Free Dandiya Sticks for All Attendees
+                    </Badge>
+                  </Group>
 
                   <Group justify="center" gap="sm" mt="xs" w="100%">
                     <Button
@@ -505,7 +518,7 @@ export default function CustomerHomePage() {
                       </Group>
                     </Stack>
 
-                    {/* Voucher Perk */}
+                    {/* Included Pass Perks */}
                     <Paper
                       p="xs"
                       radius="md"
@@ -514,22 +527,33 @@ export default function CustomerHomePage() {
                         border: '1px dashed rgba(250, 204, 21, 0.4)',
                       }}
                     >
-                      <Group gap="xs" align="center">
-                        <ThemeIcon size={26} radius="md" color="yellow" variant="filled">
-                          <IconBuildingStore size={15} color="#140305" />
-                        </ThemeIcon>
-                        <Text size="xs" fw={600} c="yellow.2" style={{ flex: 1 }}>
-                          Includes <b>₹{p.voucherAmount || 100} Free Stall Voucher</b> (Valid at{' '}
-                          <span style={{ color: '#ffffff' }}>
-                            {p.voucherApplicableTo === 'food'
-                              ? 'Food Stalls'
-                              : p.voucherApplicableTo === 'other'
-                              ? 'Commercial Stalls'
-                              : 'All 35 Stalls'}
-                          </span>
-                          )
-                        </Text>
-                      </Group>
+                      <Stack gap={6}>
+                        <Group gap="xs" align="center" wrap="nowrap">
+                          <ThemeIcon size={24} radius="md" color="yellow" variant="filled" style={{ flexShrink: 0 }}>
+                            <IconBuildingStore size={14} color="#140305" />
+                          </ThemeIcon>
+                          <Text size="xs" fw={600} c="yellow.2" style={{ flex: 1 }}>
+                            Includes <b>₹{p.voucherAmount || 100} Free Stall Voucher</b> (Valid at{' '}
+                            <span style={{ color: '#ffffff' }}>
+                              {p.voucherApplicableTo === 'food'
+                                ? 'Food Stalls'
+                                : p.voucherApplicableTo === 'other'
+                                ? 'Commercial Stalls'
+                                : 'All 35 Stalls'}
+                            </span>
+                            )
+                          </Text>
+                        </Group>
+
+                        <Group gap="xs" align="center" wrap="nowrap">
+                          <ThemeIcon size={24} radius="md" color="yellow" variant="light" style={{ flexShrink: 0 }}>
+                            <IconSparkles size={14} color="#facc15" />
+                          </ThemeIcon>
+                          <Text size="xs" fw={600} c="yellow.1" style={{ flex: 1 }}>
+                            <b>Free Dandiya Sticks</b> for each adult &amp; accompanying children
+                          </Text>
+                        </Group>
+                      </Stack>
                     </Paper>
                   </Stack>
 
@@ -636,6 +660,254 @@ export default function CustomerHomePage() {
                 </Text>
               </Card>
             ))}
+          </SimpleGrid>
+        </Container>
+      </Box>
+
+      {/* LUCKY DRAWS, PRIZES & PERKS SECTION */}
+      <Box
+        py={80}
+        style={{
+          background: 'linear-gradient(180deg, rgba(20, 3, 5, 0.95) 0%, rgba(38, 8, 14, 0.85) 50%, rgba(20, 3, 5, 0.95) 100%)',
+          borderTop: '1px solid rgba(234, 179, 8, 0.2)',
+        }}
+      >
+        <Container size="xl">
+          <Stack align="center" gap="xs" mb={50}>
+            <Badge
+              size="md"
+              style={{
+                backgroundColor: '#facc15',
+                color: '#140305',
+                fontWeight: 800,
+                letterSpacing: '0.08em',
+              }}
+            >
+              CELEBRATION HIGHLIGHTS
+            </Badge>
+            <Title
+              order={2}
+              className="gold-gradient-text"
+              ta="center"
+              style={{ fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.8rem, 3.5vw, 2.6rem)' }}
+            >
+              Lucky Draws &amp; Special Prizes
+            </Title>
+            <Text c="gray.3" size="md" ta="center" maw={650}>
+              Exciting rewards, lucky draws, and complimentary dandiya sticks for attendees at Asha Bani Dandiya Raas 6.0!
+            </Text>
+          </Stack>
+
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+            {/* 1. 10 Lucky Draws */}
+            <Card
+              className="festive-card"
+              p="xl"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box>
+                <Group justify="space-between" align="flex-start" mb="md">
+                  <ThemeIcon
+                    size={52}
+                    radius="md"
+                    style={{
+                      background: 'rgba(234, 179, 8, 0.15)',
+                      border: '1px solid rgba(234, 179, 8, 0.3)',
+                    }}
+                  >
+                    <IconGift size={28} color="#facc15" />
+                  </ThemeIcon>
+                  <Badge variant="light" color="yellow" size="sm" style={{ fontWeight: 700 }}>
+                    10 LUCKY DRAWS
+                  </Badge>
+                </Group>
+
+                <Title order={3} size="h4" c="white" mb="xs" style={{ fontFamily: "'Cinzel', serif" }}>
+                  10 Lucky Draws
+                </Title>
+                <Text size="sm" c="gray.3" style={{ lineHeight: 1.6 }}>
+                  10 lucky draws will be conducted that will offer a variety of rewards for attendees during the event.
+                </Text>
+              </Box>
+
+              <Paper
+                p="sm"
+                radius="md"
+                mt="lg"
+                style={{
+                  backgroundColor: 'rgba(234, 179, 8, 0.08)',
+                  border: '1px solid rgba(234, 179, 8, 0.2)',
+                }}
+              >
+                <Text size="xs" c="yellow.2" fw={600}>
+                  ✨ Conducted during the grand Dandiya celebration!
+                </Text>
+              </Paper>
+            </Card>
+
+            {/* 2. Special Prize Categories */}
+            <Card
+              className="festive-card"
+              p="xl"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box>
+                <Group justify="space-between" align="flex-start" mb="md">
+                  <ThemeIcon
+                    size={52}
+                    radius="md"
+                    style={{
+                      background: 'rgba(234, 179, 8, 0.15)',
+                      border: '1px solid rgba(234, 179, 8, 0.3)',
+                    }}
+                  >
+                    <IconTrophy size={28} color="#facc15" />
+                  </ThemeIcon>
+                  <Badge variant="light" color="yellow" size="sm" style={{ fontWeight: 700 }}>
+                    PRIZE CATEGORIES
+                  </Badge>
+                </Group>
+
+                <Title order={3} size="h4" c="white" mb="xs" style={{ fontFamily: "'Cinzel', serif" }}>
+                  Category Prizes
+                </Title>
+                <Text size="sm" c="gray.3" mb="sm">
+                  Prizes will be distributed to the following categories:
+                </Text>
+
+                <Stack gap="xs">
+                  <Paper
+                    p="xs"
+                    radius="md"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(234, 179, 8, 0.2)',
+                    }}
+                  >
+                    <Group gap="xs" wrap="nowrap">
+                      <ThemeIcon size={26} radius="xl" color="yellow" variant="light" style={{ flexShrink: 0 }}>
+                        <IconTicket size={14} color="#facc15" />
+                      </ThemeIcon>
+                      <Text size="xs" c="gray.2" fw={600}>
+                        <span style={{ color: '#facc15' }}>First Booking:</span> Prize for the first booking
+                      </Text>
+                    </Group>
+                  </Paper>
+
+                  <Paper
+                    p="xs"
+                    radius="md"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(234, 179, 8, 0.2)',
+                    }}
+                  >
+                    <Group gap="xs" wrap="nowrap">
+                      <ThemeIcon size={26} radius="xl" color="pink" variant="light" style={{ flexShrink: 0 }}>
+                        <IconCrown size={14} color="#f472b6" />
+                      </ThemeIcon>
+                      <Text size="xs" c="gray.2" fw={600}>
+                        <span style={{ color: '#facc15' }}>First Lady Arrival:</span> The very first lady who joins the program
+                      </Text>
+                    </Group>
+                  </Paper>
+
+                  <Paper
+                    p="xs"
+                    radius="md"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(234, 179, 8, 0.2)',
+                    }}
+                  >
+                    <Group gap="xs" wrap="nowrap">
+                      <ThemeIcon size={26} radius="xl" color="orange" variant="light" style={{ flexShrink: 0 }}>
+                        <IconFlame size={14} color="#fb923c" />
+                      </ThemeIcon>
+                      <Text size="xs" c="gray.2" fw={600}>
+                        <span style={{ color: '#facc15' }}>Energetic Dancer:</span> Prize for the energetic dancer
+                      </Text>
+                    </Group>
+                  </Paper>
+
+                  <Paper
+                    p="xs"
+                    radius="md"
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(234, 179, 8, 0.2)',
+                    }}
+                  >
+                    <Group gap="xs" wrap="nowrap">
+                      <ThemeIcon size={26} radius="xl" color="cyan" variant="light" style={{ flexShrink: 0 }}>
+                        <IconSparkles size={14} color="#38bdf8" />
+                      </ThemeIcon>
+                      <Text size="xs" c="gray.2" fw={600}>
+                        <span style={{ color: '#facc15' }}>Best Traditional Outfit:</span> Prize for best traditional outfit
+                      </Text>
+                    </Group>
+                  </Paper>
+                </Stack>
+              </Box>
+            </Card>
+
+            {/* 3. Complimentary Dandiya Sticks */}
+            <Card
+              className="festive-card"
+              p="xl"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Box>
+                <Group justify="space-between" align="flex-start" mb="md">
+                  <ThemeIcon
+                    size={52}
+                    radius="md"
+                    style={{
+                      background: 'rgba(234, 179, 8, 0.15)',
+                      border: '1px solid rgba(234, 179, 8, 0.3)',
+                    }}
+                  >
+                    <IconSparkles size={28} color="#facc15" />
+                  </ThemeIcon>
+                  <Badge variant="light" color="green" size="sm" style={{ fontWeight: 700 }}>
+                    COMPLIMENTARY
+                  </Badge>
+                </Group>
+
+                <Title order={3} size="h4" c="white" mb="xs" style={{ fontFamily: "'Cinzel', serif" }}>
+                  Free Dandiya Sticks
+                </Title>
+                <Text size="sm" c="gray.3" style={{ lineHeight: 1.6 }}>
+                  Free dandiya sticks will be given to each adult and accompanying children if any.
+                </Text>
+              </Box>
+
+              <Paper
+                p="sm"
+                radius="md"
+                mt="lg"
+                style={{
+                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                }}
+              >
+                <Text size="xs" c="green.2" fw={600}>
+                  ✓ Provided at the entry gate for every attendee!
+                </Text>
+              </Paper>
+            </Card>
           </SimpleGrid>
         </Container>
       </Box>
