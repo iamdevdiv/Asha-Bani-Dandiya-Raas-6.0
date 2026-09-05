@@ -40,6 +40,7 @@ import {
   IconScan,
   IconTrash,
   IconExternalLink,
+  IconCheck,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { ExhibitorPassCard } from '@/components/ExhibitorPassCard';
@@ -54,6 +55,9 @@ export default function AdminBookingsPage() {
   const [filterDate, setFilterDate] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [opened, { open, close }] = useDisclosure(false);
+
+  // Confirm Stall Payment State
+  const [confirmingStallId, setConfirmingStallId] = useState<string | null>(null);
 
   // Delete Order Confirmation State
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
@@ -85,6 +89,38 @@ export default function AdminBookingsPage() {
       message: `Message dispatched for ${b.bookerName}.`,
       color: 'green',
     });
+  };
+
+  const handleConfirmStallPayment = async (b: any) => {
+    setConfirmingStallId(b.id);
+    try {
+      const res = await fetch('/api/admin/bookings/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.id }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to confirm stall booking');
+      }
+      notifications.show({
+        title: 'Payment Confirmed',
+        message: data.message || `Stall #${b.stallNumber} booking marked as confirmed. Pass package generated.`,
+        color: 'green',
+      });
+      fetchBookings();
+      if (selectedBooking && selectedBooking.id === b.id) {
+        setSelectedBooking(data.booking);
+      }
+    } catch (err: any) {
+      notifications.show({
+        title: 'Confirmation Failed',
+        message: err.message || 'Could not confirm stall booking.',
+        color: 'red',
+      });
+    } finally {
+      setConfirmingStallId(null);
+    }
   };
 
   const handlePromptDelete = (b: any) => {
@@ -377,6 +413,18 @@ export default function AdminBookingsPage() {
                             <IconBrandWhatsapp size={16} />
                           </ActionIcon>
                         </Tooltip>
+                        {b.paymentStatus !== 'success' && (
+                          <Tooltip label="Mark Payment Confirmed & Issue Stall Pass">
+                            <ActionIcon
+                              variant="filled"
+                              color="green"
+                              loading={confirmingStallId === b.id}
+                              onClick={() => handleConfirmStallPayment(b)}
+                            >
+                              <IconCheck size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        )}
                         <Button
                           size="xs"
                           variant="light"
@@ -528,6 +576,21 @@ export default function AdminBookingsPage() {
                     </Text>
                   )}
                 </Paper>
+
+                {/* Confirm Payment Action if pending */}
+                {selectedBooking.paymentStatus !== 'success' && (
+                  <Button
+                    color="green"
+                    variant="filled"
+                    size="md"
+                    fullWidth
+                    leftSection={<IconCheck size={20} />}
+                    loading={confirmingStallId === selectedBooking.id}
+                    onClick={() => handleConfirmStallPayment(selectedBooking)}
+                  >
+                    Confirm Payment &amp; Issue Official Stall Pass
+                  </Button>
+                )}
 
                 {/* WhatsApp Notification Action */}
                 <Button

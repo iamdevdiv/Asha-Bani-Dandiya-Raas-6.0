@@ -26,6 +26,7 @@ import {
   Loader,
   Tabs,
   Alert,
+  Checkbox,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -65,6 +66,12 @@ export default function AdminTicketBookingsPage() {
   // Direct Instant Download State
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [directDownloadBooking, setDirectDownloadBooking] = useState<any | null>(null);
+
+  // Manual Confirm Payment State (for captured Razorpay payments showing as pending)
+  const [bookingToConfirm, setBookingToConfirm] = useState<any | null>(null);
+  const [confirmPaymentId, setConfirmPaymentId] = useState('');
+  const [confirmSendSms, setConfirmSendSms] = useState(true);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
   // Delete Booking State
   const [bookingToDelete, setBookingToDelete] = useState<any | null>(null);
@@ -228,6 +235,50 @@ export default function AdminTicketBookingsPage() {
         `Feel free to reply if you need any help!`;
 
       openWhatsAppChat(b.mobile || '', msg);
+    }
+  };
+
+  const handlePromptConfirmPayment = (b: any) => {
+    setBookingToConfirm(b);
+    setConfirmPaymentId(b.razorpayPaymentId || '');
+    setConfirmSendSms(true);
+  };
+
+  const handleConfirmPayment = async () => {
+    if (!bookingToConfirm) return;
+    setConfirmingPayment(true);
+    try {
+      const res = await fetch('/api/admin/ticket-bookings/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketBookingId: bookingToConfirm.id,
+          razorpayPaymentId: confirmPaymentId.trim() || undefined,
+          sendSms: confirmSendSms,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to confirm ticket booking payment');
+      }
+
+      notifications.show({
+        title: 'Payment Confirmed & Pass Issued',
+        message: data.message || `Ticket booking #${bookingToConfirm.bookingNumber} is now confirmed. Pass generated and SMS dispatched.`,
+        color: 'green',
+      });
+
+      setBookingToConfirm(null);
+      fetchBookings();
+    } catch (err: any) {
+      notifications.show({
+        title: 'Confirmation Failed',
+        message: err.message || 'Could not confirm payment.',
+        color: 'red',
+      });
+    } finally {
+      setConfirmingPayment(false);
     }
   };
 
@@ -777,6 +828,18 @@ export default function AdminTicketBookingsPage() {
                             </Table.Td>
                             <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                               <Group gap="xs" justify="flex-end" wrap="nowrap">
+                                <Tooltip label="Mark Payment Confirmed & Issue Pass / SMS">
+                                  <ActionIcon
+                                    color="green"
+                                    variant="filled"
+                                    size="sm"
+                                    radius="md"
+                                    onClick={() => handlePromptConfirmPayment(b)}
+                                  >
+                                    <IconCheck size={16} />
+                                  </ActionIcon>
+                                </Tooltip>
+
                                 <Tooltip label="Send WhatsApp Assistance / Booking Link">
                                   <ActionIcon
                                     color="green"
@@ -1021,6 +1084,131 @@ export default function AdminTicketBookingsPage() {
                 </Button>
                 <Button color="red" loading={deleting} onClick={handleConfirmDelete}>
                   Delete Pass
+                </Button>
+              </Group>
+            </Stack>
+          )}
+        </Modal>
+
+        {/* Modal: Confirm Payment & Issue Official Pass */}
+        <Modal
+          opened={!!bookingToConfirm}
+          onClose={() => !confirmingPayment && setBookingToConfirm(null)}
+          title={
+            <Group gap="xs">
+              <ThemeIcon color="green" variant="light" size="md" radius="md">
+                <IconCheck size={18} />
+              </ThemeIcon>
+              <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+                Confirm Payment & Issue Entry Pass
+              </Text>
+            </Group>
+          }
+          size="md"
+          centered
+          radius="lg"
+          styles={{
+            content: {
+              backgroundColor: '#140305',
+              border: '1px solid rgba(234, 179, 8, 0.35)',
+            },
+            header: {
+              backgroundColor: '#140305',
+              borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
+            },
+          }}
+        >
+          {bookingToConfirm && (
+            <Stack gap="md" pt="xs">
+              <Alert
+                icon={<IconInfoCircle size={18} />}
+                color="green"
+                variant="light"
+                radius="md"
+                styles={{
+                  root: { backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' },
+                  message: { color: '#e2e8f0', fontSize: '0.85rem' },
+                }}
+              >
+                This action marks payment as confirmed, generates the official QR entry pass, credits the included <strong>₹{bookingToConfirm.voucherAmount || 100} stall voucher</strong>, and moves the booking to <strong>Confirmed Passes</strong>.
+              </Alert>
+
+              <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+                <SimpleGrid cols={2} spacing="xs">
+                  <Box>
+                    <Text size="11px" c="gray.4">ATTENDEE NAME</Text>
+                    <Text size="sm" fw={700} c="white">{bookingToConfirm.fullName}</Text>
+                  </Box>
+                  <Box>
+                    <Text size="11px" c="gray.4">MOBILE NUMBER</Text>
+                    <Text size="sm" fw={700} c="royalGold.3">{bookingToConfirm.mobile}</Text>
+                  </Box>
+                  <Box>
+                    <Text size="11px" c="gray.4">BOOKING NUMBER</Text>
+                    <Text size="sm" fw={700} style={{ fontFamily: 'monospace', color: '#fde047' }}>
+                      #{bookingToConfirm.bookingNumber}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text size="11px" c="gray.4">EXPECTED AMOUNT</Text>
+                    <Text size="sm" fw={800} c="green.4">₹{bookingToConfirm.totalAmount}</Text>
+                  </Box>
+                  <Box>
+                    <Text size="11px" c="gray.4">PASS ALLOCATION</Text>
+                    <Text size="xs" c="gray.3">
+                      1 Adult{bookingToConfirm.childrenCount > 0 ? ` + ${bookingToConfirm.childrenCount} Child${bookingToConfirm.childrenCount > 1 ? 'ren' : ''}` : ''}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text size="11px" c="gray.4">PHASE TIER</Text>
+                    <Badge size="xs" color="yellow" variant="light">
+                      {bookingToConfirm.phaseName || 'Early Phase'}
+                    </Badge>
+                  </Box>
+                </SimpleGrid>
+              </Paper>
+
+              <TextInput
+                label="Razorpay Payment ID (Optional)"
+                description="Attach the Razorpay Payment ID (e.g. pay_PXXXXXXXXXXXXX) from your Razorpay Dashboard for financial reconciliation."
+                placeholder="pay_..."
+                value={confirmPaymentId}
+                onChange={(e) => setConfirmPaymentId(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                  description: { color: '#9ca3af', fontSize: '0.75rem' },
+                }}
+              />
+
+              <Checkbox
+                label={
+                  <Text size="xs" c="gray.3">
+                    Dispatch confirmation SMS with digital entry pass link to <strong>+91 {bookingToConfirm.mobile}</strong>
+                  </Text>
+                }
+                checked={confirmSendSms}
+                onChange={(e) => setConfirmSendSms(e.currentTarget.checked)}
+                color="green"
+              />
+
+              <Group justify="flex-end" mt="md">
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  disabled={confirmingPayment}
+                  onClick={() => setBookingToConfirm(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  color="green"
+                  variant="filled"
+                  leftSection={<IconCheck size={16} />}
+                  loading={confirmingPayment}
+                  onClick={handleConfirmPayment}
+                >
+                  Confirm Payment & Issue Pass
                 </Button>
               </Group>
             </Stack>

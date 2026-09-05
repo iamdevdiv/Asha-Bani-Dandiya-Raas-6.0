@@ -1649,24 +1649,33 @@ export async function completeTicketBookingPayment(params: {
         where: { id: booking.id },
         data: {
           paymentStatus: 'success',
-          razorpayOrderId: params.razorpayOrderId || null,
-          razorpayPaymentId: params.razorpayPaymentId || null,
-          razorpaySignature: params.razorpaySignature || null,
+          razorpayOrderId: params.razorpayOrderId || booking.razorpayOrderId || null,
+          razorpayPaymentId: params.razorpayPaymentId || booking.razorpayPaymentId || null,
+          razorpaySignature: params.razorpaySignature || booking.razorpaySignature || null,
           qrCodeDataUrl,
         },
       });
 
-      // Record Initial Voucher Credit in Transaction History
-      await (prisma as any).voucherTransaction.create({
-        data: {
+      // Record Initial Voucher Credit in Transaction History (check if already created to avoid duplicates)
+      const existingTx = await (prisma as any).voucherTransaction.findFirst({
+        where: {
           ticketBookingId: booking.id,
           sourceType: 'ticket_booking',
-          sourceReference: booking.bookingNumber,
-          amount: booking.voucherAmount,
-          type: 'credit',
-          description: `+₹${booking.voucherAmount} Stall Voucher Included with Ticket Booking ${booking.bookingNumber}`,
         },
       });
+
+      if (!existingTx) {
+        await (prisma as any).voucherTransaction.create({
+          data: {
+            ticketBookingId: booking.id,
+            sourceType: 'ticket_booking',
+            sourceReference: booking.bookingNumber,
+            amount: booking.voucherAmount,
+            type: 'credit',
+            description: `+₹${booking.voucherAmount} Stall Voucher Included with Ticket Booking ${booking.bookingNumber}`,
+          },
+        });
+      }
 
       // If referred by ambassador, increment their referral and check tiers
       if (booking.referredByAmbassadorId) {
@@ -1683,26 +1692,31 @@ export async function completeTicketBookingPayment(params: {
   const record = (store.ticketBookings || []).find((b) => b.id === params.bookingId || b.bookingNumber === params.bookingId);
   if (record) {
     record.paymentStatus = 'success';
-    record.razorpayOrderId = params.razorpayOrderId || null;
-    record.razorpayPaymentId = params.razorpayPaymentId || null;
-    record.razorpaySignature = params.razorpaySignature || null;
+    record.razorpayOrderId = params.razorpayOrderId || record.razorpayOrderId || null;
+    record.razorpayPaymentId = params.razorpayPaymentId || record.razorpayPaymentId || null;
+    record.razorpaySignature = params.razorpaySignature || record.razorpaySignature || null;
     record.qrCodeDataUrl = qrCodeDataUrl;
     record.updatedAt = new Date().toISOString();
 
     if (!store.voucherTransactions) store.voucherTransactions = [];
-    store.voucherTransactions.push({
-      id: `vt_${Date.now()}`,
-      ticketBookingId: record.id,
-      ambassadorId: null,
-      sourceType: 'ticket_booking',
-      sourceReference: record.bookingNumber,
-      stallNumber: null,
-      stallOwnerName: null,
-      amount: record.voucherAmount,
-      type: 'credit',
-      description: `+₹${record.voucherAmount} Stall Voucher Included with Ticket Booking ${record.bookingNumber}`,
-      createdAt: new Date().toISOString(),
-    });
+    const hasExistingTx = store.voucherTransactions.some(
+      (vt) => vt.ticketBookingId === record.id && vt.sourceType === 'ticket_booking'
+    );
+    if (!hasExistingTx) {
+      store.voucherTransactions.push({
+        id: `vt_${Date.now()}`,
+        ticketBookingId: record.id,
+        ambassadorId: null,
+        sourceType: 'ticket_booking',
+        sourceReference: record.bookingNumber,
+        stallNumber: null,
+        stallOwnerName: null,
+        amount: record.voucherAmount,
+        type: 'credit',
+        description: `+₹${record.voucherAmount} Stall Voucher Included with Ticket Booking ${record.bookingNumber}`,
+        createdAt: new Date().toISOString(),
+      });
+    }
 
     saveFallbackStore(store);
 
