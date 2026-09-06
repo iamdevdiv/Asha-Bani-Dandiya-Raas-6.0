@@ -133,6 +133,7 @@ export async function sendTicketBookingSms(booking: {
   adultCount?: number;
   childrenCount?: number;
   voucherAmount?: number;
+  totalAmount?: number;
 }) {
   console.log('[TextBee SMS DEBUG] Triggering Ticket Booking SMS for booking:', booking.bookingNumber, 'Mobile:', booking.mobile);
 
@@ -146,12 +147,26 @@ export async function sendTicketBookingSms(booking: {
   const childrenText = (booking.childrenCount || 0) > 0 ? ` + ${booking.childrenCount} Children` : '';
   const voucherAmount = booking.voucherAmount !== undefined ? booking.voucherAmount : 100;
 
+  // Pass pricing / gift status
+  let priceLine = '';
+  if (booking.totalAmount === 0) {
+    priceLine = 'Pass Type: Complimentary / Gift Pass (Rs. 0)\n';
+  } else if (booking.totalAmount !== undefined && booking.totalAmount > 0) {
+    priceLine = `Amount Paid: Rs. ${booking.totalAmount}\n`;
+  }
+
+  // Stall voucher status
+  const voucherLine = voucherAmount > 0
+    ? `Included Voucher: Rs. ${voucherAmount}\n`
+    : `Stall Voucher: None (Rs. 0)\n`;
+
   const message =
     `Namaste ${booking.fullName.trim()}!\n\n` +
     `Your official entry pass for Asha Bani Dandiya Raas 6.0 is confirmed.\n\n` +
     `Booking ID: ${booking.bookingNumber}\n` +
+    priceLine +
     `Passes: 1 Adult${childrenText}\n` +
-    `Included Voucher: Rs. ${voucherAmount}\n` +
+    voucherLine +
     `Date: 13 October 2026 (6:00 PM onwards)\n` +
     `Venue: Maharaja Agrasen Bhavan, Saharanpur\n\n` +
     `View / Download Your Digital Pass:\n${passUrl}`;

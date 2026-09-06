@@ -1626,6 +1626,185 @@ export async function createTicketBookingRecord(data: {
   return newTicket;
 }
 
+export async function createAdminIssuedTicketBooking(data: {
+  fullName: string;
+  mobile: string;
+  email?: string;
+  address?: string;
+  adultCount?: number;
+  childrenCount?: number;
+  childrenNames?: string[];
+  phaseId?: string;
+  totalAmount?: number;
+  voucherAmount?: number;
+  voucherApplicableTo?: string;
+  referredByAmbassadorId?: string;
+  paymentMethod?: string;
+  adminNotes?: string;
+}) {
+  let phase: any = null;
+  if (data.phaseId) {
+    const allPhases = await getTicketPhases();
+    phase = allPhases.find((p: any) => p.id === data.phaseId);
+  }
+  if (!phase) {
+    phase = await getCurrentActivePhase();
+  }
+
+  const adultCount = data.adultCount !== undefined ? Math.max(1, Number(data.adultCount)) : 1;
+  const childrenCount = data.childrenCount !== undefined
+    ? Math.max(0, Number(data.childrenCount))
+    : (data.childrenNames ? data.childrenNames.length : 0);
+  const adultPrice = phase.adultPrice || 499;
+  const childPrice = phase.childPrice || 199;
+
+  // Price can be explicitly set to 0 by admin (e.g. gift pass)
+  const totalAmount = data.totalAmount !== undefined
+    ? Math.max(0, Number(data.totalAmount))
+    : Math.max(0, adultPrice * adultCount + childPrice * childrenCount);
+
+  // Voucher amount can be explicitly set to 0 by admin
+  const voucherAmount = data.voucherAmount !== undefined
+    ? Math.max(0, Number(data.voucherAmount))
+    : (phase.voucherAmount ?? 100);
+
+  const voucherBalance = voucherAmount;
+  const voucherApplicableTo = data.voucherApplicableTo || phase.voucherApplicableTo || 'both';
+  const bookingNumber = `TK-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const qrCodeDataUrl = await generateTicketQrCode(
+    bookingNumber,
+    data.fullName.trim(),
+    adultCount,
+    childrenCount
+  );
+
+  const isFreeGift = totalAmount === 0;
+  const razorpayOrderId = isFreeGift ? 'FREE_GIFT_PASS' : (data.paymentMethod ? `ADMIN_${data.paymentMethod.toUpperCase()}` : 'ADMIN_MANUAL_ORDER');
+  const razorpayPaymentId = isFreeGift ? `GIFT_${Date.now()}` : `ADMIN_PAID_${Date.now()}`;
+  const razorpaySignature = 'ADMIN_MANUALLY_ISSUED';
+
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      const created = await (prisma as any).ticketBooking.create({
+        data: {
+          bookingNumber,
+          fullName: data.fullName.trim(),
+          mobile: data.mobile.trim(),
+          email: data.email?.trim() || null,
+          address: data.address?.trim() || 'Saharanpur',
+          adultCount,
+          childrenCount,
+          childrenNames: data.childrenNames && data.childrenNames.length > 0 ? JSON.stringify(data.childrenNames) : null,
+          phaseId: phase.id,
+          phaseName: phase.name,
+          adultPrice,
+          childPrice,
+          totalAmount,
+          voucherAmount,
+          voucherBalance,
+          voucherApplicableTo,
+          referredByAmbassadorId: data.referredByAmbassadorId || null,
+          couponCode: null,
+          discountAmount: 0,
+          paymentStatus: 'success',
+          razorpayOrderId,
+          razorpayPaymentId,
+          razorpaySignature,
+          qrCodeDataUrl,
+          isCheckedIn: false,
+        },
+      });
+
+      // Record Initial Voucher Credit only if voucherAmount > 0
+      if (voucherAmount > 0) {
+        await (prisma as any).voucherTransaction.create({
+          data: {
+            ticketBookingId: created.id,
+            sourceType: 'ticket_booking',
+            sourceReference: bookingNumber,
+            amount: voucherAmount,
+            type: 'credit',
+            description: `+₹${voucherAmount} Stall Voucher Included with Ticket Booking ${bookingNumber}`,
+          },
+        });
+      }
+
+      if (data.referredByAmbassadorId) {
+        await creditAmbassadorReferral(data.referredByAmbassadorId, created.id);
+      }
+
+      return created;
+    } catch (e) {
+      console.warn('Prisma error in createAdminIssuedTicketBooking', e);
+    }
+  }
+
+  const store = loadFallbackStore();
+  if (!store.ticketBookings) store.ticketBookings = [];
+
+  const newTicket = {
+    id: `ticket_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+    bookingNumber,
+    fullName: data.fullName.trim(),
+    mobile: data.mobile.trim(),
+    email: data.email?.trim() || null,
+    address: data.address?.trim() || 'Saharanpur',
+    adultCount,
+    childrenCount,
+    childrenNames: data.childrenNames && data.childrenNames.length > 0 ? JSON.stringify(data.childrenNames) : null,
+    phaseId: phase.id,
+    phaseName: phase.name,
+    adultPrice,
+    childPrice,
+    totalAmount,
+    voucherAmount,
+    voucherBalance,
+    voucherApplicableTo,
+    referredByAmbassadorId: data.referredByAmbassadorId || null,
+    couponCode: null,
+    discountAmount: 0,
+    razorpayOrderId,
+    razorpayPaymentId,
+    razorpaySignature,
+    paymentStatus: 'success',
+    qrCodeDataUrl,
+    isCheckedIn: false,
+    checkedInAt: null,
+    checkedInBy: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  store.ticketBookings.push(newTicket);
+
+  if (voucherAmount > 0) {
+    if (!store.voucherTransactions) store.voucherTransactions = [];
+    store.voucherTransactions.push({
+      id: `vt_${Date.now()}`,
+      ticketBookingId: newTicket.id,
+      ambassadorId: null,
+      sourceType: 'ticket_booking',
+      sourceReference: bookingNumber,
+      stallNumber: null,
+      stallOwnerName: null,
+      amount: voucherAmount,
+      type: 'credit',
+      description: `+₹${voucherAmount} Stall Voucher Included with Ticket Booking ${bookingNumber}`,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  saveFallbackStore(store);
+
+  if (data.referredByAmbassadorId) {
+    await creditAmbassadorReferral(data.referredByAmbassadorId, newTicket.id);
+  }
+
+  return newTicket;
+}
+
 export async function completeTicketBookingPayment(params: {
   bookingId: string;
   razorpayOrderId?: string;

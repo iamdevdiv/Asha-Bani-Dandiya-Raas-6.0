@@ -446,8 +446,14 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
               </Title>
 
               {wallet.balance <= 0 ? (
-                <Alert color="yellow" title="Voucher Balance Exhausted" icon={<IconAlertTriangle size={20} />}>
-                  You have fully utilized your voucher amount. Thank you for celebrating with our exhibitors!
+                <Alert
+                  color="yellow"
+                  title={wallet.totalCredited === 0 ? "No Stall Voucher Included" : "Voucher Balance Exhausted"}
+                  icon={<IconAlertTriangle size={20} />}
+                >
+                  {wallet.totalCredited === 0
+                    ? "This festival entry pass was issued without an included stall voucher (Complimentary/Gift Pass). You can enjoy all festival events, live music, and performances!"
+                    : "You have fully utilized your voucher amount. Thank you for celebrating with our exhibitors!"}
                 </Alert>
               ) : !selectedStall ? (
                 /* State 1: Scan Stall QR Code */

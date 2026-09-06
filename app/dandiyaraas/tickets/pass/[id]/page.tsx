@@ -152,52 +152,76 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
           {/* Official Customer Pass Card with html2canvas download */}
           <CustomerPassCard booking={booking} showDownloadButton={true} />
 
-          {/* Included Free Voucher Action Card */}
-          <Paper
-            p="md"
-            radius="lg"
-            w="100%"
-            maw={480}
-            style={{
-              background: 'linear-gradient(90deg, rgba(234, 179, 8, 0.2) 0%, rgba(20, 3, 5, 0.9) 100%)',
-              border: '1px solid rgba(250, 204, 21, 0.4)',
-            }}
-          >
-            <Group justify="space-between" align="center" wrap="wrap" gap="sm">
-              <Group gap="sm">
-                <ThemeIcon size={36} radius="md" color="yellow" variant="filled">
-                  <IconBuildingStore size={20} color="#140305" />
-                </ThemeIcon>
-                <Box>
-                  <Group gap="xs" align="center">
-                    <Text size="xs" fw={700} c="royalGold.3">
-                      INCLUDED STALL VOUCHER
+          {/* Included Free Voucher Action Card (Hidden if voucherAmount is 0; disabled if balance is 0) */}
+          {(booking.voucherAmount !== 0 || (booking.voucherBalance ?? 0) > 0) ? (
+            <Paper
+              p="md"
+              radius="lg"
+              w="100%"
+              maw={480}
+              style={{
+                background: (booking.voucherBalance ?? 0) > 0
+                  ? 'linear-gradient(90deg, rgba(234, 179, 8, 0.2) 0%, rgba(20, 3, 5, 0.9) 100%)'
+                  : 'rgba(20, 3, 5, 0.6)',
+                border: (booking.voucherBalance ?? 0) > 0
+                  ? '1px solid rgba(250, 204, 21, 0.4)'
+                  : '1px solid rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              <Group justify="space-between" align="center" wrap="wrap" gap="sm">
+                <Group gap="sm">
+                  <ThemeIcon size={36} radius="md" color={(booking.voucherBalance ?? 0) > 0 ? 'yellow' : 'gray'} variant="filled">
+                    <IconBuildingStore size={20} color="#140305" />
+                  </ThemeIcon>
+                  <Box>
+                    <Group gap="xs" align="center">
+                      <Text size="xs" fw={700} c={(booking.voucherBalance ?? 0) > 0 ? 'royalGold.3' : 'gray.4'}>
+                        INCLUDED STALL VOUCHER
+                      </Text>
+                      {(booking.voucherBalance ?? 0) > 0 && (
+                        <Badge size="xs" color="yellow" variant="light">
+                          {(booking.effectiveVoucherApplicableTo || booking.voucherApplicableTo) === 'food'
+                            ? 'Food Stalls (1–15)'
+                            : (booking.effectiveVoucherApplicableTo || booking.voucherApplicableTo) === 'other'
+                            ? 'Commercial Stalls (A–T)'
+                            : 'All 35 Stalls'}
+                        </Badge>
+                      )}
+                    </Group>
+                    <Text size="sm" c="white" fw={600} mt={2}>
+                      Available Balance:{' '}
+                      <span style={{ color: (booking.voucherBalance ?? 0) > 0 ? '#facc15' : '#9ca3af' }}>
+                        ₹{booking.voucherBalance ?? 0}
+                      </span>
                     </Text>
-                    <Badge size="xs" color="yellow" variant="light">
-                      {(booking.effectiveVoucherApplicableTo || booking.voucherApplicableTo) === 'food'
-                        ? 'Food Stalls (1–15)'
-                        : (booking.effectiveVoucherApplicableTo || booking.voucherApplicableTo) === 'other'
-                        ? 'Commercial Stalls (A–T)'
-                        : 'All 35 Stalls'}
-                    </Badge>
-                  </Group>
-                  <Text size="sm" c="white" fw={600} mt={2}>
-                    Available Balance: <span style={{ color: '#facc15' }}>₹{booking.voucherBalance}</span>
-                  </Text>
-                </Box>
-              </Group>
+                  </Box>
+                </Group>
 
-              <Button
-                component={Link}
-                href={`/dandiyaraas/tickets/voucher/${booking.id}`}
-                size="sm"
-                className="btn-auspicious-gold"
-                leftSection={<IconBuildingStore size={18} />}
-              >
-                Use Stall Voucher (₹{booking.voucherBalance})
-              </Button>
-            </Group>
-          </Paper>
+                {(booking.voucherBalance ?? 0) > 0 ? (
+                  <Button
+                    component={Link}
+                    href={`/dandiyaraas/tickets/voucher/${booking.id}`}
+                    size="sm"
+                    className="btn-auspicious-gold"
+                    leftSection={<IconBuildingStore size={18} />}
+                  >
+                    Use Stall Voucher (₹{booking.voucherBalance})
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    disabled
+                    variant="light"
+                    color="gray"
+                    leftSection={<IconBuildingStore size={18} />}
+                    style={{ cursor: 'not-allowed', opacity: 0.6 }}
+                  >
+                    Voucher Exhausted (₹0)
+                  </Button>
+                )}
+              </Group>
+            </Paper>
+          ) : null}
 
           {/* Pass Action Buttons */}
           <Paper

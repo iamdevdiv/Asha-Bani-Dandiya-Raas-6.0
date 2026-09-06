@@ -27,6 +27,7 @@ import {
   Tabs,
   Alert,
   Checkbox,
+  Divider,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -47,6 +48,7 @@ import {
   IconClock,
   IconAlertCircle,
   IconInfoCircle,
+  IconGift,
 } from '@tabler/icons-react';
 import html2canvas from 'html2canvas';
 import { CustomerPassCard } from '@/components/CustomerPassCard';
@@ -87,6 +89,25 @@ export default function AdminTicketBookingsPage() {
   const [bookingForRule, setBookingForRule] = useState<any | null>(null);
   const [selectedVoucherRule, setSelectedVoucherRule] = useState<string>('default');
   const [savingRule, setSavingRule] = useState(false);
+
+  // Manual Ticket Generation State (Admin direct pass creation / gift passes)
+  const [createModalOpened, setCreateModalOpened] = useState(false);
+  const [availablePhases, setAvailablePhases] = useState<any[]>([]);
+  const [availableAmbassadors, setAvailableAmbassadors] = useState<any[]>([]);
+  const [newFullName, setNewFullName] = useState('');
+  const [newMobile, setNewMobile] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newAddress, setNewAddress] = useState('Saharanpur');
+  const [newAdultCount, setNewAdultCount] = useState<number>(1);
+  const [newChildren, setNewChildren] = useState<string[]>([]);
+  const [newPhaseId, setNewPhaseId] = useState<string>('');
+  const [newTotalAmount, setNewTotalAmount] = useState<number | string>(499);
+  const [newVoucherAmount, setNewVoucherAmount] = useState<number | string>(100);
+  const [newVoucherApplicableTo, setNewVoucherApplicableTo] = useState<string>('both');
+  const [newReferredByAmbassadorId, setNewReferredByAmbassadorId] = useState<string>('');
+  const [newSendSms, setNewSendSms] = useState(true);
+  const [creatingTicket, setCreatingTicket] = useState(false);
+  const [lastCreatedBooking, setLastCreatedBooking] = useState<any | null>(null);
 
   const fetchBookings = () => {
     fetch('/api/admin/ticket-bookings')
@@ -205,12 +226,20 @@ export default function AdminTicketBookingsPage() {
       const origin = window.location.origin;
       const passUrl = `${origin}/dandiyaraas/tickets/pass/${b.id}`;
 
+      const voucherLine = (b.voucherAmount ?? 0) > 0
+        ? `*Included Stall Voucher:* Rs. ${b.voucherAmount}\n`
+        : `*Stall Voucher:* None (Rs. 0)\n`;
+      const passTypeLine = b.totalAmount === 0
+        ? `*Pass Type:* Complimentary / Gift Pass (Rs. 0)\n`
+        : `*Amount Paid:* Rs. ${b.totalAmount}\n`;
+
       const msg =
         `*NAMASTE ${b.fullName.toUpperCase()}!*\n\n` +
         `Your official entry pass for *Asha Bani Dandiya Raas 6.0* is confirmed.\n\n` +
         `*Booking ID:* ${b.bookingNumber}\n` +
+        passTypeLine +
         `*Passes:* 1 Adult${b.childrenCount > 0 ? ` + ${b.childrenCount} Children` : ''}\n` +
-        `*Included Stall Voucher:* Rs. ${b.voucherAmount}\n` +
+        voucherLine +
         `*Date:* 13 October 2026 (6:00 PM onwards)\n` +
         `*Venue:* Maharaja Agrasen Bhavan, Saharanpur\n\n` +
         `*View / Scan Your Pass:*\n${passUrl}`;
@@ -395,21 +424,182 @@ export default function AdminTicketBookingsPage() {
     }
   };
 
+  // Manual Ticket Generation Handlers
+  const handleOpenCreateModal = async () => {
+    setCreateModalOpened(true);
+    setNewFullName('');
+    setNewMobile('');
+    setNewEmail('');
+    setNewAddress('Saharanpur');
+    setNewAdultCount(1);
+    setNewChildren([]);
+    setNewReferredByAmbassadorId('');
+    setNewSendSms(true);
+    setLastCreatedBooking(null);
+
+    // Fetch phases
+    try {
+      const res = await fetch('/api/tickets/phases');
+      const data = await res.json();
+      if (data.success && Array.isArray(data.phases)) {
+        setAvailablePhases(data.phases);
+        const active = data.currentActive || data.phases[0];
+        if (active) {
+          setNewPhaseId(active.id);
+          setNewTotalAmount(active.adultPrice || 499);
+          setNewVoucherAmount(active.voucherAmount ?? 100);
+          setNewVoucherApplicableTo(active.voucherApplicableTo || 'both');
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to load phases for ticket creation:', err);
+    }
+
+    // Fetch ambassadors for optional linking
+    try {
+      const ambRes = await fetch('/api/admin/ambassadors');
+      const ambData = await ambRes.json();
+      if (ambData.success && Array.isArray(ambData.ambassadors)) {
+        setAvailableAmbassadors(ambData.ambassadors);
+      }
+    } catch (err) {
+      console.warn('Failed to load ambassadors:', err);
+    }
+  };
+
+  const handlePhaseChange = (phaseId: string | null) => {
+    if (!phaseId) return;
+    setNewPhaseId(phaseId);
+    const selected = availablePhases.find((p) => p.id === phaseId);
+    if (selected) {
+      // Auto recalculate price if not explicitly set to 0
+      if (Number(newTotalAmount) !== 0) {
+        const adultP = selected.adultPrice || 499;
+        const childP = selected.childPrice || 199;
+        setNewTotalAmount(adultP * newAdultCount + childP * newChildren.length);
+      }
+      // Auto recalculate voucher if not explicitly set to 0
+      if (Number(newVoucherAmount) !== 0) {
+        setNewVoucherAmount(selected.voucherAmount ?? 100);
+      }
+      if (selected.voucherApplicableTo) {
+        setNewVoucherApplicableTo(selected.voucherApplicableTo);
+      }
+    }
+  };
+
+  const handleAddChild = () => {
+    const updated = [...newChildren, ''];
+    setNewChildren(updated);
+    if (Number(newTotalAmount) !== 0) {
+      const selected = availablePhases.find((p) => p.id === newPhaseId);
+      const adultP = selected?.adultPrice || 499;
+      const childP = selected?.childPrice || 199;
+      setNewTotalAmount(adultP * newAdultCount + childP * updated.length);
+    }
+  };
+
+  const handleRemoveChild = (index: number) => {
+    const updated = newChildren.filter((_, idx) => idx !== index);
+    setNewChildren(updated);
+    if (Number(newTotalAmount) !== 0) {
+      const selected = availablePhases.find((p) => p.id === newPhaseId);
+      const adultP = selected?.adultPrice || 499;
+      const childP = selected?.childPrice || 199;
+      setNewTotalAmount(adultP * newAdultCount + childP * updated.length);
+    }
+  };
+
+  const handleChildNameChange = (index: number, name: string) => {
+    const updated = [...newChildren];
+    updated[index] = name;
+    setNewChildren(updated);
+  };
+
+  const handleCreateTicket = async () => {
+    if (!newFullName.trim()) {
+      notifications.show({ title: 'Full Name Required', message: 'Please enter the attendee name.', color: 'red' });
+      return;
+    }
+    const cleanMobile = newMobile.replace(/\D/g, '');
+    if (cleanMobile.length < 10) {
+      notifications.show({ title: 'Invalid Mobile', message: 'Please enter a valid 10-digit mobile number.', color: 'red' });
+      return;
+    }
+
+    setCreatingTicket(true);
+    try {
+      const res = await fetch('/api/admin/ticket-bookings/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: newFullName.trim(),
+          mobile: cleanMobile,
+          email: newEmail.trim() || undefined,
+          address: newAddress.trim() || 'Saharanpur',
+          adultCount: newAdultCount,
+          childrenCount: newChildren.length,
+          childrenNames: newChildren.filter((n) => n && n.trim()),
+          phaseId: newPhaseId || undefined,
+          totalAmount: Number(newTotalAmount),
+          voucherAmount: Number(newVoucherAmount),
+          voucherApplicableTo: newVoucherApplicableTo,
+          referredByAmbassadorId: newReferredByAmbassadorId || undefined,
+          sendSms: newSendSms,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to issue ticket pass');
+      }
+
+      notifications.show({
+        title: 'Pass Issued Successfully!',
+        message: `Pass #${data.booking.bookingNumber} confirmed for ${data.booking.fullName} (${Number(newTotalAmount) === 0 ? 'Complimentary Gift Pass' : '₹' + data.booking.totalAmount}).${data.smsDispatched ? ' SMS sent to customer.' : ''}`,
+        color: 'green',
+      });
+
+      setLastCreatedBooking(data.booking);
+      setCreateModalOpened(false);
+      fetchBookings();
+    } catch (err: any) {
+      notifications.show({
+        title: 'Pass Generation Failed',
+        message: err.message || 'Could not issue ticket pass.',
+        color: 'red',
+      });
+    } finally {
+      setCreatingTicket(false);
+    }
+  };
+
   return (
     <Container size="xl" p={0}>
       <Stack gap="xl">
         {/* Header */}
-        <Box>
-          <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.15em' }}>
-            CUSTOMER TICKETING MODULE
-          </Text>
-          <Title order={1} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
-            Customer Ticket Bookings
-          </Title>
-          <Text size="sm" c="gray.4" mt={4}>
-            View and manage confirmed attendees, download official passes, and track incomplete checkout attempts.
-          </Text>
-        </Box>
+        <Group justify="space-between" align="flex-end" wrap="wrap" gap="md">
+          <Box>
+            <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.15em' }}>
+              CUSTOMER TICKETING MODULE
+            </Text>
+            <Title order={1} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+              Customer Ticket Bookings
+            </Title>
+            <Text size="sm" c="gray.4" mt={4}>
+              View and manage confirmed attendees, download official passes, and track incomplete checkout attempts.
+            </Text>
+          </Box>
+
+          <Button
+            className="btn-auspicious-gold"
+            leftSection={<IconPlus size={18} />}
+            size="md"
+            onClick={handleOpenCreateModal}
+          >
+            Issue New Ticket Pass
+          </Button>
+        </Group>
 
         {/* Metrics Grid (Confirmed Bookings Only) */}
         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
@@ -589,12 +779,26 @@ export default function AdminTicketBookingsPage() {
                                 {b.phaseName}
                               </Badge>
                             </Table.Td>
-                            <Table.Td style={{ fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap' }}>₹{b.totalAmount}</Table.Td>
+                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                              {b.totalAmount === 0 ? (
+                                <Badge size="xs" color="teal" variant="light" style={{ fontWeight: 700 }}>
+                                  FREE (₹0)
+                                </Badge>
+                              ) : (
+                                <Text size="sm" fw={700} c="white">₹{b.totalAmount}</Text>
+                              )}
+                            </Table.Td>
                             <Table.Td style={{ whiteSpace: 'nowrap' }}>
                               <Stack gap={3}>
-                                <Badge size="xs" color={b.voucherBalance > 0 ? 'green' : 'gray'} variant="light" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                  ₹{b.voucherBalance}
-                                </Badge>
+                                {b.voucherAmount === 0 ? (
+                                  <Badge size="xs" color="gray" variant="outline" style={{ fontSize: '10px' }}>
+                                    No Voucher
+                                  </Badge>
+                                ) : (
+                                  <Badge size="xs" color={b.voucherBalance > 0 ? 'green' : 'gray'} variant="light" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                    ₹{b.voucherBalance}
+                                  </Badge>
+                                )}
                                 {b.isAmbassadorPass ? (
                                   <Badge
                                     size="xs"
@@ -1211,6 +1415,421 @@ export default function AdminTicketBookingsPage() {
                   Confirm Payment & Issue Pass
                 </Button>
               </Group>
+            </Stack>
+          )}
+        </Modal>
+
+        {/* Modal: Issue New Official Customer Pass */}
+        <Modal
+          opened={createModalOpened}
+          onClose={() => !creatingTicket && setCreateModalOpened(false)}
+          title={
+            <Group gap="xs">
+              <ThemeIcon color="yellow" variant="light" size="md" radius="md">
+                <IconTicket size={18} />
+              </ThemeIcon>
+              <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+                Issue Official Customer Pass
+              </Text>
+            </Group>
+          }
+          size="lg"
+          centered
+          radius="xl"
+          styles={{
+            content: {
+              backgroundColor: '#140305',
+              border: '1px solid rgba(234, 179, 8, 0.35)',
+            },
+            header: {
+              backgroundColor: '#140305',
+              borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
+            },
+          }}
+        >
+          <Stack gap="md" pt="xs">
+            <Alert
+              icon={<IconInfoCircle size={18} />}
+              color="yellow"
+              variant="light"
+              radius="md"
+              styles={{
+                root: { backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)' },
+                message: { color: '#e2e8f0', fontSize: '0.85rem' },
+              }}
+            >
+              Directly generate a confirmed festival entry pass. Prices and vouchers auto-fetch from the selected phase, but you can set <strong>Ticket Price to ₹0</strong> for a complimentary gift pass, or set <strong>Voucher Amount to ₹0</strong> if no stall credits are included.
+            </Alert>
+
+            {/* Attendee Details */}
+            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+              <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+                1. ATTENDEE INFORMATION
+              </Text>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                <TextInput
+                  label="Attendee Full Name"
+                  placeholder="e.g. Priyansh Sharma"
+                  required
+                  value={newFullName}
+                  onChange={(e) => setNewFullName(e.currentTarget.value)}
+                  styles={{
+                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                  }}
+                />
+
+                <TextInput
+                  label="10-Digit Mobile Number"
+                  placeholder="e.g. 9876543210"
+                  required
+                  maxLength={10}
+                  leftSection={<Text size="xs" c="gray.4">+91</Text>}
+                  value={newMobile}
+                  onChange={(e) => setNewMobile(e.currentTarget.value)}
+                  styles={{
+                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                  }}
+                />
+
+                <TextInput
+                  label="Email Address (Optional)"
+                  placeholder="e.g. customer@example.com"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.currentTarget.value)}
+                  styles={{
+                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                  }}
+                />
+
+                <TextInput
+                  label="City / Residential Area"
+                  placeholder="e.g. Saharanpur"
+                  value={newAddress}
+                  onChange={(e) => setNewAddress(e.currentTarget.value)}
+                  styles={{
+                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                  }}
+                />
+              </SimpleGrid>
+            </Paper>
+
+            {/* Accompanying Children (<55") */}
+            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+              <Group justify="space-between" mb="xs">
+                <Box>
+                  <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.05em' }}>
+                    2. ACCOMPANYING CHILDREN (&lt;55&quot;)
+                  </Text>
+                  <Text size="11px" c="gray.4">
+                    Each pass includes 1 adult. You can add accompanying children under 55 inches height.
+                  </Text>
+                </Box>
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="yellow"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={handleAddChild}
+                >
+                  Add Child
+                </Button>
+              </Group>
+
+              {newChildren.length === 0 ? (
+                <Text size="xs" c="gray.5" fs="italic">
+                  No accompanying children added (1 adult pass only).
+                </Text>
+              ) : (
+                <Stack gap="xs" mt="xs">
+                  {newChildren.map((childName, idx) => (
+                    <Group key={idx} gap="xs" wrap="nowrap">
+                      <TextInput
+                        placeholder={`Child #${idx + 1} Full Name`}
+                        value={childName}
+                        onChange={(e) => handleChildNameChange(idx, e.currentTarget.value)}
+                        style={{ flex: 1 }}
+                        styles={{
+                          input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                        }}
+                      />
+                      <Tooltip label="Remove Child">
+                        <ActionIcon color="red" variant="subtle" onClick={() => handleRemoveChild(idx)}>
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
+                  ))}
+                </Stack>
+              )}
+            </Paper>
+
+            {/* Phase Tier, Pricing & Voucher Customization */}
+            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+              <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+                3. PHASE TIER, PRICING &amp; STALL VOUCHER
+              </Text>
+
+              <Stack gap="sm">
+                <Select
+                  label="Ticketing Phase Tier"
+                  description="Fetches current phase baseline rates and stall voucher defaults."
+                  data={availablePhases.map((p) => ({
+                    value: p.id,
+                    label: `${p.name} (Adult: ₹${p.adultPrice}, Child: ₹${p.childPrice}, Voucher: ₹${p.voucherAmount ?? 100})`,
+                  }))}
+                  value={newPhaseId}
+                  onChange={handlePhaseChange}
+                  styles={{
+                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    description: { color: '#9ca3af', fontSize: '0.75rem' },
+                  }}
+                />
+
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                  {/* Total Amount Input with Set to 0 Shortcut */}
+                  <Box>
+                    <NumberInput
+                      label="Ticket Total Price (₹)"
+                      description="Price collected for this booking. Set to ₹0 for gift passes."
+                      min={0}
+                      value={newTotalAmount}
+                      onChange={(val) => setNewTotalAmount(val ?? 0)}
+                      styles={{
+                        input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)', fontWeight: 700 },
+                        label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                        description: { color: '#9ca3af', fontSize: '0.75rem' },
+                      }}
+                    />
+                    <Group gap="xs" mt={6} align="center">
+                      <Badge
+                        size="sm"
+                        style={{ cursor: 'pointer' }}
+                        color={Number(newTotalAmount) === 0 ? 'teal' : 'yellow'}
+                        variant={Number(newTotalAmount) === 0 ? 'filled' : 'outline'}
+                        onClick={() => setNewTotalAmount(0)}
+                      >
+                        🎁 Set to ₹0 (Free Gift Pass)
+                      </Badge>
+                      <Text
+                        size="11px"
+                        c="gray.4"
+                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                        onClick={() => {
+                          const p = availablePhases.find((ph) => ph.id === newPhaseId);
+                          const adultP = p?.adultPrice || 499;
+                          const childP = p?.childPrice || 199;
+                          setNewTotalAmount(adultP * newAdultCount + childP * newChildren.length);
+                        }}
+                      >
+                        Reset to Phase Rate
+                      </Text>
+                    </Group>
+                  </Box>
+
+                  {/* Voucher Amount Input with Set to 0 Shortcut */}
+                  <Box>
+                    <NumberInput
+                      label="Included Stall Voucher Amount (₹)"
+                      description="Stall credit included with this ticket. Set to ₹0 for none."
+                      min={0}
+                      value={newVoucherAmount}
+                      onChange={(val) => setNewVoucherAmount(val ?? 0)}
+                      styles={{
+                        input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)', fontWeight: 700 },
+                        label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                        description: { color: '#9ca3af', fontSize: '0.75rem' },
+                      }}
+                    />
+                    <Group gap="xs" mt={6} align="center">
+                      <Badge
+                        size="sm"
+                        style={{ cursor: 'pointer' }}
+                        color={Number(newVoucherAmount) === 0 ? 'teal' : 'yellow'}
+                        variant={Number(newVoucherAmount) === 0 ? 'filled' : 'outline'}
+                        onClick={() => setNewVoucherAmount(0)}
+                      >
+                        🚫 Set to ₹0 (No Voucher)
+                      </Badge>
+                      <Text
+                        size="11px"
+                        c="gray.4"
+                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                        onClick={() => {
+                          const p = availablePhases.find((ph) => ph.id === newPhaseId);
+                          setNewVoucherAmount(p?.voucherAmount ?? 100);
+                        }}
+                      >
+                        Reset to Phase Default
+                      </Text>
+                    </Group>
+                  </Box>
+                </SimpleGrid>
+
+                {Number(newVoucherAmount) > 0 && (
+                  <Select
+                    label="Stall Voucher Usability Rule"
+                    description="Determine where the customer can spend their voucher credits."
+                    data={[
+                      { value: 'both', label: 'All 35 Stalls (Food & Commercial)' },
+                      { value: 'food', label: 'Food Stalls Only (Stalls 1–15)' },
+                      { value: 'other', label: 'Commercial Stalls Only (Stalls A–T)' },
+                    ]}
+                    value={newVoucherApplicableTo}
+                    onChange={(v) => setNewVoucherApplicableTo(v || 'both')}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                      description: { color: '#9ca3af', fontSize: '0.75rem' },
+                    }}
+                  />
+                )}
+              </Stack>
+            </Paper>
+
+            {/* Optional Ambassador Linking */}
+            {availableAmbassadors.length > 0 && (
+              <Select
+                label="Referred by Ambassador (Optional)"
+                placeholder="Select an ambassador to attribute ticket referral..."
+                clearable
+                data={availableAmbassadors.map((a) => ({
+                  value: a.id,
+                  label: `${a.name} (${a.referralCode || a.mobile})`,
+                }))}
+                value={newReferredByAmbassadorId}
+                onChange={(val) => setNewReferredByAmbassadorId(val || '')}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+            )}
+
+            {/* SMS Dispatch Option */}
+            <Checkbox
+              label={
+                <Text size="xs" c="gray.3">
+                  Dispatch confirmation SMS with digital entry pass link to <strong>+91 {newMobile || '...'}</strong>
+                </Text>
+              }
+              checked={newSendSms}
+              onChange={(e) => setNewSendSms(e.currentTarget.checked)}
+              color="green"
+            />
+
+            <Group justify="flex-end" mt="md">
+              <Button
+                variant="subtle"
+                color="gray"
+                disabled={creatingTicket}
+                onClick={() => setCreateModalOpened(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="btn-auspicious-gold"
+                leftSection={<IconCheck size={18} />}
+                loading={creatingTicket}
+                onClick={handleCreateTicket}
+              >
+                Generate &amp; Confirm Pass
+              </Button>
+            </Group>
+          </Stack>
+        </Modal>
+
+        {/* Modal: Pass Generated Success & Direct Actions */}
+        <Modal
+          opened={!!lastCreatedBooking}
+          onClose={() => setLastCreatedBooking(null)}
+          title={
+            <Group gap="xs">
+              <ThemeIcon color="green" variant="light" size="md" radius="md">
+                <IconCheck size={18} />
+              </ThemeIcon>
+              <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+                Pass Issued Successfully!
+              </Text>
+            </Group>
+          }
+          size="md"
+          centered
+          radius="lg"
+          styles={{
+            content: {
+              backgroundColor: '#140305',
+              border: '1px solid rgba(234, 179, 8, 0.35)',
+            },
+            header: {
+              backgroundColor: '#140305',
+              borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
+            },
+          }}
+        >
+          {lastCreatedBooking && (
+            <Stack gap="md" pt="xs">
+              <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+                <SimpleGrid cols={2} spacing="xs">
+                  <Box>
+                    <Text size="11px" c="gray.4">ATTENDEE</Text>
+                    <Text size="sm" fw={700} c="white">{lastCreatedBooking.fullName}</Text>
+                  </Box>
+                  <Box>
+                    <Text size="11px" c="gray.4">BOOKING ID</Text>
+                    <Text size="sm" fw={700} style={{ fontFamily: 'monospace', color: '#fde047' }}>
+                      #{lastCreatedBooking.bookingNumber}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text size="11px" c="gray.4">TOTAL CHARGED</Text>
+                    <Text size="sm" fw={800} c={lastCreatedBooking.totalAmount === 0 ? 'teal.4' : 'white'}>
+                      {lastCreatedBooking.totalAmount === 0 ? '₹0 (Gift Pass)' : `₹${lastCreatedBooking.totalAmount}`}
+                    </Text>
+                  </Box>
+                  <Box>
+                    <Text size="11px" c="gray.4">STALL VOUCHER</Text>
+                    <Text size="sm" fw={800} c={lastCreatedBooking.voucherAmount === 0 ? 'gray.4' : 'green.4'}>
+                      {lastCreatedBooking.voucherAmount === 0 ? 'None (₹0)' : `₹${lastCreatedBooking.voucherAmount}`}
+                    </Text>
+                  </Box>
+                </SimpleGrid>
+              </Paper>
+
+              <Group grow>
+                <Button
+                  color="green"
+                  variant="light"
+                  leftSection={<IconBrandWhatsapp size={18} />}
+                  onClick={() => handleSendWhatsApp(lastCreatedBooking)}
+                >
+                  Send on WhatsApp
+                </Button>
+                <Button
+                  color="yellow"
+                  variant="light"
+                  leftSection={<IconEye size={18} />}
+                  onClick={() => {
+                    setSelectedBooking(lastCreatedBooking);
+                    setLastCreatedBooking(null);
+                  }}
+                >
+                  Preview Pass Card
+                </Button>
+              </Group>
+
+              <Button
+                variant="subtle"
+                color="gray"
+                onClick={() => setLastCreatedBooking(null)}
+                mt="xs"
+              >
+                Done
+              </Button>
             </Stack>
           )}
         </Modal>
