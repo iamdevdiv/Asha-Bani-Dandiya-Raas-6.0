@@ -22,6 +22,7 @@ import {
   Loader,
   Center,
   ThemeIcon,
+  SimpleGrid,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
