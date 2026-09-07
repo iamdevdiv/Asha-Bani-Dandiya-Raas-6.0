@@ -66,3 +66,34 @@ export function verifyRazorpaySignature(params: {
 
   return generatedSignature === params.signature;
 }
+
+export function verifyRazorpayWebhookSignature(params: {
+  rawBody: string;
+  signature: string;
+  secret?: string;
+}): boolean {
+  const webhookSecret = params.secret || process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET || '';
+  if (!webhookSecret || !params.signature) {
+    console.warn('[Razorpay Webhook] Missing webhook secret or signature');
+    return false;
+  }
+
+  try {
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(params.rawBody)
+      .digest('hex');
+
+    const expectedBuffer = Buffer.from(expectedSignature, 'utf-8');
+    const signatureBuffer = Buffer.from(params.signature, 'utf-8');
+
+    if (expectedBuffer.length !== signatureBuffer.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(expectedBuffer, signatureBuffer);
+  } catch (err) {
+    console.error('[Razorpay Webhook] Webhook signature verification error:', err);
+    return false;
+  }
+}

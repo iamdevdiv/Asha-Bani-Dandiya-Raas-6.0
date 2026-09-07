@@ -161,7 +161,7 @@ export default function CustomerHomePage() {
           alignItems: 'center',
           justifyContent: 'center',
           overflow: 'hidden',
-          padding: '80px 20px',
+          padding: 'clamp(50px, 8vw, 80px) clamp(12px, 3.5vw, 24px)',
         }}
       >
         {/* Background Image with Richer Opacity */}
@@ -200,7 +200,7 @@ export default function CustomerHomePage() {
         />
 
         {/* Content Container */}
-        <Container size="md" style={{ position: 'relative', zIndex: 3, textAlign: 'center' }}>
+        <Container size="md" px={{ base: 'sm', sm: 'md' }} style={{ position: 'relative', zIndex: 3, textAlign: 'center' }}>
           <Stack align="center" gap="lg">
             {/* Auspicious Badge */}
             <Badge
@@ -212,10 +212,14 @@ export default function CustomerHomePage() {
                 borderColor: '#facc15',
                 color: '#fef08a',
                 height: 'auto',
-                padding: '6px 18px',
-                letterSpacing: '0.12em',
-                fontSize: '0.85rem',
+                padding: '5px clamp(12px, 3vw, 20px)',
+                letterSpacing: 'clamp(0.05em, 1vw, 0.1em)',
+                fontSize: 'clamp(0.68rem, 2vw, 0.82rem)',
                 backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                maxWidth: '92%',
+                whiteSpace: 'normal',
+                textAlign: 'center',
+                display: 'inline-block',
               }}
             >
               FESTIVAL OF TRADITION &amp; TOGETHERNESS
@@ -228,8 +232,9 @@ export default function CustomerHomePage() {
               c="royalGold.3"
               style={{
                 fontFamily: "'Cinzel', serif",
-                letterSpacing: '0.2em',
-                fontSize: '1.25rem',
+                letterSpacing: 'clamp(0.08em, 1.5vw, 0.2em)',
+                fontSize: 'clamp(0.85rem, 3vw, 1.25rem)',
+                maxWidth: '100%',
               }}
             >
               ASHA BANI DANDIYA RAAS PRESENTS
@@ -240,7 +245,7 @@ export default function CustomerHomePage() {
               className="gold-gradient-text"
               style={{
                 fontFamily: "'Cinzel Decorative', 'Cinzel', serif",
-                fontSize: 'clamp(2.2rem, 5.5vw, 4.2rem)',
+                fontSize: 'clamp(1.9rem, 5.5vw, 4.2rem)',
                 lineHeight: 1.15,
                 fontWeight: 900,
                 textShadow: '0 4px 25px rgba(234, 179, 8, 0.35)',
@@ -256,7 +261,7 @@ export default function CustomerHomePage() {
               style={{
                 maxWidth: 650,
                 lineHeight: 1.5,
-                fontSize: 'clamp(1.1rem, 2.2vw, 1.4rem)',
+                fontSize: 'clamp(0.95rem, 2.2vw, 1.4rem)',
               }}
             >
               6 Years of Joy, Music &amp; Togetherness
@@ -264,8 +269,8 @@ export default function CustomerHomePage() {
 
             {/* Action Section */}
             <Paper
-              p="lg"
-              radius="lg"
+              p={{ base: 'lg', sm: 'xl' }}
+              radius="xl"
               style={{
                 backgroundColor: 'rgba(20, 3, 5, 0.85)',
                 border: isSalesOpen ? '1px solid rgba(250, 204, 21, 0.6)' : '1px solid rgba(234, 179, 8, 0.35)',
@@ -300,7 +305,14 @@ export default function CustomerHomePage() {
                       color="yellow"
                       variant="light"
                       size="sm"
-                      leftSection={<IconGift size={13} color="#facc15" />}
+                      leftSection={<IconGift size={13} color="#facc15" style={{ flexShrink: 0 }} />}
+                      style={{
+                        height: 'auto',
+                        padding: '5px 10px',
+                        whiteSpace: 'normal',
+                        lineHeight: 1.25,
+                        textAlign: 'center',
+                      }}
                     >
                       Includes ₹{currentPhase?.voucherAmount || 100} Free Stall Voucher
                     </Badge>
@@ -308,7 +320,14 @@ export default function CustomerHomePage() {
                       color="yellow"
                       variant="light"
                       size="sm"
-                      leftSection={<IconSparkles size={13} color="#facc15" />}
+                      leftSection={<IconSparkles size={13} color="#facc15" style={{ flexShrink: 0 }} />}
+                      style={{
+                        height: 'auto',
+                        padding: '5px 10px',
+                        whiteSpace: 'normal',
+                        lineHeight: 1.25,
+                        textAlign: 'center',
+                      }}
                     >
                       Free Dandiya Sticks for All Attendees
                     </Badge>
@@ -320,9 +339,10 @@ export default function CustomerHomePage() {
                       href="/dandiyaraas/tickets/buy"
                       className="btn-auspicious-gold"
                       size="lg"
-                      leftSection={<IconTicket size={22} />}
-                      rightSection={<IconArrowRight size={18} />}
+                      leftSection={<IconTicket size={22} style={{ flexShrink: 0 }} />}
+                      rightSection={<IconArrowRight size={18} style={{ flexShrink: 0 }} />}
                       fullWidth
+                      style={{ height: 'auto', minHeight: 48, padding: '12px 18px', whiteSpace: 'normal' }}
                     >
                       Book Entry Passes Now
                     </Button>
@@ -356,14 +376,14 @@ export default function CustomerHomePage() {
       {/* FESTIVAL PASS PHASES & PRICING SECTION */}
       <Box
         id="pricing"
-        py={80}
+        py={{ base: 50, sm: 80 }}
         style={{
           background: 'linear-gradient(180deg, rgba(20, 3, 5, 0.95) 0%, rgba(38, 8, 14, 0.9) 50%, rgba(13, 2, 4, 0.95) 100%)',
           borderTop: '1px solid rgba(234, 179, 8, 0.2)',
         }}
       >
-        <Container size="xl">
-          <Stack align="center" gap="xs" mb={50}>
+        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+          <Stack align="center" gap="xs" mb={{ base: 30, sm: 50 }}>
             <Badge
               size="md"
               style={{
@@ -389,7 +409,7 @@ export default function CustomerHomePage() {
           </Stack>
 
           {/* Phases Grid */}
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing={{ base: 'md', sm: 'lg' }}>
             {(allPhases.length > 0 ? allPhases : [
               {
                 phaseNumber: 1,
@@ -432,7 +452,7 @@ export default function CustomerHomePage() {
               return (
                 <Paper
                   key={p.phaseNumber || p.id}
-                  p="xl"
+                  p={{ base: 'md', sm: 'xl' }}
                   radius="xl"
                   style={{
                     backgroundColor: isPhaseActive ? 'rgba(38, 8, 14, 0.95)' : 'rgba(20, 3, 5, 0.85)',
@@ -442,7 +462,7 @@ export default function CustomerHomePage() {
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     position: 'relative',
-                    transform: isPhaseActive ? 'scale(1.03)' : 'none',
+                    transform: isPhaseActive ? 'scale(1.01)' : 'none',
                     transition: 'all 0.3s ease',
                   }}
                   className="festive-card"
@@ -597,9 +617,9 @@ export default function CustomerHomePage() {
               textAlign: 'center',
             }}
           >
-            <Group justify="center" gap="xs">
-              <IconSparkles size={18} color="#facc15" />
-              <Text size="xs" c="gray.3">
+            <Group justify="center" gap="xs" wrap="nowrap" align="flex-start">
+              <IconSparkles size={18} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+              <Text size="xs" c="gray.3" style={{ flex: 1, textAlign: 'left' }}>
                 <b>Child Policy:</b> Children strictly under <b>55 inches (4&apos;7&quot;)</b> in height qualify for child passes. Physical height measurement will be verified at the gate.
               </Text>
             </Group>
@@ -608,9 +628,9 @@ export default function CustomerHomePage() {
       </Box>
 
       {/* WHAT'S IN STORE FOR YOU? SECTION */}
-      <Box py={80} style={{ borderTop: '1px solid rgba(234, 179, 8, 0.15)' }}>
-        <Container size="xl">
-          <Stack align="center" gap="xs" mb={50}>
+      <Box py={{ base: 50, sm: 80 }} style={{ borderTop: '1px solid rgba(234, 179, 8, 0.15)' }}>
+        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+          <Stack align="center" gap="xs" mb={{ base: 30, sm: 50 }}>
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.15em' }}>
               EVENT EXPERIENCES
             </Text>
@@ -627,9 +647,9 @@ export default function CustomerHomePage() {
             </Text>
           </Stack>
 
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 'md', sm: 'lg' }}>
             {highlights.map((item, idx) => (
-              <Card key={idx} className="festive-card" p="xl">
+              <Card key={idx} className="festive-card" p={{ base: 'md', sm: 'xl' }}>
                 <Group justify="space-between" align="flex-start" mb="md">
                   <ThemeIcon
                     size={52}
@@ -666,14 +686,14 @@ export default function CustomerHomePage() {
 
       {/* LUCKY DRAWS, PRIZES & PERKS SECTION */}
       <Box
-        py={80}
+        py={{ base: 50, sm: 80 }}
         style={{
           background: 'linear-gradient(180deg, rgba(20, 3, 5, 0.95) 0%, rgba(38, 8, 14, 0.85) 50%, rgba(20, 3, 5, 0.95) 100%)',
           borderTop: '1px solid rgba(234, 179, 8, 0.2)',
         }}
       >
-        <Container size="xl">
-          <Stack align="center" gap="xs" mb={50}>
+        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+          <Stack align="center" gap="xs" mb={{ base: 30, sm: 50 }}>
             <Badge
               size="md"
               style={{
@@ -698,11 +718,11 @@ export default function CustomerHomePage() {
             </Text>
           </Stack>
 
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing={{ base: 'md', sm: 'lg' }}>
             {/* 1. 10 Lucky Draws */}
             <Card
               className="festive-card"
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -752,7 +772,7 @@ export default function CustomerHomePage() {
             {/* 2. Special Prize Categories */}
             <Card
               className="festive-card"
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -862,7 +882,7 @@ export default function CustomerHomePage() {
             {/* 3. Complimentary Dandiya Sticks */}
             <Card
               className="festive-card"
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -914,15 +934,15 @@ export default function CustomerHomePage() {
 
       {/* EVENT DETAILS & LOCATION SECTION */}
       <Box
-        py={70}
+        py={{ base: 45, sm: 70 }}
         style={{
           background: 'linear-gradient(180deg, rgba(30, 7, 12, 0.6) 0%, rgba(13, 2, 4, 0.9) 100%)',
           borderTop: '1px solid rgba(234, 179, 8, 0.2)',
           borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
         }}
       >
-        <Container size="lg">
-          <Stack align="center" gap="xs" mb={40}>
+        <Container size="lg" px={{ base: 'xs', sm: 'md' }}>
+          <Stack align="center" gap="xs" mb={{ base: 28, sm: 40 }}>
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.15em' }}>
               SCHEDULE &amp; VENUE
             </Text>
@@ -936,10 +956,10 @@ export default function CustomerHomePage() {
             </Title>
           </Stack>
 
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg" mb="xl">
+          <SimpleGrid cols={{ base: 1, md: 3 }} spacing={{ base: 'md', sm: 'lg' }} mb="xl">
             {/* Date Card */}
             <Paper
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               radius="lg"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -963,7 +983,7 @@ export default function CustomerHomePage() {
 
             {/* Venue Card */}
             <Paper
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               radius="lg"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -987,7 +1007,7 @@ export default function CustomerHomePage() {
 
             {/* Contact Card */}
             <Paper
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               radius="lg"
               style={{
                 backgroundColor: 'rgba(255, 255, 255, 0.03)',
@@ -1030,10 +1050,10 @@ export default function CustomerHomePage() {
       </Box>
 
       {/* INSTAGRAM COMMUNITY SECTION */}
-      <Box py={70}>
-        <Container size="md">
+      <Box py={{ base: 45, sm: 70 }}>
+        <Container size="md" px={{ base: 'xs', sm: 'md' }}>
           <Paper
-            p={{ base: 'xl', md: 50 }}
+            p={{ base: 'lg', sm: 'xl', md: 50 }}
             radius="xl"
             style={{
               background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.3) 0%, rgba(190, 18, 60, 0.3) 100%)',
@@ -1087,10 +1107,10 @@ export default function CustomerHomePage() {
       </Box>
 
       {/* STALL PROMOTION BANNER */}
-      <Box pb={60}>
-        <Container size="xl">
+      <Box pb={{ base: 40, sm: 60 }}>
+        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
           <Paper
-            p="xl"
+            p={{ base: 'md', sm: 'xl' }}
             radius="lg"
             style={{
               backgroundColor: 'rgba(36, 8, 14, 0.8)',

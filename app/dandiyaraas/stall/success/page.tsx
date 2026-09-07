@@ -91,7 +91,7 @@ function SuccessContent() {
   }
 
   return (
-    <Container size="lg" py={50}>
+    <Container size="lg" py={{ base: 30, sm: 50 }} px={{ base: 'xs', sm: 'md' }}>
       {/* Top Banner */}
       <Stack align="center" gap="xs" mb={35} ta="center">
         <ThemeIcon size={60} radius="50%" color="green" variant="light">
@@ -122,7 +122,7 @@ function SuccessContent() {
         <Stack gap="md">
           {/* Logistics & Timing Card */}
           <Paper
-            p="xl"
+            p={{ base: 'md', sm: 'xl' }}
             radius="xl"
             style={{
               backgroundColor: 'rgba(36, 8, 14, 0.8)',
@@ -164,7 +164,7 @@ function SuccessContent() {
 
           {/* Allotment Terms & Passes Notice */}
           <Paper
-            p="xl"
+            p={{ base: 'md', sm: 'xl' }}
             radius="xl"
             style={{
               backgroundColor: 'rgba(36, 8, 14, 0.8)',

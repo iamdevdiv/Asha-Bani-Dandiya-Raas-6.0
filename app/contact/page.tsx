@@ -93,7 +93,7 @@ export default function ContactPage() {
     <Box className="festive-background">
       <Navbar />
 
-      <Container size="lg" py={60}>
+      <Container size="lg" py={{ base: 35, sm: 60 }} px={{ base: 'xs', sm: 'md' }}>
         <Stack align="center" gap="xs" mb={40} ta="center">
           <Title
             order={1}
@@ -110,7 +110,7 @@ export default function ContactPage() {
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
           {/* Contact Details Card */}
           <Paper
-            p="xl"
+            p={{ base: 'md', sm: 'xl' }}
             radius="xl"
             style={{
               backgroundColor: 'rgba(36, 8, 14, 0.75)',
@@ -198,7 +198,7 @@ export default function ContactPage() {
 
           {/* Quick Inquiry Form */}
           <Paper
-            p="xl"
+            p={{ base: 'md', sm: 'xl' }}
             radius="xl"
             style={{
               backgroundColor: 'rgba(36, 8, 14, 0.75)',

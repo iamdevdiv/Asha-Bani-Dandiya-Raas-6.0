@@ -136,7 +136,7 @@ export default function StallExhibitorPage() {
           textAlign: 'center',
         }}
       >
-        <Container size="md">
+        <Container size="md" px={{ base: 'xs', sm: 'md' }}>
           <Stack align="center" gap="md">
             <Badge
               size="lg"
@@ -248,13 +248,13 @@ export default function StallExhibitorPage() {
 
       {/* WHAT'S DIFFERENT THIS YEAR SECTION */}
       <Box
-        py={70}
+        py={{ base: 45, sm: 70 }}
         style={{
           backgroundColor: 'rgba(20, 3, 5, 0.4)',
           borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
         }}
       >
-        <Container size="xl">
+        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
           <Stack align="center" gap="xs" mb={40}>
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
               GROWTH &amp; SCALE
@@ -274,7 +274,7 @@ export default function StallExhibitorPage() {
 
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
             {whatIsDifferent.map((item, index) => (
-              <Card key={index} className="festive-card" p="xl">
+              <Card key={index} className="festive-card" p={{ base: 'md', sm: 'xl' }}>
                 <ThemeIcon
                   size={50}
                   radius="md"
@@ -299,8 +299,8 @@ export default function StallExhibitorPage() {
       </Box>
 
       {/* PERKS & BENEFITS SECTION */}
-      <Box py={80}>
-        <Container size="xl">
+      <Box py={{ base: 45, sm: 80 }}>
+        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
           <Stack align="center" gap="xs" mb={50}>
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
               EXHIBITOR ADVANTAGE
@@ -322,7 +322,7 @@ export default function StallExhibitorPage() {
             {perks.map((p, idx) => (
               <Paper
                 key={idx}
-                p="xl"
+                p={{ base: 'md', sm: 'xl' }}
                 radius="lg"
                 style={{
                   backgroundColor: 'rgba(36, 8, 14, 0.65)',
@@ -348,10 +348,10 @@ export default function StallExhibitorPage() {
       </Box>
 
       {/* STALL REGULATIONS & GUIDELINES */}
-      <Box py={80}>
-        <Container size="lg">
+      <Box py={{ base: 45, sm: 80 }}>
+        <Container size="lg" px={{ base: 'xs', sm: 'md' }}>
           <Paper
-            p={{ base: 'lg', md: 'xl' }}
+            p={{ base: 'md', sm: 'xl' }}
             radius="xl"
             style={{
               backgroundColor: 'rgba(36, 8, 14, 0.75)',

@@ -520,6 +520,20 @@ export async function getBookingByNumber(bookingNumber: string) {
   return store.bookings.find((b) => b.bookingNumber === bookingNumber) || null;
 }
 
+export async function getBookingByOrderId(orderId: string) {
+  if (!orderId) return null;
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      return await prisma.booking.findFirst({ where: { razorpayOrderId: orderId } });
+    } catch (e) {
+      console.warn('Prisma error in getBookingByOrderId', e);
+    }
+  }
+  const store = loadFallbackStore();
+  return store.bookings?.find((b) => b.razorpayOrderId === orderId) || null;
+}
+
 export async function getAllBookings() {
   const hasPrisma = await checkPrisma();
   if (hasPrisma) {
@@ -1814,6 +1828,10 @@ export async function completeTicketBookingPayment(params: {
   const booking = await getTicketBookingById(params.bookingId);
   if (!booking) throw new Error('Ticket booking not found');
 
+  if (booking.paymentStatus === 'success') {
+    return booking;
+  }
+
   const qrCodeDataUrl = await generateTicketQrCode(
     booking.bookingNumber,
     booking.fullName,
@@ -1990,6 +2008,30 @@ export async function getTicketBookingById(idOrBookingNumber: string) {
     ruleSource: isCustomException ? ('custom_exception' as const) : ('global' as const),
     isCustomVoucherRule: isCustomException,
   };
+}
+
+export async function getTicketBookingByOrderId(orderId: string) {
+  if (!orderId) return null;
+  const hasPrisma = await checkPrisma();
+  let bookingId: string | null = null;
+  if (hasPrisma) {
+    try {
+      const b = await (prisma as any).ticketBooking.findFirst({
+        where: { razorpayOrderId: orderId },
+        select: { id: true },
+      });
+      if (b) bookingId = b.id;
+    } catch (e) {
+      console.warn('Prisma error in getTicketBookingByOrderId', e);
+    }
+  }
+  if (!bookingId) {
+    const store = loadFallbackStore();
+    const found = (store.ticketBookings || []).find((b: any) => b.razorpayOrderId === orderId);
+    if (found) bookingId = found.id;
+  }
+  if (!bookingId) return null;
+  return await getTicketBookingById(bookingId);
 }
 
 export async function getTicketBookings(filters?: { phaseId?: string; paymentStatus?: string; search?: string }) {

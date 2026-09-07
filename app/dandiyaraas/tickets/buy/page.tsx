@@ -360,6 +360,7 @@ export default function TicketPurchasePage() {
           }
         },
         modal: {
+          confirm_close: true,
           ondismiss: function () {
             notifications.show({
               title: 'Payment Incomplete',
@@ -523,7 +524,7 @@ export default function TicketPurchasePage() {
                 leftSection={<IconUser size={16} />}
               />
 
-              <Group grow align="flex-start">
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                 <TextInput
                   label="10-Digit Mobile Number"
                   placeholder="Enter 10-digit mobile number"
@@ -553,7 +554,7 @@ export default function TicketPurchasePage() {
                   error={errors.email}
                   leftSection={<IconMail size={16} />}
                 />
-              </Group>
+              </SimpleGrid>
 
               <Textarea
                 label="Residential Address"
@@ -647,11 +648,11 @@ export default function TicketPurchasePage() {
                   border: '1px dashed rgba(250, 204, 21, 0.4)',
                 }}
               >
-                <Group gap="sm" align="center">
-                  <ThemeIcon size={36} radius="md" color="yellow" variant="filled">
+                <Group gap="sm" wrap="nowrap" align="center">
+                  <ThemeIcon size={36} radius="md" color="yellow" variant="filled" style={{ flexShrink: 0 }}>
                     <IconBuildingStore size={20} color="#140305" />
                   </ThemeIcon>
-                  <Box style={{ flex: 1 }}>
+                  <Box style={{ flex: 1, minWidth: 0 }}>
                     <Text size="xs" fw={700} c="royalGold.3">
                       SPECIAL FESTIVE PERK INCLUDED
                     </Text>
@@ -695,8 +696,8 @@ export default function TicketPurchasePage() {
                   >
                     <Stack gap="xs">
                       <Group justify="space-between" align="center">
-                        <Group gap={6}>
-                          <IconDiscount2 size={16} color="#facc15" />
+                        <Group gap={6} wrap="nowrap" align="center">
+                          <IconDiscount2 size={16} color="#facc15" style={{ flexShrink: 0 }} />
                           <Text size="xs" fw={700} c="royalGold.3">
                             COUPON / PROMO CODE
                           </Text>
@@ -848,9 +849,9 @@ export default function TicketPurchasePage() {
                 {finalPayable === 0 ? 'Generate Free Pass' : `Pay ₹${finalPayable} & Generate Pass`}
               </Button>
 
-              <Group justify="center" gap="xs">
-                <IconShieldCheck size={16} color="#4ade80" />
-                <Text size="xs" c="gray.4">
+              <Group justify="center" gap={6} wrap="nowrap" align="center">
+                <IconShieldCheck size={16} color="#4ade80" style={{ flexShrink: 0 }} />
+                <Text size="xs" c="gray.4" ta="center">
                   {finalPayable === 0 ? 'Direct Pass Issuance' : '100% Secure Checkout via Razorpay (UPI, Cards, NetBanking)'}
                 </Text>
               </Group>

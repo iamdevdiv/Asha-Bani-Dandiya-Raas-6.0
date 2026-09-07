@@ -27,6 +27,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Booking reference not found.' }, { status: 404 });
     }
 
+    // If already confirmed (e.g. by Webhook), return immediately without duplicate doc generation or SMS
+    if (booking.paymentStatus === 'success') {
+      return NextResponse.json({
+        success: true,
+        booking,
+        bookingId: booking.id,
+        bookingNumber: booking.bookingNumber,
+        qrCodeDataUrl: booking.qrCodeDataUrl,
+        image1080DataUrl: booking.confirmationDocUrl,
+      });
+    }
+
     // Verify payment signature
     const isValid = verifyRazorpaySignature({
       orderId: razorpayOrderId || booking.razorpayOrderId || '',

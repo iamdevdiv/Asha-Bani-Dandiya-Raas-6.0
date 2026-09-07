@@ -258,7 +258,7 @@ export default function AmbassadorApplyPage() {
                     leftSection={<IconUser size={16} />}
                   />
 
-                  <Group grow align="flex-start">
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                     <TextInput
                       label="10-Digit Mobile Number"
                       placeholder="Enter 10-digit mobile number"
@@ -277,7 +277,7 @@ export default function AmbassadorApplyPage() {
                       onChange={(e) => setEmail(e.currentTarget.value)}
                       leftSection={<IconMail size={16} />}
                     />
-                  </Group>
+                  </SimpleGrid>
 
                   <Textarea
                     label="College / Organization / Network Note"

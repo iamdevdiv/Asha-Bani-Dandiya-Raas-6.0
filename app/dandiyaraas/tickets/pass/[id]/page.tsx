@@ -112,7 +112,7 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
     <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      <Container size="sm" py={50} style={{ flexGrow: 1 }}>
+      <Container size="sm" py={{ base: 30, sm: 50 }} px={{ base: 'xs', sm: 'md' }} style={{ flexGrow: 1 }}>
         <Stack gap="xl" align="center">
           {/* Top Bar */}
           <Group justify="space-between" align="center" w="100%" maw={480}>
@@ -169,12 +169,12 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
               }}
             >
               <Group justify="space-between" align="center" wrap="wrap" gap="sm">
-                <Group gap="sm">
-                  <ThemeIcon size={36} radius="md" color={(booking.voucherBalance ?? 0) > 0 ? 'yellow' : 'gray'} variant="filled">
+                <Group gap="sm" wrap="nowrap" align="center" style={{ flex: 1, minWidth: 220 }}>
+                  <ThemeIcon size={36} radius="md" color={(booking.voucherBalance ?? 0) > 0 ? 'yellow' : 'gray'} variant="filled" style={{ flexShrink: 0 }}>
                     <IconBuildingStore size={20} color="#140305" />
                   </ThemeIcon>
-                  <Box>
-                    <Group gap="xs" align="center">
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Group gap="xs" align="center" wrap="wrap">
                       <Text size="xs" fw={700} c={(booking.voucherBalance ?? 0) > 0 ? 'royalGold.3' : 'gray.4'}>
                         INCLUDED STALL VOUCHER
                       </Text>
@@ -203,7 +203,8 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
                     href={`/dandiyaraas/tickets/voucher/${booking.id}`}
                     size="sm"
                     className="btn-auspicious-gold"
-                    leftSection={<IconBuildingStore size={18} />}
+                    leftSection={<IconBuildingStore size={18} style={{ flexShrink: 0 }} />}
+                    style={{ flexShrink: 0, width: '100%', maxWidth: 480 }}
                   >
                     Use Stall Voucher (₹{booking.voucherBalance})
                   </Button>
@@ -213,8 +214,8 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
                     disabled
                     variant="light"
                     color="gray"
-                    leftSection={<IconBuildingStore size={18} />}
-                    style={{ cursor: 'not-allowed', opacity: 0.6 }}
+                    leftSection={<IconBuildingStore size={18} style={{ flexShrink: 0 }} />}
+                    style={{ cursor: 'not-allowed', opacity: 0.6, flexShrink: 0, width: '100%', maxWidth: 480 }}
                   >
                     Voucher Exhausted (₹0)
                   </Button>

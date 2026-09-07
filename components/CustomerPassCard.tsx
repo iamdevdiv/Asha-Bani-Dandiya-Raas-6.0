@@ -150,7 +150,7 @@ export function CustomerPassCard({
           background: 'linear-gradient(145deg, #2a080c 0%, #1c0407 45%, #120204 100%)',
           border: '2.5px solid #facc15',
           borderRadius: 24,
-          padding: '28px 22px 24px 22px',
+          padding: 'clamp(20px, 4.5vw, 28px) clamp(12px, 3.5vw, 22px)',
           boxShadow: '0 16px 45px rgba(0, 0, 0, 0.8), 0 0 30px rgba(234, 179, 8, 0.3)',
           position: 'relative',
           color: '#ffffff',
@@ -314,31 +314,30 @@ export function CustomerPassCard({
           {/* Schedule & Venue Box */}
           <Box
             w="100%"
-            p="xs"
+            p={{ base: '8px 10px', sm: '10px 14px' }}
             style={{
-              backgroundColor: 'rgba(0, 0, 0, 0.35)',
-              borderRadius: 10,
-              border: '1px solid rgba(234, 179, 8, 0.2)',
-              fontSize: '0.75rem',
+              backgroundColor: 'rgba(0, 0, 0, 0.45)',
+              borderRadius: 12,
+              border: '1px solid rgba(234, 179, 8, 0.25)',
             }}
           >
-            <Group justify="space-between" wrap="nowrap" mb={4}>
-              <Group gap={4} align="center">
-                <IconCalendar size={13} color="#facc15" />
-                <Text size="xs" c="yellow.2" fw={600}>
+            <Group justify="space-between" align="center" wrap="wrap" gap="xs" mb={6}>
+              <Group gap={6} wrap="nowrap" align="center">
+                <IconCalendar size={14} color="#facc15" style={{ flexShrink: 0 }} />
+                <Text size="xs" c="yellow.2" fw={600} style={{ whiteSpace: 'nowrap' }}>
                   13 October 2026
                 </Text>
               </Group>
-              <Group gap={4} align="center">
-                <IconClock size={13} color="#facc15" />
-                <Text size="xs" c="yellow.2" fw={600}>
+              <Group gap={6} wrap="nowrap" align="center">
+                <IconClock size={14} color="#facc15" style={{ flexShrink: 0 }} />
+                <Text size="xs" c="yellow.2" fw={600} style={{ whiteSpace: 'nowrap' }}>
                   6:00 PM – 12:00 AM
                 </Text>
               </Group>
             </Group>
-            <Group gap={4} justify="center" align="center">
-              <IconMapPin size={13} color="#facc15" />
-              <Text size="xs" c="gray.3" ta="center">
+            <Group gap={6} wrap="nowrap" align="flex-start">
+              <IconMapPin size={14} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+              <Text size="xs" c="gray.3" style={{ lineHeight: 1.35, fontSize: '0.74rem', flex: 1, minWidth: 0 }}>
                 Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur
               </Text>
             </Group>

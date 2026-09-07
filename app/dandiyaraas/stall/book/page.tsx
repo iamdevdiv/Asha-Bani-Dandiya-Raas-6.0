@@ -170,6 +170,7 @@ export default function StallBookingPage() {
             });
           },
           modal: {
+            confirm_close: true,
             ondismiss: function () {
               setSubmitting(false);
               notifications.show({
@@ -264,14 +265,14 @@ export default function StallBookingPage() {
           {/* Left Column: Interactive Map (7 cols on lg) */}
           <Grid.Col span={{ base: 12, lg: 7 }}>
             <Paper
-              p="lg"
+              p={{ base: 'xs', sm: 'md', lg: 'lg' }}
               radius="lg"
               style={{
                 backgroundColor: 'rgba(20, 3, 5, 0.75)',
                 border: '1px solid rgba(234, 179, 8, 0.3)',
               }}
             >
-              <Group justify="space-between" align="center" mb="md">
+              <Group justify="space-between" align="center" mb="md" wrap="wrap" gap="xs">
                 <Box>
                   <Title order={3} size="h4" c="white" style={{ fontFamily: "'Cinzel', serif" }}>
                     Canopy Booth Layout
@@ -308,7 +309,7 @@ export default function StallBookingPage() {
           {/* Right Column: Registration Form & Pricing Summary (5 cols on lg) */}
           <Grid.Col span={{ base: 12, lg: 5 }}>
             <Paper
-              p="xl"
+              p={{ base: 'md', sm: 'xl' }}
               radius="lg"
               style={{
                 backgroundColor: 'rgba(36, 8, 14, 0.8)',

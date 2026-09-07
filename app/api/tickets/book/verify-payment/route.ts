@@ -19,6 +19,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Booking not found' }, { status: 404 });
     }
 
+    // If already confirmed (e.g. by Webhook), immediately return success without duplicate SMS or coupon increment
+    if (booking.paymentStatus === 'success') {
+      return NextResponse.json({
+        success: true,
+        booking,
+        passUrl: `/dandiyaraas/tickets/pass/${booking.id}`,
+        message: 'Ticket confirmed and pass generated successfully!',
+      });
+    }
+
     // Verify signature
     if (razorpayOrderId && razorpayPaymentId && razorpaySignature) {
       const isValid = verifyRazorpaySignature({
