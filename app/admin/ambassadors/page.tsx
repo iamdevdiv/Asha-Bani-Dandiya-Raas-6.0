@@ -311,13 +311,32 @@ export default function AdminAmbassadorsPage() {
             onClick={openTiers}
             leftSection={<IconSettings size={18} />}
             style={{ flexShrink: 0 }}
+            disabled={loading}
           >
             Configure Reward Tiers
           </Button>
         </Group>
 
-        {/* Metrics Grid */}
-        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+        {loading ? (
+          <Paper
+            p="xl"
+            radius="lg"
+            style={{
+              backgroundColor: 'rgba(20, 3, 5, 0.85)',
+              border: '1px solid rgba(234, 179, 8, 0.25)',
+            }}
+          >
+            <Stack align="center" py={80} gap="md">
+              <Loader color="royalGold" size="lg" />
+              <Text size="sm" c="gray.3" fw={600} style={{ letterSpacing: '0.05em' }}>
+                Loading ambassador applications and referral statistics...
+              </Text>
+            </Stack>
+          </Paper>
+        ) : (
+          <>
+            {/* Metrics Grid */}
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
           <Card p="md" radius="lg" className="festive-card">
             <Group justify="space-between">
               <Box>
@@ -554,6 +573,8 @@ export default function AdminAmbassadorsPage() {
             </Paper>
           </Tabs.Panel>
         </Tabs>
+        </>
+      )}
       </Stack>
 
       {/* Approve & Password Modal */}
