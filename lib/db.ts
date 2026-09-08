@@ -2783,6 +2783,39 @@ export async function getAmbassadorByTicketBookingId(ticketBookingIdOrNumber: st
   );
 }
 
+export async function updateAmbassadorPassword(id: string, plainPassword: string) {
+  if (!plainPassword || !plainPassword.trim()) {
+    throw new Error('Password cannot be empty');
+  }
+  const passwordHash = bcrypt.hashSync(plainPassword.trim(), 10);
+
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      return await (prisma as any).ambassador.update({
+        where: { id },
+        data: {
+          passwordHash,
+          updatedAt: new Date(),
+        },
+      });
+    } catch (e: any) {
+      console.error('Prisma error in updateAmbassadorPassword:', e);
+      throw new Error(`Database error updating password: ${e?.message || e}`);
+    }
+  }
+
+  const store = loadFallbackStore();
+  const amb = (store.ambassadors || []).find((a) => a.id === id);
+  if (amb) {
+    amb.passwordHash = passwordHash;
+    amb.updatedAt = new Date().toISOString();
+    saveFallbackStore(store);
+    return amb;
+  }
+  throw new Error(`Ambassador with ID "${id}" not found`);
+}
+
 export async function approveAmbassador(id: string, plainPassword?: string, status = 'approved') {
   let passwordHash: string | undefined;
   if (plainPassword && plainPassword.trim().length > 0) {
@@ -2792,14 +2825,15 @@ export async function approveAmbassador(id: string, plainPassword?: string, stat
   const hasPrisma = await checkPrisma();
   if (hasPrisma) {
     try {
-      const data: any = { status };
+      const data: any = { status, updatedAt: new Date() };
       if (passwordHash) data.passwordHash = passwordHash;
       return await (prisma as any).ambassador.update({
         where: { id },
         data,
       });
-    } catch (e) {
-      console.warn('Prisma error in approveAmbassador', e);
+    } catch (e: any) {
+      console.error('Prisma error in approveAmbassador:', e);
+      throw new Error(`Database error approving ambassador: ${e?.message || e}`);
     }
   }
 
@@ -2810,8 +2844,9 @@ export async function approveAmbassador(id: string, plainPassword?: string, stat
     if (passwordHash) amb.passwordHash = passwordHash;
     amb.updatedAt = new Date().toISOString();
     saveFallbackStore(store);
+    return amb;
   }
-  return amb;
+  throw new Error(`Ambassador with ID "${id}" not found`);
 }
 
 export async function ambassadorLogin(mobile: string, plainPassword: string) {

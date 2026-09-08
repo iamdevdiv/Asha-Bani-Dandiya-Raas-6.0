@@ -61,6 +61,7 @@ export default function AdminAmbassadorsPage() {
   const [selectedAmbassador, setSelectedAmbassador] = useState<any | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordModalMode, setPasswordModalMode] = useState<'approve' | 'edit'>('approve');
 
   // Reject Confirmation Modal
   const [ambassadorToReject, setAmbassadorToReject] = useState<any | null>(null);
@@ -119,18 +120,37 @@ export default function AdminAmbassadorsPage() {
 
   const handleOpenApprove = (amb: any) => {
     setSelectedAmbassador(amb);
-    setNewPassword('ambassador2026'); // Default suggested password
+    setPasswordModalMode('approve');
+    setNewPassword(''); // Always start blank without showing template password
     openApprove();
   };
 
-  const handleApproveWithPassword = async () => {
+  const handleOpenChangePassword = (amb: any) => {
+    setSelectedAmbassador(amb);
+    setPasswordModalMode('edit');
+    setNewPassword(''); // Always start blank
+    openApprove();
+  };
+
+  const handleClosePasswordModal = () => {
+    setNewPassword('');
+    closeApprove();
+  };
+
+  const handleSavePassword = async () => {
     if (!newPassword.trim()) {
-      notifications.show({ title: 'Password Required', message: 'Please assign a password for the ambassador.', color: 'red' });
+      notifications.show({ title: 'Password Required', message: 'Please enter a password.', color: 'red' });
+      return;
+    }
+
+    if (newPassword.trim().length < 6) {
+      notifications.show({ title: 'Password Too Short', message: 'Password must be at least 6 characters long.', color: 'red' });
       return;
     }
 
     setSavingPassword(true);
     try {
+      const isEdit = passwordModalMode === 'edit';
       const res = await fetch('/api/admin/ambassadors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -138,26 +158,29 @@ export default function AdminAmbassadorsPage() {
           id: selectedAmbassador.id,
           password: newPassword.trim(),
           status: 'approved',
+          action: isEdit ? 'change_password' : 'approve',
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to approve ambassador');
+        throw new Error(data.message || (isEdit ? 'Failed to update password' : 'Failed to approve ambassador'));
       }
 
       notifications.show({
-        title: 'Ambassador Approved',
-        message: `${selectedAmbassador.name} has been approved with login password.`,
+        title: isEdit ? 'Password Updated' : 'Ambassador Approved',
+        message: isEdit
+          ? `Login password for ${selectedAmbassador.name} has been updated successfully.`
+          : `${selectedAmbassador.name} has been approved with login password.`,
         color: 'green',
       });
 
-      closeApprove();
+      handleClosePasswordModal();
       fetchData();
     } catch (err: any) {
       notifications.show({
-        title: 'Approval Error',
-        message: err.message || 'Could not approve ambassador.',
+        title: passwordModalMode === 'edit' ? 'Update Error' : 'Approval Error',
+        message: err.message || 'Could not save ambassador credentials.',
         color: 'red',
       });
     } finally {
@@ -515,7 +538,7 @@ export default function AdminAmbassadorsPage() {
                                   variant="light"
                                   size="sm"
                                   radius="md"
-                                  onClick={() => handleOpenApprove(a)}
+                                  onClick={() => handleOpenChangePassword(a)}
                                 >
                                   <IconKey size={16} />
                                 </ActionIcon>
@@ -536,12 +559,14 @@ export default function AdminAmbassadorsPage() {
       {/* Approve & Password Modal */}
       <Modal
         opened={openedApprove}
-        onClose={closeApprove}
+        onClose={handleClosePasswordModal}
         title={
           <Group gap="xs">
             <IconKey size={20} color="#facc15" />
             <Text fw={700} c="white">
-              Assign Ambassador Password: {selectedAmbassador?.name}
+              {passwordModalMode === 'edit'
+                ? `Change Password: ${selectedAmbassador?.name}`
+                : `Assign Ambassador Password: ${selectedAmbassador?.name}`}
             </Text>
           </Group>
         }
@@ -552,28 +577,36 @@ export default function AdminAmbassadorsPage() {
       >
         <Stack gap="md">
           <Text size="xs" c="gray.4">
-            The ambassador will use their registered mobile (<b>{selectedAmbassador?.mobile}</b>) and this password to log in at <code>/ambassador/login</code>.
+            {passwordModalMode === 'edit' ? (
+              <>
+                Enter a new password for <b>{selectedAmbassador?.name}</b> (Mobile: <b>{selectedAmbassador?.mobile}</b>). This will immediately replace their existing login credentials at <code>/ambassador/login</code>.
+              </>
+            ) : (
+              <>
+                The ambassador will use their registered mobile (<b>{selectedAmbassador?.mobile}</b>) and this password to log in at <code>/ambassador/login</code>.
+              </>
+            )}
           </Text>
 
-          <TextInput
-            label="Ambassador Password"
-            placeholder="Assign password"
+          <PasswordInput
+            label={passwordModalMode === 'edit' ? 'New Login Password' : 'Set Login Password'}
+            placeholder="Enter new password (min. 6 characters)"
             required
             value={newPassword}
             onChange={(e) => setNewPassword(e.currentTarget.value)}
           />
 
           <Group justify="flex-end" mt="md">
-            <Button variant="default" onClick={closeApprove} disabled={savingPassword}>
+            <Button variant="default" onClick={handleClosePasswordModal} disabled={savingPassword}>
               Cancel
             </Button>
             <Button
               className="btn-auspicious-gold"
-              onClick={handleApproveWithPassword}
+              onClick={handleSavePassword}
               loading={savingPassword}
-              leftSection={<IconCheck size={16} />}
+              leftSection={passwordModalMode === 'edit' ? <IconKey size={16} /> : <IconCheck size={16} />}
             >
-              Approve &amp; Save Credentials
+              {passwordModalMode === 'edit' ? 'Update Password' : 'Approve & Save Credentials'}
             </Button>
           </Group>
         </Stack>
