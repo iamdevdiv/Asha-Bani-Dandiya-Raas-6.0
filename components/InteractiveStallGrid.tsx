@@ -18,6 +18,7 @@ import {
   IconSparkles,
   IconCoin,
   IconBuildingStore,
+  IconEdit,
 } from '@tabler/icons-react';
 
 export interface StallItem {
@@ -40,6 +41,7 @@ interface InteractiveStallGridProps {
   onSelectStall?: (stall: StallItem) => void;
   isAdminView?: boolean;
   onAdminAction?: (stall: StallItem) => void;
+  onEditCategoryPricing?: () => void;
 }
 
 export function InteractiveStallGrid({
@@ -48,7 +50,14 @@ export function InteractiveStallGrid({
   onSelectStall,
   isAdminView = false,
   onAdminAction,
+  onEditCategoryPricing,
 }: InteractiveStallGridProps) {
+  // Derive category prices dynamically from stalls list
+  const foodPrice = stalls.find((s) => s.section === 'food' || !isNaN(Number(s.stallNumber)))?.price ?? 3500;
+  const cjPrice = stalls.find((s) => s.stallNumber.toUpperCase() === 'C' || s.section === 'outstanding_visibility')?.price ?? 3500;
+  const turningPrice = stalls.find((s) => ['A', 'B', 'Q', 'R', 'S', 'T'].includes(s.stallNumber.toUpperCase()) || s.section === 'turning_premium')?.price ?? 4500;
+  const frontPrice = stalls.find((s) => ['K', 'L', 'M', 'N', 'O', 'P'].includes(s.stallNumber.toUpperCase()) || s.section === 'front_visibility')?.price ?? 5500;
+
   // Group stalls into 7 rows of 5 columns
   const rows = [
     ['1', '2', '3', '4', '5'],
@@ -67,10 +76,12 @@ export function InteractiveStallGrid({
         stallNumber: num,
         section: isNaN(Number(num)) ? 'commercial' : 'food',
         price: num === 'A' || num === 'B' || num === 'R' || num === 'Q' || num === 'S' || num === 'T'
-          ? 4500
+          ? turningPrice
           : ['K', 'L', 'M', 'N', 'O', 'P'].includes(num)
-          ? 5500
-          : 3500,
+          ? frontPrice
+          : !isNaN(Number(num))
+          ? foodPrice
+          : cjPrice,
         isBooked: false,
       }
     );
@@ -154,19 +165,65 @@ export function InteractiveStallGrid({
             </Group>
           </Group>
 
-          <Group gap="xs" wrap="wrap">
-            <Badge size="sm" variant="light" color="orange">
-              Food: ₹3,500
-            </Badge>
-            <Badge size="sm" variant="light" color="cyan">
-              C-J: ₹3,500
-            </Badge>
-            <Badge size="sm" variant="light" color="grape">
-              Turning: ₹4,500
-            </Badge>
-            <Badge size="sm" variant="light" color="yellow">
-              Front: ₹5,500
-            </Badge>
+          <Group gap="xs" wrap="wrap" align="center">
+            {isAdminView && onEditCategoryPricing && (
+              <Tooltip label="Click to edit category & badge prices across all booths" withArrow>
+                <Badge
+                  size="sm"
+                  variant="outline"
+                  color="yellow"
+                  style={{ cursor: 'pointer', borderColor: '#facc15', textTransform: 'uppercase' }}
+                  onClick={onEditCategoryPricing}
+                  leftSection={<IconEdit size={12} />}
+                >
+                  Edit Prices
+                </Badge>
+              </Tooltip>
+            )}
+            <Tooltip label={isAdminView ? "Click to edit category pricing" : undefined} disabled={!isAdminView}>
+              <Badge
+                size="sm"
+                variant="light"
+                color="orange"
+                style={{ textTransform: 'uppercase', cursor: isAdminView && onEditCategoryPricing ? 'pointer' : 'default' }}
+                onClick={isAdminView ? onEditCategoryPricing : undefined}
+              >
+                Food: ₹{foodPrice.toLocaleString('en-IN')}
+              </Badge>
+            </Tooltip>
+            <Tooltip label={isAdminView ? "Click to edit category pricing" : undefined} disabled={!isAdminView}>
+              <Badge
+                size="sm"
+                variant="light"
+                color="cyan"
+                style={{ textTransform: 'uppercase', cursor: isAdminView && onEditCategoryPricing ? 'pointer' : 'default' }}
+                onClick={isAdminView ? onEditCategoryPricing : undefined}
+              >
+                C-J: ₹{cjPrice.toLocaleString('en-IN')}
+              </Badge>
+            </Tooltip>
+            <Tooltip label={isAdminView ? "Click to edit category pricing" : undefined} disabled={!isAdminView}>
+              <Badge
+                size="sm"
+                variant="light"
+                color="grape"
+                style={{ textTransform: 'uppercase', cursor: isAdminView && onEditCategoryPricing ? 'pointer' : 'default' }}
+                onClick={isAdminView ? onEditCategoryPricing : undefined}
+              >
+                Turning: ₹{turningPrice.toLocaleString('en-IN')}
+              </Badge>
+            </Tooltip>
+            <Tooltip label={isAdminView ? "Click to edit category pricing" : undefined} disabled={!isAdminView}>
+              <Badge
+                size="sm"
+                variant="light"
+                color="yellow"
+                style={{ textTransform: 'uppercase', cursor: isAdminView && onEditCategoryPricing ? 'pointer' : 'default' }}
+                onClick={isAdminView ? onEditCategoryPricing : undefined}
+              >
+                Front: ₹{frontPrice.toLocaleString('en-IN')}
+              </Badge>
+            </Tooltip>
           </Group>
         </Group>
       </Paper>

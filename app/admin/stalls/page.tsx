@@ -55,6 +55,70 @@ export default function AdminStallsPage() {
     },
   });
 
+  // Category & Badge Pricing Modal State
+  const [openedCategoryModal, { open: openCategoryModal, close: closeCategoryModal }] = useDisclosure(false);
+  const [savingCategoryPrices, setSavingCategoryPrices] = useState(false);
+
+  const categoryForm = useForm({
+    initialValues: {
+      foodPrice: 3500,
+      cjPrice: 3500,
+      turningPrice: 4500,
+      frontPrice: 5500,
+    },
+  });
+
+  const handleOpenCategoryModal = () => {
+    const foodPrice = stalls.find((s) => s.section === 'food' || !isNaN(Number(s.stallNumber)))?.price ?? 3500;
+    const cjPrice = stalls.find((s) => s.stallNumber.toUpperCase() === 'C' || s.section === 'outstanding_visibility')?.price ?? 3500;
+    const turningPrice = stalls.find((s) => ['A', 'B', 'Q', 'R', 'S', 'T'].includes(s.stallNumber.toUpperCase()) || s.section === 'turning_premium')?.price ?? 4500;
+    const frontPrice = stalls.find((s) => ['K', 'L', 'M', 'N', 'O', 'P'].includes(s.stallNumber.toUpperCase()) || s.section === 'front_visibility')?.price ?? 5500;
+
+    categoryForm.setValues({
+      foodPrice,
+      cjPrice,
+      turningPrice,
+      frontPrice,
+    });
+    openCategoryModal();
+  };
+
+  const handleSaveCategoryPrices = async (values: typeof categoryForm.values) => {
+    setSavingCategoryPrices(true);
+    try {
+      const res = await fetch('/api/admin/stalls', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_category_pricing',
+          categoryPrices: values,
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to update category prices');
+      }
+
+      notifications.show({
+        title: 'Category Prices Updated',
+        message: 'All stall booth prices & layout badges have been updated successfully.',
+        color: 'green',
+      });
+
+      closeCategoryModal();
+      fetchStalls();
+    } catch (err: any) {
+      notifications.show({
+        title: 'Update Failed',
+        message: err.message || 'Could not save category prices.',
+        color: 'red',
+      });
+    } finally {
+      setSavingCategoryPrices(false);
+    }
+  };
+
   const fetchStalls = async () => {
     setLoading(true);
     try {
@@ -151,15 +215,25 @@ export default function AdminStallsPage() {
           </Text>
         </Box>
 
-        <Button
-          onClick={fetchStalls}
-          variant="light"
-          color="royalGold"
-          leftSection={<IconRefresh size={16} />}
-          style={{ flexShrink: 0 }}
-        >
-          Refresh Grid
-        </Button>
+        <Group gap="sm" wrap="wrap">
+          <Button
+            onClick={handleOpenCategoryModal}
+            className="btn-auspicious-gold"
+            leftSection={<IconCoin size={16} />}
+            style={{ flexShrink: 0 }}
+          >
+            Edit Badge &amp; Category Prices
+          </Button>
+          <Button
+            onClick={fetchStalls}
+            variant="light"
+            color="royalGold"
+            leftSection={<IconRefresh size={16} />}
+            style={{ flexShrink: 0 }}
+          >
+            Refresh Grid
+          </Button>
+        </Group>
       </Group>
 
       {/* Summary KPI Cards */}
@@ -262,6 +336,7 @@ export default function AdminStallsPage() {
             stalls={stalls}
             isAdminView
             onAdminAction={handleOpenStallModal}
+            onEditCategoryPricing={handleOpenCategoryModal}
           />
         )}
       </Paper>
@@ -377,6 +452,119 @@ export default function AdminStallsPage() {
             </Stack>
           </form>
         )}
+      </Modal>
+
+      {/* Category & Badge Pricing Modal */}
+      <Modal
+        opened={openedCategoryModal}
+        onClose={closeCategoryModal}
+        title={
+          <Group gap="xs">
+            <IconCoin size={22} color="#facc15" />
+            <Text fw={800} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", fontSize: '1.2rem' }}>
+              Edit Stall Category &amp; Badge Pricing
+            </Text>
+          </Group>
+        }
+        size="md"
+        styles={{
+          content: {
+            backgroundColor: '#140305',
+            border: '1px solid rgba(234, 179, 8, 0.4)',
+          },
+          header: {
+            backgroundColor: '#140305',
+            borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
+          },
+        }}
+      >
+        <Text size="xs" c="gray.4" mb="md">
+          Updating these prices will update the catalog price for all booths in the corresponding category and instantly reflect on both this admin panel and the public stall booking page badges.
+        </Text>
+
+        <form onSubmit={categoryForm.onSubmit(handleSaveCategoryPrices)}>
+          <Stack gap="md">
+            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(249, 115, 22, 0.3)' }}>
+              <Group justify="space-between" mb={4}>
+                <Badge color="orange" variant="light" size="sm">FOOD ZONE</Badge>
+                <Text size="xs" c="gray.4">Stalls 1 to 15 (15 Booths)</Text>
+              </Group>
+              <NumberInput
+                label="Food Stall Price (₹)"
+                required
+                min={0}
+                step={100}
+                thousandSeparator=","
+                prefix="₹"
+                {...categoryForm.getInputProps('foodPrice')}
+              />
+            </Paper>
+
+            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+              <Group justify="space-between" mb={4}>
+                <Badge color="cyan" variant="light" size="sm">COMMERCIAL ZONE (C–J)</Badge>
+                <Text size="xs" c="gray.4">Stalls C, D, E, F, G, H, I, J (8 Booths)</Text>
+              </Group>
+              <NumberInput
+                label="Commercial C–J Stall Price (₹)"
+                required
+                min={0}
+                step={100}
+                thousandSeparator=","
+                prefix="₹"
+                {...categoryForm.getInputProps('cjPrice')}
+              />
+            </Paper>
+
+            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+              <Group justify="space-between" mb={4}>
+                <Badge color="grape" variant="light" size="sm">TURNING PREMIUM</Badge>
+                <Text size="xs" c="gray.4">Stalls A, B, Q, R, S, T (6 Booths)</Text>
+              </Group>
+              <NumberInput
+                label="Turning Premium Price (₹)"
+                required
+                min={0}
+                step={100}
+                thousandSeparator=","
+                prefix="₹"
+                {...categoryForm.getInputProps('turningPrice')}
+              />
+            </Paper>
+
+            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(234, 179, 8, 0.3)' }}>
+              <Group justify="space-between" mb={4}>
+                <Badge color="yellow" variant="light" size="sm">FRONT VISIBILITY</Badge>
+                <Text size="xs" c="gray.4">Stalls K, L, M, N, O, P (6 Booths)</Text>
+              </Group>
+              <NumberInput
+                label="Front Visibility Price (₹)"
+                required
+                min={0}
+                step={100}
+                thousandSeparator=","
+                prefix="₹"
+                {...categoryForm.getInputProps('frontPrice')}
+              />
+            </Paper>
+
+            <Divider my="xs" color="rgba(234, 179, 8, 0.2)" />
+
+            <Group justify="flex-end" gap="sm">
+              <Button variant="default" onClick={closeCategoryModal} disabled={savingCategoryPrices}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="btn-auspicious-gold"
+                loading={savingCategoryPrices}
+                leftSection={<IconCheck size={16} />}
+              >
+                Save Category Prices
+              </Button>
+            </Group>
+          </Stack>
+        </form>
       </Modal>
     </Container>
   );

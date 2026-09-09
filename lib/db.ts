@@ -394,6 +394,93 @@ export async function updateStall(
   return null;
 }
 
+export async function updateStallCategoryPrices(prices: {
+  foodPrice?: number;
+  cjPrice?: number;
+  turningPrice?: number;
+  frontPrice?: number;
+}) {
+  const foodStalls = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15'];
+  const cjStalls = ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
+  const turningStalls = ['A', 'B', 'Q', 'R', 'S', 'T'];
+  const frontStalls = ['K', 'L', 'M', 'N', 'O', 'P'];
+
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      if (prices.foodPrice !== undefined && !isNaN(Number(prices.foodPrice))) {
+        await prisma.stall.updateMany({
+          where: {
+            OR: [
+              { section: 'food' },
+              { stallNumber: { in: foodStalls } },
+            ],
+          },
+          data: { price: Math.round(Number(prices.foodPrice)) },
+        });
+      }
+
+      if (prices.cjPrice !== undefined && !isNaN(Number(prices.cjPrice))) {
+        await prisma.stall.updateMany({
+          where: {
+            OR: [
+              { section: 'outstanding_visibility' },
+              { stallNumber: { in: cjStalls } },
+            ],
+          },
+          data: { price: Math.round(Number(prices.cjPrice)) },
+        });
+      }
+
+      if (prices.turningPrice !== undefined && !isNaN(Number(prices.turningPrice))) {
+        await prisma.stall.updateMany({
+          where: {
+            OR: [
+              { section: 'turning_premium' },
+              { stallNumber: { in: turningStalls } },
+            ],
+          },
+          data: { price: Math.round(Number(prices.turningPrice)) },
+        });
+      }
+
+      if (prices.frontPrice !== undefined && !isNaN(Number(prices.frontPrice))) {
+        await prisma.stall.updateMany({
+          where: {
+            OR: [
+              { section: 'front_visibility' },
+              { stallNumber: { in: frontStalls } },
+            ],
+          },
+          data: { price: Math.round(Number(prices.frontPrice)) },
+        });
+      }
+
+      return await prisma.stall.findMany({ orderBy: { stallNumber: 'asc' } });
+    } catch (e) {
+      console.warn('Prisma error in updateStallCategoryPrices', e);
+    }
+  }
+
+  const store = loadFallbackStore();
+  store.stalls = (store.stalls || []).map((s) => {
+    const num = s.stallNumber.toUpperCase();
+    let newPrice = s.price;
+    if (foodStalls.includes(num) || s.section === 'food') {
+      if (prices.foodPrice !== undefined) newPrice = Math.round(Number(prices.foodPrice));
+    } else if (cjStalls.includes(num) || s.section === 'outstanding_visibility') {
+      if (prices.cjPrice !== undefined) newPrice = Math.round(Number(prices.cjPrice));
+    } else if (turningStalls.includes(num) || s.section === 'turning_premium') {
+      if (prices.turningPrice !== undefined) newPrice = Math.round(Number(prices.turningPrice));
+    } else if (frontStalls.includes(num) || s.section === 'front_visibility') {
+      if (prices.frontPrice !== undefined) newPrice = Math.round(Number(prices.frontPrice));
+    }
+    return { ...s, price: newPrice };
+  });
+  saveFallbackStore(store);
+  return store.stalls;
+}
+
 export async function markStallBooked(
   stallNumber: string,
   booking: {
