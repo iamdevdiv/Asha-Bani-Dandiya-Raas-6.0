@@ -338,11 +338,17 @@ export default function CustomerHomePage() {
                       component={Link}
                       href="/dandiyaraas/tickets/buy"
                       className="btn-auspicious-gold"
-                      size="lg"
-                      leftSection={<IconTicket size={22} style={{ flexShrink: 0 }} />}
-                      rightSection={<IconArrowRight size={18} style={{ flexShrink: 0 }} />}
-                      fullWidth
-                      style={{ height: 'auto', minHeight: 48, padding: '12px 18px', whiteSpace: 'normal' }}
+                      size="md"
+                      leftSection={<IconTicket size={18} style={{ flexShrink: 0 }} />}
+                      rightSection={<IconArrowRight size={16} style={{ flexShrink: 0 }} />}
+                      w={{ base: '100%', sm: 'auto' }}
+                      px={{ base: 'md', sm: 'xl' }}
+                      style={{
+                        height: 'auto',
+                        minHeight: 40,
+                        padding: '10px 24px',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
                       Book Entry Passes Now
                     </Button>
@@ -1086,16 +1092,17 @@ export default function CustomerHomePage() {
                 href={instagramUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                size="lg"
+                size="md"
                 className="btn-auspicious-gold"
-                leftSection={<IconBrandInstagram size={22} style={{ flexShrink: 0 }} />}
-                rightSection={<IconArrowRight size={18} style={{ flexShrink: 0 }} />}
-                maw="100%"
+                leftSection={<IconBrandInstagram size={18} style={{ flexShrink: 0 }} />}
+                rightSection={<IconArrowRight size={16} style={{ flexShrink: 0 }} />}
+                w={{ base: '100%', sm: 'auto' }}
+                px={{ base: 'md', sm: 'xl' }}
                 style={{
                   height: 'auto',
-                  padding: '12px 20px',
+                  minHeight: 40,
+                  padding: '10px 24px',
                   whiteSpace: 'normal',
-                  wordBreak: 'break-word',
                   textAlign: 'center',
                 }}
               >
@@ -1133,9 +1140,11 @@ export default function CustomerHomePage() {
               <Button
                 component={Link}
                 href="/dandiyaraas/stall"
-                size="lg"
+                size="md"
                 className="btn-auspicious-gold"
-                leftSection={<IconBuildingStore size={20} />}
+                leftSection={<IconBuildingStore size={18} />}
+                w={{ base: '100%', sm: 'auto' }}
+                px={{ base: 'md', sm: 'xl' }}
               >
                 Explore Stall Opportunities
               </Button>

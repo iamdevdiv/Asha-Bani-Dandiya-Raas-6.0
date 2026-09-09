@@ -219,3 +219,54 @@ export async function sendStallBookingSms(booking: {
 
   return res;
 }
+
+/**
+ * Send ambassador milestone & tier unlocked confirmation SMS with pass details
+ */
+export async function sendAmbassadorTierUnlockedSms(params: {
+  ambassadorName: string;
+  mobile: string;
+  tierName: string;
+  tierLevel: number;
+  referralCount: number;
+  voucherAmount?: number;
+  bookingNumber?: string;
+  bookingId?: string;
+  refCode?: string;
+}) {
+  console.log('[TextBee SMS DEBUG] Triggering Ambassador Tier Unlocked SMS for:', params.ambassadorName, 'Mobile:', params.mobile);
+
+  if (!params.mobile) {
+    console.warn('[TextBee SMS DEBUG] ❌ No mobile number found for ambassador:', params.ambassadorName);
+    return;
+  }
+
+  const baseUrl = getEnvValue('NEXT_PUBLIC_BASE_URL') || 'https://ashabani.com';
+  const dashboardUrl = `${baseUrl}/ambassador/dashboard`;
+  const passUrl = params.bookingId ? `${baseUrl}/dandiyaraas/tickets/pass/${params.bookingId}` : null;
+
+  let rewardLines = '';
+  if (params.bookingNumber && passUrl) {
+    rewardLines += `Complimentary Entry Pass: ${params.bookingNumber}\n`;
+    if (params.voucherAmount && params.voucherAmount > 0) {
+      rewardLines += `Included Stall Voucher: Rs. ${params.voucherAmount}\n`;
+    }
+    rewardLines += `Download Your Digital Pass:\n${passUrl}\n\n`;
+  } else if (params.voucherAmount && params.voucherAmount > 0) {
+    rewardLines += `Milestone Stall Voucher: Rs. ${params.voucherAmount}\n\n`;
+  }
+
+  const message =
+    `Namaste ${params.ambassadorName.trim()}! 🎉\n\n` +
+    `Congratulations! You have unlocked ${params.tierName} with ${params.referralCount} successful referrals for Asha Bani Dandiya Raas 6.0!\n\n` +
+    rewardLines +
+    `Track your live referrals & vouchers:\n${dashboardUrl}`;
+
+  const res = await sendTextBeeSms({
+    recipients: [params.mobile],
+    message,
+  });
+
+  return res;
+}
+

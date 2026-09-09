@@ -15,6 +15,7 @@ import {
   isFoodStall,
   isCommercialStall,
 } from './stall-data';
+import { sendAmbassadorTierUnlockedSms } from './sms';
 
 // Global Prisma instance
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
@@ -2968,14 +2969,17 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
 
   // Evaluate qualifying tier
   let qualifiedTier = 0;
+  let newlyEarnedTier: any = null;
   let newVoucherTotal = amb.voucherTotalCredited || 0;
   let voucherDelta = 0;
   let earnTicket = amb.earnedFreeTicket;
   let freeTicketBookingId = amb.freeTicketBookingId;
+  let freeBookingNumber = '';
 
   for (const tier of tiers) {
     if (newReferralCount >= tier.referralsRequired && tier.tierLevel > amb.currentTier) {
       qualifiedTier = tier.tierLevel;
+      newlyEarnedTier = tier;
       // Calculate delta so we don't roll over/double-count
       voucherDelta = tier.voucherAmount - (amb.voucherTotalCredited || 0);
       if (voucherDelta > 0) {
@@ -2992,7 +2996,7 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
     try {
       // If qualified for free ticket and not generated yet, create free ticket booking
       if (earnTicket && !freeTicketBookingId) {
-        const freeBookingNumber = `TK-FREE-${Math.floor(1000 + Math.random() * 9000)}`;
+        freeBookingNumber = `TK-FREE-${Math.floor(1000 + Math.random() * 9000)}`;
         const qrCodeDataUrl = await generateTicketQrCode(freeBookingNumber, amb.name, 1, 0);
 
         const freeTicket = await (prisma as any).ticketBooking.create({
@@ -3015,6 +3019,13 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
           },
         });
         freeTicketBookingId = freeTicket.id;
+      } else if (freeTicketBookingId && !freeBookingNumber) {
+        try {
+          const tb = await (prisma as any).ticketBooking.findUnique({ where: { id: freeTicketBookingId } });
+          if (tb) freeBookingNumber = tb.bookingNumber;
+        } catch {
+          // ignore
+        }
       }
 
       const updatedAmb = await (prisma as any).ambassador.update({
@@ -3058,6 +3069,21 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
         });
       }
 
+      // Automatically dispatch milestone SMS with pass details to ambassador
+      if (qualifiedTier > amb.currentTier && newlyEarnedTier) {
+        sendAmbassadorTierUnlockedSms({
+          ambassadorName: amb.name,
+          mobile: amb.mobile,
+          tierName: newlyEarnedTier.name || `Tier ${qualifiedTier}`,
+          tierLevel: qualifiedTier,
+          referralCount: newReferralCount,
+          voucherAmount: newVoucherTotal,
+          bookingNumber: freeBookingNumber || undefined,
+          bookingId: freeTicketBookingId || undefined,
+          refCode: amb.refCode,
+        }).catch((err) => console.error('[SMS Error in creditAmbassadorReferral]:', err));
+      }
+
       return updatedAmb;
     } catch (e) {
       console.warn('Prisma error in creditAmbassadorReferral', e);
@@ -3074,7 +3100,7 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
     if (earnTicket) {
       record.earnedFreeTicket = true;
       if (!record.freeTicketBookingId) {
-        const freeBookingNumber = `TK-FREE-${Math.floor(1000 + Math.random() * 9000)}`;
+        freeBookingNumber = `TK-FREE-${Math.floor(1000 + Math.random() * 9000)}`;
         const qrCodeDataUrl = await generateTicketQrCode(freeBookingNumber, record.name, 1, 0);
         const freeTicket = {
           id: `ticket_free_${Date.now()}`,
@@ -3101,6 +3127,9 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
         if (!store.ticketBookings) store.ticketBookings = [];
         store.ticketBookings.push(freeTicket);
         record.freeTicketBookingId = freeTicket.id;
+      } else if (!freeBookingNumber && record.freeTicketBookingId) {
+        const linkedTicket = (store.ticketBookings || []).find((b) => b.id === record.freeTicketBookingId);
+        if (linkedTicket) freeBookingNumber = linkedTicket.bookingNumber;
       }
     }
 
@@ -3134,6 +3163,20 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
     }
 
     saveFallbackStore(store);
+
+    if (qualifiedTier > amb.currentTier && newlyEarnedTier) {
+      sendAmbassadorTierUnlockedSms({
+        ambassadorName: record.name,
+        mobile: record.mobile,
+        tierName: newlyEarnedTier.name || `Tier ${qualifiedTier}`,
+        tierLevel: qualifiedTier,
+        referralCount: newReferralCount,
+        voucherAmount: newVoucherTotal,
+        bookingNumber: freeBookingNumber || undefined,
+        bookingId: record.freeTicketBookingId || undefined,
+        refCode: record.refCode,
+      }).catch((err) => console.error('[SMS Error in creditAmbassadorReferral fallback]:', err));
+    }
   }
 }
 
