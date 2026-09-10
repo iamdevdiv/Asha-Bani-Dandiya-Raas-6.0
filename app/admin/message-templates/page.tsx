@@ -631,20 +631,35 @@ export default function AdminMessageTemplatesPage() {
           value={activeTab}
           onChange={setActiveTab}
           variant="pills"
-          color="royalGold"
+          color="yellow"
           radius="lg"
           styles={{
+            list: {
+              gap: '12px',
+            },
             tab: {
               fontWeight: 700,
               fontSize: '14px',
-              padding: '10px 20px',
-              color: '#d1d5db',
-              backgroundColor: 'rgba(20, 3, 5, 0.7)',
-              border: '1px solid rgba(234, 179, 8, 0.2)',
-              '&[dataActive]': {
-                backgroundColor: '#facc15',
-                color: '#140305',
-                borderColor: '#facc15',
+              padding: '12px 24px',
+              border: '1px solid rgba(234, 179, 8, 0.3)',
+              transition: 'all 0.2s ease',
+              backgroundColor: 'rgba(20, 3, 5, 0.85)',
+              color: '#f3f4f6',
+              '&[data-active="true"], &[data-active]': {
+                backgroundColor: '#facc15 !important',
+                color: '#140305 !important',
+                borderColor: '#facc15 !important',
+                boxShadow: '0 4px 18px rgba(250, 204, 21, 0.45)',
+                fontWeight: 800,
+              },
+              '&[data-active="true"] svg, &[data-active] svg': {
+                color: '#140305 !important',
+                stroke: '#140305 !important',
+              },
+              '&:hover:not([data-active])': {
+                backgroundColor: 'rgba(42, 8, 14, 0.95)',
+                borderColor: 'rgba(234, 179, 8, 0.5)',
+                color: '#ffffff',
               },
             },
           }}
@@ -757,16 +772,24 @@ export default function AdminMessageTemplatesPage() {
                           { label: 'Tier 1 - Silver (10 Referrals)', value: 'tier_1' },
                           { label: 'Tier 2 - Gold (25 Referrals)', value: 'tier_2' },
                         ]}
-                        color="royalGold"
+                        color="yellow"
                         radius="md"
                         styles={{
                           root: {
                             backgroundColor: '#0a0102',
-                            border: '1px solid rgba(234, 179, 8, 0.3)',
+                            border: '1px solid rgba(234, 179, 8, 0.35)',
                           },
                           label: {
                             fontWeight: 700,
                             fontSize: '13px',
+                            color: '#d1d5db',
+                            '&[data-active]': {
+                              color: '#140305 !important',
+                              fontWeight: 800,
+                            },
+                          },
+                          indicator: {
+                            backgroundColor: '#facc15',
                           },
                         }}
                       />
