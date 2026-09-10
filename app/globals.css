@@ -206,7 +206,9 @@ body {
 
 /* Tabs: pills / active tabs in yellow / royalGold */
 .mantine-Tabs-tab[data-active="true"] {
+  background-color: #facc15 !important;
   color: #140305 !important;
+  border-color: #facc15 !important;
   font-weight: 800 !important;
 }
 
@@ -216,6 +218,42 @@ body {
   color: #140305 !important;
   stroke: #140305 !important;
   font-weight: 800 !important;
+}
+
+/* Specific pill tabs for message templates page */
+.template-tab-pill {
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  padding: 12px 24px !important;
+  border: 1px solid rgba(234, 179, 8, 0.35) !important;
+  background-color: rgba(20, 3, 5, 0.85) !important;
+  color: #f3f4f6 !important;
+  transition: all 0.2s ease !important;
+}
+
+.template-tab-pill svg {
+  color: #facc15 !important;
+}
+
+.template-tab-pill[data-active="true"] {
+  background-color: #facc15 !important;
+  color: #140305 !important;
+  border-color: #facc15 !important;
+  box-shadow: 0 4px 18px rgba(250, 204, 21, 0.45) !important;
+  font-weight: 800 !important;
+}
+
+.template-tab-pill[data-active="true"] svg,
+.template-tab-pill[data-active="true"] .mantine-Tabs-tabLabel,
+.template-tab-pill[data-active="true"] .mantine-Tabs-tabSection {
+  color: #140305 !important;
+  stroke: #140305 !important;
+}
+
+.template-tab-pill:hover:not([data-active="true"]) {
+  background-color: rgba(42, 8, 14, 0.95) !important;
+  border-color: rgba(234, 179, 8, 0.6) !important;
+  color: #ffffff !important;
 }
 
 /* ThemeIcon with filled yellow / royalGold */

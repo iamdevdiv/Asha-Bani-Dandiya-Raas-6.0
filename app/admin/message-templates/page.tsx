@@ -633,42 +633,20 @@ export default function AdminMessageTemplatesPage() {
           variant="pills"
           color="yellow"
           radius="lg"
-          styles={{
-            list: {
-              gap: '12px',
-            },
-            tab: {
-              fontWeight: 700,
-              fontSize: '14px',
-              padding: '12px 24px',
-              border: '1px solid rgba(234, 179, 8, 0.3)',
-              transition: 'all 0.2s ease',
-              backgroundColor: 'rgba(20, 3, 5, 0.85)',
-              color: '#f3f4f6',
-              '&[data-active="true"], &[data-active]': {
-                backgroundColor: '#facc15 !important',
-                color: '#140305 !important',
-                borderColor: '#facc15 !important',
-                boxShadow: '0 4px 18px rgba(250, 204, 21, 0.45)',
-                fontWeight: 800,
-              },
-              '&[data-active="true"] svg, &[data-active] svg': {
-                color: '#140305 !important',
-                stroke: '#140305 !important',
-              },
-              '&:hover:not([data-active])': {
-                backgroundColor: 'rgba(42, 8, 14, 0.95)',
-                borderColor: 'rgba(234, 179, 8, 0.5)',
-                color: '#ffffff',
-              },
-            },
-          }}
         >
-          <Tabs.List mb="lg">
-            <Tabs.Tab value="sms" leftSection={<IconDeviceMobile size={18} />}>
+          <Tabs.List mb="lg" style={{ gap: '12px' }}>
+            <Tabs.Tab
+              value="sms"
+              className="template-tab-pill"
+              leftSection={<IconDeviceMobile size={18} />}
+            >
               SMS Notifications (Automated Dispatches)
             </Tabs.Tab>
-            <Tabs.Tab value="whatsapp" leftSection={<IconBrandWhatsapp size={18} />}>
+            <Tabs.Tab
+              value="whatsapp"
+              className="template-tab-pill"
+              leftSection={<IconBrandWhatsapp size={18} />}
+            >
               WhatsApp Templates (Viral Share & Passes)
             </Tabs.Tab>
           </Tabs.List>
