@@ -49,6 +49,11 @@ import {
   IconAlertCircle,
   IconInfoCircle,
   IconGift,
+  IconReceipt,
+  IconFilter,
+  IconRefresh,
+  IconArrowsSort,
+  IconX,
 } from '@tabler/icons-react';
 import html2canvas from 'html2canvas';
 import { CustomerPassCard } from '@/components/CustomerPassCard';
@@ -62,6 +67,11 @@ export default function AdminTicketBookingsPage() {
   const [pendingSearch, setPendingSearch] = useState('');
   const [phaseFilter, setPhaseFilter] = useState<string | null>(null);
   const [checkInFilter, setCheckInFilter] = useState<string | null>(null);
+  const [passTypeFilter, setPassTypeFilter] = useState<string | null>(null);
+  const [voucherFilter, setVoucherFilter] = useState<string | null>(null);
+  const [attendeeFilter, setAttendeeFilter] = useState<string | null>(null);
+  const [referralFilter, setReferralFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<string>('newest');
 
   // View Modal State
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
@@ -197,21 +207,81 @@ export default function AdminTicketBookingsPage() {
   const confirmedBookings = bookings.filter((b) => b.paymentStatus === 'success');
   const pendingBookings = bookings.filter((b) => b.paymentStatus !== 'success');
 
-  // Filter Confirmed Bookings
-  const filteredConfirmedBookings = confirmedBookings.filter((b) => {
-    if (phaseFilter && b.phaseName !== phaseFilter) return false;
-    if (checkInFilter === 'checked_in' && !b.isCheckedIn) return false;
-    if (checkInFilter === 'pending' && b.isCheckedIn) return false;
+  // Distinct phases present in bookings for dynamic phase dropdown
+  const uniquePhaseNames = Array.from(
+    new Set(bookings.map((b) => b.phaseName).filter(Boolean))
+  ) as string[];
 
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      const nameMatch = (b.fullName || '').toLowerCase().includes(q);
-      const mobileMatch = (b.mobile || '').includes(q);
-      const idMatch = (b.bookingNumber || '').toLowerCase().includes(q);
-      if (!nameMatch && !mobileMatch && !idMatch) return false;
-    }
-    return true;
-  });
+  // Filter & Sort Confirmed Bookings
+  const filteredConfirmedBookings = confirmedBookings
+    .filter((b) => {
+      // Phase Filter
+      if (phaseFilter && phaseFilter !== 'all' && b.phaseName !== phaseFilter) return false;
+
+      // Check-in Filter
+      if (checkInFilter === 'checked_in' && !b.isCheckedIn) return false;
+      if (checkInFilter === 'pending' && b.isCheckedIn) return false;
+
+      // Pass Type Filter
+      if (passTypeFilter === 'paid' && b.totalAmount === 0) return false;
+      if (passTypeFilter === 'free' && b.totalAmount > 0) return false;
+      if (passTypeFilter === 'ambassador_reward' && !b.isAmbassadorPass) return false;
+
+      // Voucher Status Filter
+      if (voucherFilter === 'has_voucher' && (b.voucherAmount || 0) === 0) return false;
+      if (voucherFilter === 'active_balance' && (b.voucherBalance || 0) <= 0) return false;
+      if (voucherFilter === 'exhausted' && ((b.voucherAmount || 0) === 0 || (b.voucherBalance || 0) > 0)) return false;
+      if (voucherFilter === 'no_voucher' && (b.voucherAmount || 0) > 0) return false;
+
+      // Attendee Composition Filter
+      if (attendeeFilter === 'adult_only' && (b.childrenCount || 0) > 0) return false;
+      if (attendeeFilter === 'with_children' && (b.childrenCount || 0) === 0) return false;
+
+      // Referral Source Filter
+      if (referralFilter === 'referred' && !b.referredByAmbassadorId && !b.isAmbassadorPass) return false;
+      if (referralFilter === 'direct' && (b.referredByAmbassadorId || b.isAmbassadorPass)) return false;
+
+      // Search Query
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const nameMatch = (b.fullName || '').toLowerCase().includes(q);
+        const mobileMatch = (b.mobile || '').includes(q);
+        const idMatch = (b.bookingNumber || '').toLowerCase().includes(q);
+        const emailMatch = (b.email || '').toLowerCase().includes(q);
+        if (!nameMatch && !mobileMatch && !idMatch && !emailMatch) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'newest') return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      if (sortBy === 'oldest') return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+      if (sortBy === 'amount_desc') return (b.totalAmount || 0) - (a.totalAmount || 0);
+      if (sortBy === 'amount_asc') return (a.totalAmount || 0) - (b.totalAmount || 0);
+      if (sortBy === 'voucher_desc') return (b.voucherAmount || 0) - (a.voucherAmount || 0);
+      return 0;
+    });
+
+  const activeFiltersCount = [
+    Boolean(phaseFilter && phaseFilter !== 'all'),
+    Boolean(checkInFilter && checkInFilter !== 'all'),
+    Boolean(passTypeFilter && passTypeFilter !== 'all'),
+    Boolean(voucherFilter && voucherFilter !== 'all'),
+    Boolean(attendeeFilter && attendeeFilter !== 'all'),
+    Boolean(referralFilter && referralFilter !== 'all'),
+    Boolean(search.trim() !== ''),
+    Boolean(sortBy !== 'newest'),
+  ].filter(Boolean).length;
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setPhaseFilter(null);
+    setCheckInFilter(null);
+    setPassTypeFilter(null);
+    setVoucherFilter(null);
+    setAttendeeFilter(null);
+    setReferralFilter(null);
+    setSortBy('newest');
+  };
 
   // Filter Pending Bookings
   const filteredPendingBookings = pendingBookings.filter((b) => {
@@ -227,8 +297,14 @@ export default function AdminTicketBookingsPage() {
 
   // Calculate Metrics Strictly for Confirmed Bookings
   const totalRevenue = confirmedBookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+  const totalVouchersAmount = confirmedBookings.reduce((sum, b) => sum + (b.voucherAmount || 0), 0);
+  const totalRemainingVoucherBalance = confirmedBookings.reduce((sum, b) => sum + (b.voucherBalance || 0), 0);
+  const totalRedeemedVouchers = Math.max(0, totalVouchersAmount - totalRemainingVoucherBalance);
+  const realizedNetRevenue = Math.max(0, totalRevenue - totalRedeemedVouchers);
+  const committedNetRevenue = Math.max(0, totalRevenue - totalVouchersAmount);
   const totalAdults = confirmedBookings.reduce((sum, b) => sum + (b.adultCount || 1), 0);
   const totalChildren = confirmedBookings.reduce((sum, b) => sum + (b.childrenCount || 0), 0);
+  const totalPasses = totalAdults + totalChildren;
   const totalCheckedIn = confirmedBookings.filter((b) => b.isCheckedIn).length;
 
   const handleSendWhatsApp = (b: any) => {
@@ -608,68 +684,146 @@ export default function AdminTicketBookingsPage() {
           </Button>
         </Group>
 
-        {/* Metrics Grid (Confirmed Bookings Only) */}
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+        {/* Metrics Grid (Confirmed Bookings Only) - Displaying Both Realized & Committed Net Revenue */}
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 6 }} spacing="md">
+          {/* Card 1: Gross Ticket Sales */}
           <Card p="md" radius="lg" className="festive-card">
-            <Group justify="space-between">
+            <Group justify="space-between" align="flex-start">
               <Box>
-                <Text size="xs" c="gray.4">
-                  CONFIRMED REVENUE
+                <Text size="xs" c="gray.4" fw={700}>
+                  GROSS TICKET REVENUE
                 </Text>
                 <Title order={2} size="h3" c="white" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
-                  ₹{totalRevenue.toLocaleString()}
+                  ₹{totalRevenue.toLocaleString('en-IN')}
                 </Title>
+                <Text size="xs" c="gray.4" mt={2}>
+                  Total gross sales collected
+                </Text>
               </Box>
-              <ThemeIcon size={44} radius="md" color="yellow" variant="light">
-                <IconCurrencyRupee size={24} />
+              <ThemeIcon size={40} radius="md" color="yellow" variant="light">
+                <IconReceipt size={22} />
               </ThemeIcon>
             </Group>
           </Card>
 
-          <Card p="md" radius="lg" className="festive-card">
-            <Group justify="space-between">
+          {/* Card 2: Realized Net Revenue (Gross - Vouchers Actually Used) */}
+          <Card
+            p="md"
+            radius="lg"
+            style={{
+              background: 'linear-gradient(135deg, rgba(20, 83, 45, 0.5) 0%, rgba(10, 35, 20, 0.95) 100%)',
+              border: '1.5px solid rgba(34, 197, 94, 0.7)',
+              boxShadow: '0 4px 20px rgba(34, 197, 94, 0.2)',
+            }}
+          >
+            <Group justify="space-between" align="flex-start">
               <Box>
-                <Text size="xs" c="gray.4">
-                  CONFIRMED ADULT PASSES
+                <Badge color="green" size="xs" variant="filled" style={{ fontWeight: 800 }}>
+                  REALIZED NET
+                </Badge>
+                <Text size="xs" c="green.3" fw={700} mt={4}>
+                  NET (LESS USED VOUCHERS)
                 </Text>
-                <Title order={2} size="h3" c="white" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
-                  {totalAdults}
+                <Title order={2} size="h3" c="green.2" mt={2} style={{ fontFamily: "'Cinzel', serif", fontWeight: 800 }}>
+                  ₹{realizedNetRevenue.toLocaleString('en-IN')}
                 </Title>
+                <Text size="xs" c="gray.4" mt={2}>
+                  ₹{totalRevenue.toLocaleString('en-IN')} gross − ₹{totalRedeemedVouchers.toLocaleString('en-IN')} used
+                </Text>
               </Box>
-              <ThemeIcon size={44} radius="md" color="yellow" variant="light">
-                <IconUsers size={24} />
+              <ThemeIcon size={40} radius="md" color="green" variant="light">
+                <IconCurrencyRupee size={22} />
               </ThemeIcon>
             </Group>
           </Card>
 
-          <Card p="md" radius="lg" className="festive-card">
-            <Group justify="space-between">
+          {/* Card 3: Committed Net Revenue (Gross - Total Vouchers Granted) */}
+          <Card
+            p="md"
+            radius="lg"
+            style={{
+              background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(15, 23, 42, 0.95) 100%)',
+              border: '1.5px solid rgba(96, 165, 250, 0.6)',
+              boxShadow: '0 4px 20px rgba(59, 130, 246, 0.18)',
+            }}
+          >
+            <Group justify="space-between" align="flex-start">
               <Box>
-                <Text size="xs" c="gray.4">
-                  CONFIRMED CHILDREN PASSES
+                <Badge color="blue" size="xs" variant="filled" style={{ fontWeight: 800 }}>
+                  COMMITTED NET
+                </Badge>
+                <Text size="xs" c="blue.3" fw={700} mt={4}>
+                  NET (LESS ALL GRANTED)
                 </Text>
-                <Title order={2} size="h3" c="white" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
-                  {totalChildren}
+                <Title order={2} size="h3" c="blue.2" mt={2} style={{ fontFamily: "'Cinzel', serif", fontWeight: 800 }}>
+                  ₹{committedNetRevenue.toLocaleString('en-IN')}
                 </Title>
+                <Text size="xs" c="gray.4" mt={2}>
+                  ₹{totalRevenue.toLocaleString('en-IN')} gross − ₹{totalVouchersAmount.toLocaleString('en-IN')} granted
+                </Text>
               </Box>
-              <ThemeIcon size={44} radius="md" color="yellow" variant="light">
-                <IconTicket size={24} />
+              <ThemeIcon size={40} radius="md" color="blue" variant="light">
+                <IconCurrencyRupee size={22} />
               </ThemeIcon>
             </Group>
           </Card>
 
+          {/* Card 4: Total Vouchers Issued & Used */}
           <Card p="md" radius="lg" className="festive-card">
-            <Group justify="space-between">
+            <Group justify="space-between" align="flex-start">
               <Box>
-                <Text size="xs" c="gray.4">
+                <Text size="xs" c="gray.4" fw={700}>
+                  VOUCHERS STATUS
+                </Text>
+                <Title order={2} size="h3" c="teal.2" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
+                  ₹{totalVouchersAmount.toLocaleString('en-IN')}
+                </Title>
+                <Text size="xs" c="gray.4" mt={2}>
+                  ₹{totalRedeemedVouchers.toLocaleString('en-IN')} used · ₹{totalRemainingVoucherBalance.toLocaleString('en-IN')} unspent
+                </Text>
+              </Box>
+              <ThemeIcon size={40} radius="md" color="teal" variant="light">
+                <IconBuildingStore size={22} />
+              </ThemeIcon>
+            </Group>
+          </Card>
+
+          {/* Card 5: Confirmed Passes */}
+          <Card p="md" radius="lg" className="festive-card">
+            <Group justify="space-between" align="flex-start">
+              <Box>
+                <Text size="xs" c="gray.4" fw={700}>
+                  CONFIRMED PASSES
+                </Text>
+                <Title order={2} size="h3" c="white" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
+                  {totalAdults} Adult{totalChildren > 0 ? ` + ${totalChildren} Child` : ''}
+                </Title>
+                <Text size="xs" c="gray.4" mt={2}>
+                  {totalPasses} total festival attendees
+                </Text>
+              </Box>
+              <ThemeIcon size={40} radius="md" color="yellow" variant="light">
+                <IconUsers size={22} />
+              </ThemeIcon>
+            </Group>
+          </Card>
+
+          {/* Card 6: Gate Check-Ins */}
+          <Card p="md" radius="lg" className="festive-card">
+            <Group justify="space-between" align="flex-start">
+              <Box>
+                <Text size="xs" c="gray.4" fw={700}>
                   GATE CHECK-INS
                 </Text>
                 <Title order={2} size="h3" c="white" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
                   {totalCheckedIn} / {confirmedBookings.length}
                 </Title>
+                <Text size="xs" c="gray.4" mt={2}>
+                  {confirmedBookings.length > 0 ? Math.round((totalCheckedIn / confirmedBookings.length) * 100) : 0}% check-in rate
+                </Text>
               </Box>
-              <ThemeIcon size={44} radius="md" color="green" variant="light">
-                <IconUserCheck size={24} />
+              <ThemeIcon size={40} radius="md" color="cyan" variant="light">
+                <IconUserCheck size={22} />
               </ThemeIcon>
             </Group>
           </Card>
@@ -708,33 +862,157 @@ export default function AdminTicketBookingsPage() {
           {/* ========================================================================= */}
           <Tabs.Panel value="confirmed">
             <Stack gap="md">
-              {/* Filters & Search */}
-              <Paper p="md" radius="lg" style={{ backgroundColor: '#140305', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-                  <TextInput
-                    placeholder="Search by Name, Mobile, or Booking ID..."
-                    leftSection={<IconSearch size={16} />}
-                    value={search}
-                    onChange={(e) => setSearch(e.currentTarget.value)}
-                  />
+              {/* Diverse Multi-Faceted Filters & Search */}
+              <Paper
+                p="md"
+                radius="lg"
+                style={{
+                  backgroundColor: '#140305',
+                  border: '1px solid rgba(234, 179, 8, 0.25)',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+                }}
+              >
+                <Stack gap="sm">
+                  {/* Row 1: Search, Phase, Check-in, Pass Type */}
+                  <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
+                    <TextInput
+                      placeholder="Search Name, Mobile, ID, Email..."
+                      leftSection={<IconSearch size={16} />}
+                      value={search}
+                      onChange={(e) => setSearch(e.currentTarget.value)}
+                      rightSection={
+                        search ? (
+                          <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setSearch('')}>
+                            <IconX size={12} />
+                          </ActionIcon>
+                        ) : null
+                      }
+                    />
 
-                  <Select
-                    placeholder="Filter by Check-In Status"
-                    clearable
-                    data={[
-                      { value: 'checked_in', label: 'Checked In Only' },
-                      { value: 'pending', label: 'Pending Gate Entry' },
-                    ]}
-                    value={checkInFilter}
-                    onChange={setCheckInFilter}
-                  />
+                    <Select
+                      placeholder="All Ticket Phases"
+                      clearable
+                      leftSection={<IconTicket size={16} />}
+                      data={[
+                        { value: 'all', label: 'All Ticket Phases' },
+                        ...uniquePhaseNames.map((p) => ({ value: p, label: p })),
+                      ]}
+                      value={phaseFilter || 'all'}
+                      onChange={(val) => setPhaseFilter(val === 'all' ? null : val)}
+                    />
 
-                  <Group justify="flex-end">
-                    <Badge color="royalGold" variant="light" size="lg">
-                      {filteredConfirmedBookings.length} Confirmed Passes
-                    </Badge>
+                    <Select
+                      placeholder="Gate Check-In"
+                      clearable
+                      leftSection={<IconUserCheck size={16} />}
+                      data={[
+                        { value: 'all', label: 'All Gate Statuses' },
+                        { value: 'checked_in', label: 'Checked In at Gate' },
+                        { value: 'pending', label: 'Pending Gate Entry' },
+                      ]}
+                      value={checkInFilter || 'all'}
+                      onChange={(val) => setCheckInFilter(val === 'all' ? null : val)}
+                    />
+
+                    <Select
+                      placeholder="Pass Type"
+                      clearable
+                      leftSection={<IconReceipt size={16} />}
+                      data={[
+                        { value: 'all', label: 'All Pass Types' },
+                        { value: 'paid', label: 'Paid Passes (₹ > 0)' },
+                        { value: 'free', label: 'Complimentary / Gift (₹0)' },
+                        { value: 'ambassador_reward', label: 'Ambassador Milestone Passes' },
+                      ]}
+                      value={passTypeFilter || 'all'}
+                      onChange={(val) => setPassTypeFilter(val === 'all' ? null : val)}
+                    />
+                  </SimpleGrid>
+
+                  {/* Row 2: Voucher Status, Composition, Referral Source, Sort Order */}
+                  <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
+                    <Select
+                      placeholder="Voucher Status"
+                      clearable
+                      leftSection={<IconBuildingStore size={16} />}
+                      data={[
+                        { value: 'all', label: 'All Voucher Statuses' },
+                        { value: 'has_voucher', label: 'Has Voucher Included' },
+                        { value: 'active_balance', label: 'Active Unused Balance (> ₹0)' },
+                        { value: 'exhausted', label: 'Fully Spent / Redeemed' },
+                        { value: 'no_voucher', label: 'No Voucher Included' },
+                      ]}
+                      value={voucherFilter || 'all'}
+                      onChange={(val) => setVoucherFilter(val === 'all' ? null : val)}
+                    />
+
+                    <Select
+                      placeholder="Attendee Composition"
+                      clearable
+                      leftSection={<IconUsers size={16} />}
+                      data={[
+                        { value: 'all', label: 'All Compositions' },
+                        { value: 'adult_only', label: 'Adult Only (No Children)' },
+                        { value: 'with_children', label: 'Family (With Children)' },
+                      ]}
+                      value={attendeeFilter || 'all'}
+                      onChange={(val) => setAttendeeFilter(val === 'all' ? null : val)}
+                    />
+
+                    <Select
+                      placeholder="Referral Source"
+                      clearable
+                      leftSection={<IconGift size={16} />}
+                      data={[
+                        { value: 'all', label: 'All Sources' },
+                        { value: 'referred', label: 'Ambassador Referred' },
+                        { value: 'direct', label: 'Direct / Organic Bookings' },
+                      ]}
+                      value={referralFilter || 'all'}
+                      onChange={(val) => setReferralFilter(val === 'all' ? null : val)}
+                    />
+
+                    <Select
+                      placeholder="Sort Bookings"
+                      leftSection={<IconArrowsSort size={16} />}
+                      data={[
+                        { value: 'newest', label: 'Newest First' },
+                        { value: 'oldest', label: 'Oldest First' },
+                        { value: 'amount_desc', label: 'Amount: High to Low' },
+                        { value: 'amount_asc', label: 'Amount: Low to High' },
+                        { value: 'voucher_desc', label: 'Voucher: Highest First' },
+                      ]}
+                      value={sortBy}
+                      onChange={(val) => setSortBy(val || 'newest')}
+                    />
+                  </SimpleGrid>
+
+                  {/* Filter Status Summary & Reset Bar */}
+                  <Group justify="space-between" align="center" wrap="wrap" gap="xs" pt="xs" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <Group gap="xs" align="center">
+                      <Badge color="royalGold" variant="light" size="md">
+                        Showing {filteredConfirmedBookings.length} of {confirmedBookings.length} Confirmed Passes
+                      </Badge>
+                      {activeFiltersCount > 0 && (
+                        <Badge color="yellow" variant="filled" size="sm" style={{ color: '#140305', fontWeight: 700 }}>
+                          {activeFiltersCount} {activeFiltersCount === 1 ? 'filter' : 'filters'} active
+                        </Badge>
+                      )}
+                    </Group>
+
+                    {activeFiltersCount > 0 && (
+                      <Button
+                        size="xs"
+                        variant="subtle"
+                        color="red"
+                        leftSection={<IconRefresh size={14} />}
+                        onClick={handleResetFilters}
+                      >
+                        Reset All Filters
+                      </Button>
+                    )}
                   </Group>
-                </SimpleGrid>
+                </Stack>
               </Paper>
 
               {/* Confirmed Bookings Table */}

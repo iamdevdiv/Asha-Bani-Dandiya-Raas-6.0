@@ -244,7 +244,10 @@ function getInitialStore(): FallbackStore {
 
 let inMemoryStore: FallbackStore | null = null;
 
-function loadFallbackStore(): FallbackStore {
+export function loadFallbackStore(forceReload = false): FallbackStore {
+  if (forceReload) {
+    inMemoryStore = null;
+  }
   if (inMemoryStore) {
     if (!inMemoryStore.inquiries) inMemoryStore.inquiries = [];
     if (!inMemoryStore.users) inMemoryStore.users = [];
@@ -1692,6 +1695,147 @@ export async function generateTicketQrCode(bookingNumber: string, attendeeName: 
   });
 }
 
+/**
+ * Checks if a booking number already exists in either TicketBooking, Booking,
+ * or the fallback store.
+ */
+export async function isBookingNumberTaken(bookingNumber: string): Promise<boolean> {
+  if (!bookingNumber) return false;
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      const [ticket, stall] = await Promise.all([
+        (prisma as any).ticketBooking.findUnique({
+          where: { bookingNumber },
+          select: { id: true },
+        }),
+        prisma.booking.findUnique({
+          where: { bookingNumber },
+          select: { id: true },
+        }),
+      ]);
+      if (ticket || stall) return true;
+    } catch (e) {
+      console.warn('[isBookingNumberTaken] Prisma check notice:', e);
+    }
+  }
+
+  const store = loadFallbackStore();
+  const inFallbackTicket = (store.ticketBookings || []).some(
+    (b) => b.bookingNumber && b.bookingNumber.toLowerCase() === bookingNumber.toLowerCase()
+  );
+  if (inFallbackTicket) return true;
+
+  const inFallbackStall = (store.bookings || []).some(
+    (b) => b.bookingNumber && b.bookingNumber.toLowerCase() === bookingNumber.toLowerCase()
+  );
+  if (inFallbackStall) return true;
+
+  return false;
+}
+
+/**
+ * Generates a verified unique booking number with collision-checking against the database.
+ * - Starts with 4 digits: 1000 to 9999 (e.g. TK-2026-1234).
+ * - If all four-digit possibilities are complete, starts 5-digit numbering (10000 to 99999).
+ * - If all five-digit possibilities are complete, starts 6-digit numbering, and so on.
+ * - Confirms uniqueness against both Prisma database and fallback store.
+ */
+export async function generateUniqueTicketBookingNumber(prefix: string = 'TK-2026-'): Promise<string> {
+  let digits = 4;
+  const MAX_DIGITS = 10;
+
+  while (digits <= MAX_DIGITS) {
+    const min = Math.pow(10, digits - 1);
+    const max = Math.pow(10, digits) - 1;
+    const capacity = max - min + 1; // e.g. 9000 for 4 digits, 90000 for 5 digits
+
+    // Phase 1: Fast random sampling attempts (up to 25 tries)
+    // In low-to-medium occupancy, this succeeds on attempt 1 with zero noticeable overhead.
+    const RANDOM_ATTEMPTS = 25;
+    for (let attempt = 0; attempt < RANDOM_ATTEMPTS; attempt++) {
+      const candidateNum = Math.floor(min + Math.random() * (max - min + 1));
+      const candidate = `${prefix}${candidateNum}`;
+      const taken = await isBookingNumberTaken(candidate);
+      if (!taken) {
+        return candidate;
+      }
+    }
+
+    // Phase 2: If 25 random picks collided, the tier is heavily saturated or full.
+    // Query all existing booking numbers for this prefix to inspect saturation.
+    const takenSet = new Set<number>();
+    const hasPrisma = await checkPrisma();
+    if (hasPrisma) {
+      try {
+        const [tickets, stalls] = await Promise.all([
+          (prisma as any).ticketBooking.findMany({
+            where: { bookingNumber: { startsWith: prefix } },
+            select: { bookingNumber: true },
+          }),
+          prisma.booking.findMany({
+            where: { bookingNumber: { startsWith: prefix } },
+            select: { bookingNumber: true },
+          }),
+        ]);
+
+        for (const row of [...(tickets || []), ...(stalls || [])]) {
+          if (row.bookingNumber && row.bookingNumber.startsWith(prefix)) {
+            const suffix = row.bookingNumber.slice(prefix.length);
+            if (suffix.length === digits && /^\d+$/.test(suffix)) {
+              takenSet.add(parseInt(suffix, 10));
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[generateUniqueTicketBookingNumber] Error querying taken numbers from Prisma:', e);
+      }
+    }
+
+    const store = loadFallbackStore();
+    const allFallback = [...(store.ticketBookings || []), ...(store.bookings || [])];
+    for (const row of allFallback) {
+      if (row.bookingNumber && row.bookingNumber.startsWith(prefix)) {
+        const suffix = row.bookingNumber.slice(prefix.length);
+        if (suffix.length === digits && /^\d+$/.test(suffix)) {
+          takenSet.add(parseInt(suffix, 10));
+        }
+      }
+    }
+
+    // Check if all possibilities for this digit tier are completely exhausted
+    if (takenSet.size >= capacity) {
+      console.log(
+        `[BookingNumber] All ${digits}-digit possibilities for prefix "${prefix}" are complete (${takenSet.size}/${capacity}). Escalating to ${digits + 1} digits.`
+      );
+      digits++;
+      continue;
+    }
+
+    // If not completely full, find the remaining available slots
+    const available: number[] = [];
+    for (let n = min; n <= max; n++) {
+      if (!takenSet.has(n)) {
+        available.push(n);
+        if (available.length >= 500) break;
+      }
+    }
+
+    if (available.length > 0) {
+      const picked = available[Math.floor(Math.random() * available.length)];
+      return `${prefix}${picked}`;
+    }
+
+    // If scan found no slot, promote to next digit level
+    digits++;
+  }
+
+  // Extreme safety fallback
+  return `${prefix}${Date.now()}`;
+}
+
+export const generateUniqueBookingNumber = generateUniqueTicketBookingNumber;
+
 export async function createTicketBookingRecord(data: {
   fullName: string;
   mobile: string;
@@ -1713,42 +1857,50 @@ export async function createTicketBookingRecord(data: {
   const baseAmount = adultPrice * data.adultCount + childPrice * (data.childrenCount || 0);
   const discountAmount = Number(data.discountAmount) || 0;
   const totalAmount = Math.max(0, baseAmount - discountAmount);
-  const bookingNumber = `TK-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const hasPrisma = await checkPrisma();
   if (hasPrisma) {
-    try {
-      const created = await (prisma as any).ticketBooking.create({
-        data: {
-          bookingNumber,
-          fullName: data.fullName,
-          mobile: data.mobile,
-          email: data.email || null,
-          address: data.address,
-          adultCount: data.adultCount || 1,
-          childrenCount: data.childrenCount || 0,
-          childrenNames: data.childrenNames ? JSON.stringify(data.childrenNames) : null,
-          phaseId: phase.id,
-          phaseName: phase.name,
-          adultPrice,
-          childPrice,
-          totalAmount,
-          voucherAmount,
-          voucherBalance: voucherAmount,
-          voucherApplicableTo,
-          referredByAmbassadorId: data.referredByAmbassadorId || null,
-          couponCode: data.couponCode ? data.couponCode.toUpperCase() : null,
-          discountAmount,
-          paymentStatus: 'pending',
-          isCheckedIn: false,
-        },
-      });
-      return created;
-    } catch (e) {
-      console.warn('Prisma error in createTicketBookingRecord', e);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const bookingNumber = await generateUniqueTicketBookingNumber('TK-2026-');
+      try {
+        const created = await (prisma as any).ticketBooking.create({
+          data: {
+            bookingNumber,
+            fullName: data.fullName,
+            mobile: data.mobile,
+            email: data.email || null,
+            address: data.address,
+            adultCount: data.adultCount || 1,
+            childrenCount: data.childrenCount || 0,
+            childrenNames: data.childrenNames ? JSON.stringify(data.childrenNames) : null,
+            phaseId: phase.id,
+            phaseName: phase.name,
+            adultPrice,
+            childPrice,
+            totalAmount,
+            voucherAmount,
+            voucherBalance: voucherAmount,
+            voucherApplicableTo,
+            referredByAmbassadorId: data.referredByAmbassadorId || null,
+            couponCode: data.couponCode ? data.couponCode.toUpperCase() : null,
+            discountAmount,
+            paymentStatus: 'pending',
+            isCheckedIn: false,
+          },
+        });
+        return created;
+      } catch (e: any) {
+        if (e?.code === 'P2002' && (e?.meta?.target?.includes('bookingNumber') || String(e?.message).includes('bookingNumber'))) {
+          console.warn(`[createTicketBookingRecord] Race condition on bookingNumber ${bookingNumber}, retrying (attempt ${attempt + 1})...`);
+          continue;
+        }
+        console.warn('Prisma error in createTicketBookingRecord', e);
+        break;
+      }
     }
   }
 
+  const bookingNumber = await generateUniqueTicketBookingNumber('TK-2026-');
   const store = loadFallbackStore();
   if (!store.ticketBookings) store.ticketBookings = [];
 
@@ -1834,14 +1986,6 @@ export async function createAdminIssuedTicketBooking(data: {
 
   const voucherBalance = voucherAmount;
   const voucherApplicableTo = data.voucherApplicableTo || phase.voucherApplicableTo || 'both';
-  const bookingNumber = `TK-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-
-  const qrCodeDataUrl = await generateTicketQrCode(
-    bookingNumber,
-    data.fullName.trim(),
-    adultCount,
-    childrenCount
-  );
 
   const isFreeGift = totalAmount === 0;
   const razorpayOrderId = isFreeGift ? 'FREE_GIFT_PASS' : (data.paymentMethod ? `ADMIN_${data.paymentMethod.toUpperCase()}` : 'ADMIN_MANUAL_ORDER');
@@ -1850,60 +1994,83 @@ export async function createAdminIssuedTicketBooking(data: {
 
   const hasPrisma = await checkPrisma();
   if (hasPrisma) {
-    try {
-      const created = await (prisma as any).ticketBooking.create({
-        data: {
-          bookingNumber,
-          fullName: data.fullName.trim(),
-          mobile: data.mobile.trim(),
-          email: data.email?.trim() || null,
-          address: data.address?.trim() || 'Saharanpur',
-          adultCount,
-          childrenCount,
-          childrenNames: data.childrenNames && data.childrenNames.length > 0 ? JSON.stringify(data.childrenNames) : null,
-          phaseId: phase.id,
-          phaseName: phase.name,
-          adultPrice,
-          childPrice,
-          totalAmount,
-          voucherAmount,
-          voucherBalance,
-          voucherApplicableTo,
-          referredByAmbassadorId: data.referredByAmbassadorId || null,
-          couponCode: null,
-          discountAmount: 0,
-          paymentStatus: 'success',
-          razorpayOrderId,
-          razorpayPaymentId,
-          razorpaySignature,
-          qrCodeDataUrl,
-          isCheckedIn: false,
-        },
-      });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const bookingNumber = await generateUniqueTicketBookingNumber('TK-2026-');
+      const qrCodeDataUrl = await generateTicketQrCode(
+        bookingNumber,
+        data.fullName.trim(),
+        adultCount,
+        childrenCount
+      );
 
-      // Record Initial Voucher Credit only if voucherAmount > 0
-      if (voucherAmount > 0) {
-        await (prisma as any).voucherTransaction.create({
+      try {
+        const created = await (prisma as any).ticketBooking.create({
           data: {
-            ticketBookingId: created.id,
-            sourceType: 'ticket_booking',
-            sourceReference: bookingNumber,
-            amount: voucherAmount,
-            type: 'credit',
-            description: `+₹${voucherAmount} Stall Voucher Included with Ticket Booking ${bookingNumber}`,
+            bookingNumber,
+            fullName: data.fullName.trim(),
+            mobile: data.mobile.trim(),
+            email: data.email?.trim() || null,
+            address: data.address?.trim() || 'Saharanpur',
+            adultCount,
+            childrenCount,
+            childrenNames: data.childrenNames && data.childrenNames.length > 0 ? JSON.stringify(data.childrenNames) : null,
+            phaseId: phase.id,
+            phaseName: phase.name,
+            adultPrice,
+            childPrice,
+            totalAmount,
+            voucherAmount,
+            voucherBalance,
+            voucherApplicableTo,
+            referredByAmbassadorId: data.referredByAmbassadorId || null,
+            couponCode: null,
+            discountAmount: 0,
+            paymentStatus: 'success',
+            razorpayOrderId,
+            razorpayPaymentId,
+            razorpaySignature,
+            qrCodeDataUrl,
+            isCheckedIn: false,
           },
         });
-      }
 
-      if (data.referredByAmbassadorId) {
-        await creditAmbassadorReferral(data.referredByAmbassadorId, created.id);
-      }
+        // Record Initial Voucher Credit only if voucherAmount > 0
+        if (voucherAmount > 0) {
+          await (prisma as any).voucherTransaction.create({
+            data: {
+              ticketBookingId: created.id,
+              sourceType: 'ticket_booking',
+              sourceReference: bookingNumber,
+              amount: voucherAmount,
+              type: 'credit',
+              description: `+₹${voucherAmount} Stall Voucher Included with Ticket Booking ${bookingNumber}`,
+            },
+          });
+        }
 
-      return created;
-    } catch (e) {
-      console.warn('Prisma error in createAdminIssuedTicketBooking', e);
+        if (data.referredByAmbassadorId) {
+          await creditAmbassadorReferral(data.referredByAmbassadorId, created.id);
+        }
+
+        return created;
+      } catch (e: any) {
+        if (e?.code === 'P2002' && (e?.meta?.target?.includes('bookingNumber') || String(e?.message).includes('bookingNumber'))) {
+          console.warn(`[createAdminIssuedTicketBooking] Booking number collision on ${bookingNumber}, retrying (attempt ${attempt + 1})...`);
+          continue;
+        }
+        console.warn('Prisma error in createAdminIssuedTicketBooking', e);
+        break;
+      }
     }
   }
+
+  const bookingNumber = await generateUniqueTicketBookingNumber('TK-2026-');
+  const qrCodeDataUrl = await generateTicketQrCode(
+    bookingNumber,
+    data.fullName.trim(),
+    adultCount,
+    childrenCount
+  );
 
   const store = loadFallbackStore();
   if (!store.ticketBookings) store.ticketBookings = [];
@@ -3102,7 +3269,7 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
       });
       // If qualified for free ticket and not generated yet, create free ticket booking
       if (earnTicket && !freeTicketBookingId) {
-        freeBookingNumber = `TK-FREE-${Math.floor(1000 + Math.random() * 9000)}`;
+        freeBookingNumber = await generateUniqueTicketBookingNumber('TK-FREE-');
         const qrCodeDataUrl = await generateTicketQrCode(freeBookingNumber, amb.name, 1, 0);
 
         const freeTicket = await (prisma as any).ticketBooking.create({
@@ -3230,7 +3397,7 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
     if (earnTicket) {
       record.earnedFreeTicket = true;
       if (!record.freeTicketBookingId) {
-        freeBookingNumber = `TK-FREE-${Math.floor(1000 + Math.random() * 9000)}`;
+        freeBookingNumber = await generateUniqueTicketBookingNumber('TK-FREE-');
         const qrCodeDataUrl = await generateTicketQrCode(freeBookingNumber, record.name, 1, 0);
         const freeTicket = {
           id: `ticket_free_${Date.now()}`,

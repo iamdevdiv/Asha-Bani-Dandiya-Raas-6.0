@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStallByNumber, createBooking } from '@/lib/db';
+import { getStallByNumber, createBooking, generateUniqueBookingNumber } from '@/lib/db';
 import { createRazorpayOrder } from '@/lib/razorpay';
 
 export async function POST(req: NextRequest) {
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const bookingNumber = `ABDR-STALL-${stall.stallNumber.toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const bookingNumber = await generateUniqueBookingNumber(`ABDR-STALL-${stall.stallNumber.toUpperCase()}-`);
 
     // Create Razorpay order
     const order = await createRazorpayOrder({
