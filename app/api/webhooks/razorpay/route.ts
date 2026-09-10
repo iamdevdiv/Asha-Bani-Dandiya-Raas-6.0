@@ -9,6 +9,7 @@ import {
   updateBookingPayment,
   markStallBooked,
   getSettings,
+  claimStallBookingForConfirmation,
 } from '@/lib/db';
 import { verifyRazorpayWebhookSignature } from '@/lib/razorpay';
 import { generateStallQrCode } from '@/lib/qr-service';
@@ -93,17 +94,19 @@ export async function POST(req: NextRequest) {
           razorpaySignature: signature || 'WEBHOOK_VERIFIED',
         });
 
-        // Record coupon usage if coupon code was used
-        if (ticketBooking.couponCode) {
-          await recordCouponUsage(ticketBooking.couponCode).catch((couponErr) => {
-            console.warn('[Razorpay Webhook] Coupon recording error:', couponErr);
+        // Only dispatch SMS and record coupons if this request was the one that actually completed the payment
+        if (completedBooking && completedBooking.isNewlyConfirmed) {
+          if (ticketBooking.couponCode) {
+            await recordCouponUsage(ticketBooking.couponCode).catch((couponErr) => {
+              console.warn('[Razorpay Webhook] Coupon recording error:', couponErr);
+            });
+          }
+
+          // Dispatch confirmation SMS to customer asynchronously
+          sendTicketBookingSms(completedBooking).catch((smsErr) => {
+            console.error('[Razorpay Webhook SMS Error] Ticket booking:', smsErr);
           });
         }
-
-        // Dispatch confirmation SMS to customer asynchronously
-        sendTicketBookingSms(completedBooking).catch((smsErr) => {
-          console.error('[Razorpay Webhook SMS Error] Ticket booking:', smsErr);
-        });
 
         console.log(`[Razorpay Webhook] ✅ Successfully confirmed TicketBooking #${completedBooking.bookingNumber} via Webhook!`);
         return NextResponse.json({
@@ -131,6 +134,17 @@ export async function POST(req: NextRequest) {
         if (stallBooking.paymentStatus === 'success') {
           console.log(`[Razorpay Webhook] StallBooking #${stallBooking.bookingNumber} already confirmed. Idempotent skip.`);
           return NextResponse.json({ success: true, message: 'Stall already confirmed', bookingNumber: stallBooking.bookingNumber });
+        }
+
+        // Atomically claim the booking to prevent race condition with concurrent verify-payment
+        const { claimed, booking: claimedBooking } = await claimStallBookingForConfirmation(stallBooking.id, {
+          razorpayPaymentId: paymentId,
+          razorpaySignature: signature || 'WEBHOOK_VERIFIED',
+        });
+
+        if (!claimed) {
+          console.log(`[Razorpay Webhook] StallBooking #${stallBooking.bookingNumber} already claimed or processed. Idempotent skip.`);
+          return NextResponse.json({ success: true, message: 'Stall already claimed or confirmed', bookingNumber: stallBooking.bookingNumber });
         }
 
         const settings = await getSettings();

@@ -37,6 +37,7 @@ import {
   IconCalendarEvent,
   IconCrown,
   IconDiscount2,
+  IconMessage2,
 } from '@tabler/icons-react';
 
 interface AdminLayoutWrapperProps {
@@ -151,6 +152,7 @@ export function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps) {
   ];
 
   const adminNavLinks = [
+    { label: 'SMS & WhatsApp Templates', href: '/admin/message-templates', icon: IconMessage2 },
     { label: 'Team & Verifier Users', href: '/admin/users', icon: IconUsers },
     { label: 'Site & Event Settings', href: '/admin/settings', icon: IconSettings },
     { label: 'Change Password', href: '/admin/security', icon: IconKey },

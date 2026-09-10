@@ -45,6 +45,7 @@ import {
 import dayjs from 'dayjs';
 import { ExhibitorPassCard } from '@/components/ExhibitorPassCard';
 import { openWhatsAppChat } from '@/lib/whatsapp';
+import { renderMessageTemplate, DEFAULT_TEMPLATES } from '@/lib/message-templates-core';
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -63,24 +64,29 @@ export default function AdminBookingsPage() {
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
   const [bookingToDelete, setBookingToDelete] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [stallWaTemplate, setStallWaTemplate] = useState<string>('');
 
   const sendWhatsAppMessage = (b: any) => {
     const passUrl = typeof window !== 'undefined' ? `${window.location.origin}/dandiyaraas/stall/success?bookingId=${b.id}` : '';
-    
-    const msg =
-      `*NAMASTE ${b.brandName ? b.brandName.toUpperCase() : b.bookerName.toUpperCase()}!*\n\n` +
-      `Thank you for being an integral part of Asha Bani Dandiya Raas 6.0.\n\n` +
-      `Your stall reservation has been confirmed as an official stall exhibitor:\n` +
-      `- *Stall:* Stall ${b.stallNumber}\n` +
-      `- *Booking ID:* ${b.bookingNumber}\n` +
-      `- *Date:* Tuesday, 13 October 2026\n` +
-      `- *Venue:* Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur\n` +
-      `- *Stall Setup Time:* 4:00 PM\n` +
-      `- *Event Hours:* 6:00 PM to 12:00 AM\n` +
-      `- *Passes Included:* 2 Official Exhibitor Passes (${b.teamMembers || b.bookerName})\n\n` +
-      `*Official Digital Pass Link:*\n${passUrl}\n\n` +
-      `Please show this pass at the gate for scanning and entry into the venue.\n\n` +
-      `*Helpline:* +91 6399063455`;
+    const template = stallWaTemplate || DEFAULT_TEMPLATES.template_stall_wa.defaultText;
+    const displayName = (b.brandName || b.bookerName || 'Exhibitor').toUpperCase();
+
+    const msg = renderMessageTemplate(template, {
+      brand_or_name: displayName,
+      name: b.bookerName || 'Exhibitor',
+      brand_name: b.brandName || b.bookerName || 'Exhibitor',
+      stall_number: b.stallNumber || '',
+      stall_section: b.stall?.section || 'Commercial',
+      price: b.amountPaid ? Number(b.amountPaid).toLocaleString('en-IN') : '5,000',
+      booking_id: b.bookingNumber || '',
+      event_date: 'Tuesday, 13 October 2026',
+      venue: 'Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur',
+      setup_time: '4:00 PM',
+      event_hours: '6:00 PM to 12:00 AM',
+      team_members: b.teamMembers || b.bookerName || 'Exhibitor Team',
+      pass_link: passUrl,
+      helpline: '+91 6399063455',
+    });
 
     openWhatsAppChat(b.mobile || '', msg);
 
@@ -171,6 +177,14 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     fetchBookings();
+    fetch('/api/admin/message-templates')
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.success && res?.templates?.template_stall_wa) {
+          setStallWaTemplate(res.templates.template_stall_wa);
+        }
+      })
+      .catch((err) => console.error('Error fetching templates:', err));
   }, []);
 
   const filteredBookings = bookings.filter((b) => {

@@ -52,14 +52,17 @@ export async function POST(req: NextRequest) {
       razorpaySignature,
     });
 
-    if (booking.couponCode) {
-      await recordCouponUsage(booking.couponCode);
-    }
+    // Only dispatch SMS and track coupons if this request was the one that newly confirmed the payment
+    if (completedBooking && (completedBooking as any).isNewlyConfirmed) {
+      if (booking.couponCode) {
+        await recordCouponUsage(booking.couponCode);
+      }
 
-    // Fire SMS asynchronously without blocking the user response
-    sendTicketBookingSms(completedBooking).catch((smsErr) => {
-      console.error('[SMS Dispatch Error] Ticket booking:', smsErr);
-    });
+      // Fire SMS asynchronously without blocking the user response
+      sendTicketBookingSms(completedBooking).catch((smsErr) => {
+        console.error('[SMS Dispatch Error] Ticket booking:', smsErr);
+      });
+    }
 
     return NextResponse.json({
       success: true,

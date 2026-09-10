@@ -74,10 +74,12 @@ export async function POST(req: NextRequest) {
       confirmationDocUrl: docxPackage.image1080DataUrl,
     });
 
-    // 5. Fire stall booking SMS asynchronously or directly if requested
+    const isAlreadyConfirmed = booking.paymentStatus === 'success';
+
+    // 5. Fire stall booking SMS asynchronously or directly if requested (skip if already confirmed unless forceResendSms is set)
     let smsDispatched = false;
     let smsError: string | null = null;
-    if (sendSms !== false && updatedBooking) {
+    if (sendSms !== false && updatedBooking && (!isAlreadyConfirmed || body.forceResendSms === true)) {
       try {
         const smsRes = await sendStallBookingSms(updatedBooking);
         if (smsRes && smsRes.success) {

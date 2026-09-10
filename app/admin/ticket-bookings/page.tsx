@@ -53,6 +53,7 @@ import {
 import html2canvas from 'html2canvas';
 import { CustomerPassCard } from '@/components/CustomerPassCard';
 import { openWhatsAppChat } from '@/lib/whatsapp';
+import { renderMessageTemplate, getVoucherUsabilityLabel, DEFAULT_TEMPLATES } from '@/lib/message-templates-core';
 
 export default function AdminTicketBookingsPage() {
   const [loading, setLoading] = useState(true);
@@ -108,6 +109,7 @@ export default function AdminTicketBookingsPage() {
   const [newSendSms, setNewSendSms] = useState(true);
   const [creatingTicket, setCreatingTicket] = useState(false);
   const [lastCreatedBooking, setLastCreatedBooking] = useState<any | null>(null);
+  const [ticketWaTemplate, setTicketWaTemplate] = useState<string>('');
 
   const fetchBookings = () => {
     fetch('/api/admin/ticket-bookings')
@@ -123,6 +125,14 @@ export default function AdminTicketBookingsPage() {
 
   useEffect(() => {
     fetchBookings();
+    fetch('/api/admin/message-templates')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && data?.templates?.template_ticket_wa) {
+          setTicketWaTemplate(data.templates.template_ticket_wa);
+        }
+      })
+      .catch((err) => console.error('Error fetching ticket WA template:', err));
   }, []);
 
   // Handle direct instant pass download
@@ -225,24 +235,21 @@ export default function AdminTicketBookingsPage() {
     if (typeof window !== 'undefined') {
       const origin = window.location.origin;
       const passUrl = `${origin}/dandiyaraas/tickets/pass/${b.id}`;
+      const template = ticketWaTemplate || DEFAULT_TEMPLATES.template_ticket_wa.defaultText;
+      const passesText = `1 Adult${b.childrenCount > 0 ? ` + ${b.childrenCount} Children` : ''}`;
+      const usability = getVoucherUsabilityLabel(b.voucherApplicableTo || b.phase?.voucherApplicableTo);
 
-      const voucherLine = (b.voucherAmount ?? 0) > 0
-        ? `*Included Stall Voucher:* Rs. ${b.voucherAmount}\n`
-        : `*Stall Voucher:* None (Rs. 0)\n`;
-      const passTypeLine = b.totalAmount === 0
-        ? `*Pass Type:* Complimentary / Gift Pass (Rs. 0)\n`
-        : `*Amount Paid:* Rs. ${b.totalAmount}\n`;
-
-      const msg =
-        `*NAMASTE ${b.fullName.toUpperCase()}!*\n\n` +
-        `Your official entry pass for *Asha Bani Dandiya Raas 6.0* is confirmed.\n\n` +
-        `*Booking ID:* ${b.bookingNumber}\n` +
-        passTypeLine +
-        `*Passes:* 1 Adult${b.childrenCount > 0 ? ` + ${b.childrenCount} Children` : ''}\n` +
-        voucherLine +
-        `*Date:* 13 October 2026 (6:00 PM onwards)\n` +
-        `*Venue:* Maharaja Agrasen Bhavan, Saharanpur\n\n` +
-        `*View / Scan Your Pass:*\n${passUrl}`;
+      const msg = renderMessageTemplate(template, {
+        name: b.fullName || 'Guest',
+        booking_id: b.bookingNumber || '',
+        passes_text: passesText,
+        voucher_amount: b.voucherAmount ?? 0,
+        voucher_usability: usability,
+        event_date: 'Tuesday, 13 October 2026 (6:00 PM onwards)',
+        venue: 'Maharaja Agrasen Bhavan, Saharanpur',
+        pass_link: passUrl,
+        helpline: '+91 6399063455',
+      });
 
       openWhatsAppChat(b.mobile || '', msg);
     }

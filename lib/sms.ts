@@ -122,6 +122,9 @@ export async function sendTextBeeSms(options: SendSmsOptions): Promise<{ success
   }
 }
 
+import { getSettings } from './db';
+import { getMessageTemplates, renderMessageTemplate, getVoucherUsabilityLabel, DEFAULT_TEMPLATES } from './message-templates';
+
 /**
  * Send customer booking confirmation SMS with digital pass link
  */
@@ -134,6 +137,7 @@ export async function sendTicketBookingSms(booking: {
   childrenCount?: number;
   voucherAmount?: number;
   totalAmount?: number;
+  voucherApplicableTo?: string;
 }) {
   console.log('[TextBee SMS DEBUG] Triggering Ticket Booking SMS for booking:', booking.bookingNumber, 'Mobile:', booking.mobile);
 
@@ -160,16 +164,27 @@ export async function sendTicketBookingSms(booking: {
     ? `Included Voucher: Rs. ${voucherAmount}\n`
     : `Stall Voucher: None (Rs. 0)\n`;
 
-  const message =
-    `Namaste ${booking.fullName.trim()}!\n\n` +
-    `Your official entry pass for Asha Bani Dandiya Raas 6.0 is confirmed.\n\n` +
-    `Booking ID: ${booking.bookingNumber}\n` +
-    priceLine +
-    `Passes: 1 Adult${childrenText}\n` +
-    voucherLine +
-    `Date: 13 October 2026 (6:00 PM onwards)\n` +
-    `Venue: Maharaja Agrasen Bhavan, Saharanpur\n\n` +
-    `View / Download Your Digital Pass:\n${passUrl}`;
+  const settings = await getSettings();
+  const templates = await getMessageTemplates();
+  const templateStr = templates.template_ticket_sms || DEFAULT_TEMPLATES.template_ticket_sms.defaultText;
+
+  const eventDate = settings.event_date || '13 October 2026 (6:00 PM onwards)';
+  const venue = `${settings.venue_name || 'Maharaja Agrasen Bhavan'}, ${settings.venue_address || 'Saharanpur'}`;
+  const passesText = `1 Adult${childrenText}`;
+  const usability = getVoucherUsabilityLabel(booking.voucherApplicableTo || settings.ticket_voucher_applicable_to);
+
+  const message = renderMessageTemplate(templateStr, {
+    name: booking.fullName.trim(),
+    booking_id: booking.bookingNumber,
+    price_line: priceLine,
+    passes_text: passesText,
+    voucher_line: voucherLine,
+    voucher_amount: voucherAmount,
+    voucher_usability: usability,
+    event_date: eventDate,
+    venue,
+    pass_link: passUrl,
+  });
 
   const res = await sendTextBeeSms({
     recipients: [booking.mobile],
@@ -202,15 +217,23 @@ export async function sendStallBookingSms(booking: {
   const stallPassUrl = `${baseUrl}/dandiyaraas/stall/pass/${booking.id}`;
   const stallTypeLabel = booking.stallType === 'food' ? 'Food Canopy' : 'Commercial Canopy';
 
-  const message =
-    `Namaste ${booking.bookerName.trim()}!\n\n` +
-    `Your stall allotment for Asha Bani Dandiya Raas 6.0 is confirmed.\n\n` +
-    `Stall Number: ${booking.stallNumber} (${stallTypeLabel})\n` +
-    `Brand: ${booking.brandName}\n` +
-    `Booking ID: ${booking.bookingNumber}\n` +
-    `Date: 13 October 2026\n` +
-    `Venue: Maharaja Agrasen Bhavan, Saharanpur\n\n` +
-    `View Your Exhibitor Pass & Live Voucher Settlements:\n${stallPassUrl}`;
+  const settings = await getSettings();
+  const templates = await getMessageTemplates();
+  const templateStr = templates.template_stall_sms || DEFAULT_TEMPLATES.template_stall_sms.defaultText;
+
+  const eventDate = settings.event_date || '13 October 2026';
+  const venue = `${settings.venue_name || 'Maharaja Agrasen Bhavan'}, ${settings.venue_address || 'Saharanpur'}`;
+
+  const message = renderMessageTemplate(templateStr, {
+    name: booking.bookerName.trim(),
+    stall_number: booking.stallNumber,
+    stall_type: stallTypeLabel,
+    brand_name: booking.brandName,
+    booking_id: booking.bookingNumber,
+    event_date: eventDate,
+    venue,
+    pass_link: stallPassUrl,
+  });
 
   const res = await sendTextBeeSms({
     recipients: [booking.mobile],
@@ -256,11 +279,30 @@ export async function sendAmbassadorTierUnlockedSms(params: {
     rewardLines += `Milestone Stall Voucher: Rs. ${params.voucherAmount}\n\n`;
   }
 
-  const message =
-    `Namaste ${params.ambassadorName.trim()}! 🎉\n\n` +
-    `Congratulations! You have unlocked ${params.tierName} with ${params.referralCount} successful referrals for Asha Bani Dandiya Raas 6.0!\n\n` +
-    rewardLines +
-    `Track your live referrals & vouchers:\n${dashboardUrl}`;
+  const templates = await getMessageTemplates();
+  const isSameForAll = templates.template_ambassador_same_for_all !== 'false';
+
+  let templateStr = templates.template_ambassador_common_sms || DEFAULT_TEMPLATES.template_ambassador_common_sms.defaultText;
+  if (!isSameForAll) {
+    const tierKey = `template_ambassador_tier_${params.tierLevel}_sms`;
+    if (templates[tierKey]) {
+      templateStr = templates[tierKey];
+    } else if (DEFAULT_TEMPLATES[tierKey]) {
+      templateStr = DEFAULT_TEMPLATES[tierKey].defaultText;
+    }
+  }
+
+  const message = renderMessageTemplate(templateStr, {
+    ambassador_name: params.ambassadorName.trim(),
+    tier_name: params.tierName,
+    tier_level: params.tierLevel,
+    referral_count: params.referralCount,
+    voucher_amount: params.voucherAmount || 0,
+    reward_lines: rewardLines,
+    booking_number: params.bookingNumber || '',
+    pass_link: passUrl || '',
+    dashboard_url: dashboardUrl,
+  });
 
   const res = await sendTextBeeSms({
     recipients: [params.mobile],
@@ -269,4 +311,5 @@ export async function sendAmbassadorTierUnlockedSms(params: {
 
   return res;
 }
+
 

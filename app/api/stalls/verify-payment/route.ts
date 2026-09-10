@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBookingById, updateBookingPayment, markStallBooked, getSettings } from '@/lib/db';
+import { getBookingById, updateBookingPayment, markStallBooked, getSettings, claimStallBookingForConfirmation } from '@/lib/db';
 import { verifyRazorpaySignature } from '@/lib/razorpay';
 import { generateStallQrCode } from '@/lib/qr-service';
 import { generateBookingConfirmationPackage } from '@/lib/docx-pdf-service';
@@ -51,6 +51,37 @@ export async function POST(req: NextRequest) {
         { success: false, message: 'Payment signature verification failed.' },
         { status: 400 }
       );
+    }
+
+    // Atomically claim the booking to prevent race condition with concurrent Webhook
+    const { claimed, booking: claimedBooking } = await claimStallBookingForConfirmation(booking.id, {
+      razorpayPaymentId,
+      razorpaySignature,
+    });
+
+    if (!claimed) {
+      let currentBooking = claimedBooking || (await getBookingById(booking.id));
+
+      // If concurrently being processed by Webhook, wait briefly for completion
+      if (currentBooking && currentBooking.paymentStatus === 'processing') {
+        for (let i = 0; i < 6; i++) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const latest = await getBookingById(booking.id);
+          if (latest && latest.paymentStatus === 'success') {
+            currentBooking = latest;
+            break;
+          }
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        booking: currentBooking,
+        bookingId: currentBooking?.id || booking.id,
+        bookingNumber: currentBooking?.bookingNumber || booking.bookingNumber,
+        qrCodeDataUrl: currentBooking?.qrCodeDataUrl,
+        image1080DataUrl: currentBooking?.confirmationDocUrl,
+      });
     }
 
     const settings = await getSettings();

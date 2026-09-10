@@ -637,6 +637,68 @@ export async function getAllBookings() {
   return [...store.bookings].reverse();
 }
 
+/**
+ * Atomically claims a stall booking for payment confirmation.
+ * Returns { claimed: true, booking } only for the first winner.
+ * Concurrent requests will receive { claimed: false, booking }.
+ */
+export async function claimStallBookingForConfirmation(
+  bookingId: string,
+  paymentData: {
+    razorpayPaymentId?: string;
+    razorpaySignature?: string;
+  }
+): Promise<{ claimed: boolean; booking: any }> {
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      const existing = await prisma.booking.findUnique({ where: { id: bookingId } });
+      if (!existing) return { claimed: false, booking: null };
+      if (existing.paymentStatus === 'success' || existing.paymentStatus === 'processing') {
+        return { claimed: false, booking: existing };
+      }
+
+      // Atomic update only if paymentStatus is still 'pending'
+      const claimResult = await prisma.booking.updateMany({
+        where: {
+          id: bookingId,
+          paymentStatus: 'pending',
+        },
+        data: {
+          paymentStatus: 'processing',
+          razorpayPaymentId: paymentData.razorpayPaymentId || existing.razorpayPaymentId || null,
+          razorpaySignature: paymentData.razorpaySignature || existing.razorpaySignature || null,
+        },
+      });
+
+      if (claimResult.count === 0) {
+        const latest = await prisma.booking.findUnique({ where: { id: bookingId } });
+        return { claimed: false, booking: latest };
+      }
+
+      const claimed = await prisma.booking.findUnique({ where: { id: bookingId } });
+      return { claimed: true, booking: claimed };
+    } catch (e) {
+      console.warn('Prisma error in claimStallBookingForConfirmation', e);
+    }
+  }
+
+  const store = loadFallbackStore();
+  const index = store.bookings.findIndex((b) => b.id === bookingId);
+  if (index !== -1) {
+    const b = store.bookings[index];
+    if (b.paymentStatus === 'success' || b.paymentStatus === 'processing') {
+      return { claimed: false, booking: b };
+    }
+    b.paymentStatus = 'processing';
+    if (paymentData.razorpayPaymentId) b.razorpayPaymentId = paymentData.razorpayPaymentId;
+    if (paymentData.razorpaySignature) b.razorpaySignature = paymentData.razorpaySignature;
+    saveFallbackStore(store);
+    return { claimed: true, booking: b };
+  }
+  return { claimed: false, booking: null };
+}
+
 export async function updateBookingPayment(
   bookingId: string,
   payment: {
@@ -1917,7 +1979,7 @@ export async function completeTicketBookingPayment(params: {
   if (!booking) throw new Error('Ticket booking not found');
 
   if (booking.paymentStatus === 'success') {
-    return booking;
+    return { ...booking, isNewlyConfirmed: false };
   }
 
   const qrCodeDataUrl = await generateTicketQrCode(
@@ -1930,8 +1992,12 @@ export async function completeTicketBookingPayment(params: {
   const hasPrisma = await checkPrisma();
   if (hasPrisma) {
     try {
-      const updated = await (prisma as any).ticketBooking.update({
-        where: { id: booking.id },
+      // Atomic compare-and-swap: only succeed if status is still 'pending'
+      const claimResult = await (prisma as any).ticketBooking.updateMany({
+        where: {
+          id: booking.id,
+          paymentStatus: 'pending',
+        },
         data: {
           paymentStatus: 'success',
           razorpayOrderId: params.razorpayOrderId || booking.razorpayOrderId || null,
@@ -1940,6 +2006,14 @@ export async function completeTicketBookingPayment(params: {
           qrCodeDataUrl,
         },
       });
+
+      if (claimResult.count === 0) {
+        // Another concurrent request claimed or completed this booking!
+        const existing = await (prisma as any).ticketBooking.findUnique({ where: { id: booking.id } });
+        return { ...existing, isNewlyConfirmed: false };
+      }
+
+      const updated = await (prisma as any).ticketBooking.findUnique({ where: { id: booking.id } });
 
       // Record Initial Voucher Credit in Transaction History (check if already created to avoid duplicates)
       const existingTx = await (prisma as any).voucherTransaction.findFirst({
@@ -1967,7 +2041,7 @@ export async function completeTicketBookingPayment(params: {
         await creditAmbassadorReferral(booking.referredByAmbassadorId, booking.id);
       }
 
-      return updated;
+      return { ...updated, isNewlyConfirmed: true };
     } catch (e) {
       console.warn('Prisma error in completeTicketBookingPayment', e);
     }
@@ -1976,6 +2050,10 @@ export async function completeTicketBookingPayment(params: {
   const store = loadFallbackStore();
   const record = (store.ticketBookings || []).find((b) => b.id === params.bookingId || b.bookingNumber === params.bookingId);
   if (record) {
+    if (record.paymentStatus === 'success') {
+      return { ...record, isNewlyConfirmed: false };
+    }
+
     record.paymentStatus = 'success';
     record.razorpayOrderId = params.razorpayOrderId || record.razorpayOrderId || null;
     record.razorpayPaymentId = params.razorpayPaymentId || record.razorpayPaymentId || null;
@@ -2008,9 +2086,11 @@ export async function completeTicketBookingPayment(params: {
     if (record.referredByAmbassadorId) {
       await creditAmbassadorReferral(record.referredByAmbassadorId, record.id);
     }
+
+    return { ...record, isNewlyConfirmed: true };
   }
 
-  return record;
+  return { ...booking, isNewlyConfirmed: false };
 }
 
 function parseBookingVoucherRule(rawRule: string | null | undefined): {
@@ -2961,6 +3041,7 @@ export async function ambassadorLogin(mobile: string, plainPassword: string) {
 }
 
 export async function creditAmbassadorReferral(ambassadorId: string, bookingId: string) {
+  if (!ambassadorId || !bookingId) return;
   const amb = await getAmbassadorById(ambassadorId);
   if (!amb) return;
 
@@ -2994,6 +3075,31 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
   const hasPrisma = await checkPrisma();
   if (hasPrisma) {
     try {
+      // 1. Check idempotency: if this bookingId was already credited for this ambassador, exit immediately
+      const existingRef = await (prisma as any).voucherTransaction.findFirst({
+        where: {
+          ambassadorId: amb.id,
+          sourceType: 'ambassador_referral',
+          sourceReference: bookingId,
+        },
+      });
+      if (existingRef) {
+        console.log(`[Ambassador Referral] Booking ${bookingId} already credited for ambassador ${amb.id}. Idempotent skip.`);
+        return amb;
+      }
+
+      // 2. Record this referral in voucher transactions immediately to prevent duplicate credit
+      await (prisma as any).voucherTransaction.create({
+        data: {
+          ambassadorId: amb.id,
+          ticketBookingId: bookingId,
+          sourceType: 'ambassador_referral',
+          sourceReference: bookingId,
+          amount: 0,
+          type: 'credit',
+          description: `Referral credited for ticket booking ${bookingId}`,
+        },
+      });
       // If qualified for free ticket and not generated yet, create free ticket booking
       if (earnTicket && !freeTicketBookingId) {
         freeBookingNumber = `TK-FREE-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -3091,6 +3197,30 @@ export async function creditAmbassadorReferral(ambassadorId: string, bookingId: 
   }
 
   const store = loadFallbackStore();
+  if (!store.voucherTransactions) store.voucherTransactions = [];
+  const alreadyCredited = store.voucherTransactions.some(
+    (tx) => tx.ambassadorId === amb.id && tx.sourceType === 'ambassador_referral' && tx.sourceReference === bookingId
+  );
+  if (alreadyCredited) {
+    console.log(`[Ambassador Referral Fallback] Booking ${bookingId} already credited for ${amb.id}. Idempotent skip.`);
+    return amb;
+  }
+
+  // Record referral in fallback store
+  store.voucherTransactions.push({
+    id: `vt_ref_${Date.now()}`,
+    ticketBookingId: bookingId,
+    ambassadorId: amb.id,
+    sourceType: 'ambassador_referral',
+    sourceReference: bookingId,
+    stallNumber: null,
+    stallOwnerName: null,
+    amount: 0,
+    type: 'credit',
+    description: `Referral credited for ticket booking ${bookingId}`,
+    createdAt: new Date().toISOString(),
+  });
+
   const record = (store.ambassadors || []).find((a) => a.id === amb.id);
   if (record) {
     record.referralCount = newReferralCount;

@@ -42,6 +42,7 @@ import {
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
 import { openWhatsAppChat } from '@/lib/whatsapp';
+import { renderMessageTemplate, getVoucherUsabilityLabel, DEFAULT_TEMPLATES } from '@/lib/message-templates-core';
 
 export default function AmbassadorDashboardPage() {
   const router = useRouter();
@@ -98,22 +99,25 @@ export default function AmbassadorDashboardPage() {
     }
   };
 
-  const getVoucherUsabilityText = (applicability?: string) => {
-    if (applicability === 'food') return 'Food Stalls Only (Stalls 1-15)';
-    if (applicability === 'other') return 'Commercial & Shopping Stalls (Stalls A-T)';
-    return 'All 35 Stalls (Food + Commercial)';
-  };
-
   const handleShareWhatsApp = () => {
     const url = getReferralUrl();
     if (url && data?.ambassador) {
-      const voucherAmount = data?.activePhase?.voucherAmount || 100;
-      const usability = getVoucherUsabilityText(data?.activePhase?.voucherApplicableTo);
-      const msg =
-        `*JOIN US AT ASHA BANI DANDIYA RAAS 6.0!*\n\n` +
-        `Enjoy a grand festive night of energetic Garba, live orchestra, and delicious Gujarati food stalls on *13 October 2026* at Maharaja Agrasen Bhavan, Saharanpur!\n\n` +
-        `*Book Official Passes Here:*\n${url}\n\n` +
-        `*Special Included Perk:* Every pass includes a *Rs. ${voucherAmount} Free Stall Voucher*!`;
+      const activePhase = data?.activePhase;
+      const voucherAmount = activePhase?.voucherAmount ?? 100;
+      const usability = getVoucherUsabilityLabel(activePhase?.voucherApplicableTo);
+      const template =
+        data?.shareMessageTemplate || DEFAULT_TEMPLATES.template_ambassador_share_wa.defaultText;
+
+      const msg = renderMessageTemplate(template, {
+        referral_url: url,
+        voucher_amount: voucherAmount,
+        voucher_usability: usability,
+        phase_name: activePhase?.name || 'Current Phase',
+        adult_price: activePhase?.adultPrice || 499,
+        event_date: '13 October 2026',
+        venue: 'Maharaja Agrasen Bhavan, Saharanpur',
+        ambassador_name: data.ambassador.name || 'Campus Ambassador',
+      });
 
       openWhatsAppChat('', msg);
     }
@@ -265,7 +269,7 @@ export default function AmbassadorDashboardPage() {
               <Group gap="xs" align="center">
                 <IconBuildingStore size={16} color="#facc15" />
                 <Text size="xs" c="gray.3">
-                  Each referred pass includes a <b>₹{data?.activePhase?.voucherAmount || 100} Free Stall Voucher</b> (Valid at: <span style={{ color: '#facc15', fontWeight: 600 }}>{getVoucherUsabilityText(data?.activePhase?.voucherApplicableTo)}</span>).
+                  Each referred pass includes a <b>₹{data?.activePhase?.voucherAmount || 100} Free Stall Voucher</b> (Valid at: <span style={{ color: '#facc15', fontWeight: 600 }}>{getVoucherUsabilityLabel(data?.activePhase?.voucherApplicableTo)}</span>).
                 </Text>
               </Group>
             </Stack>

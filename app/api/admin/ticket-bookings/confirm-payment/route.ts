@@ -49,11 +49,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Dispatch SMS if requested (default is true)
+    // Dispatch SMS if requested (skip if already confirmed unless forceResendSms is set)
+    const isAlreadyConfirmed = booking.paymentStatus === 'success';
     let smsDispatched = false;
     let smsError: string | null = null;
 
-    if (sendSms !== false) {
+    if (sendSms !== false && (!isAlreadyConfirmed || body.forceResendSms === true)) {
       try {
         const smsRes = await sendTicketBookingSms(completedBooking);
         if (smsRes && smsRes.success) {
