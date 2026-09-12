@@ -817,10 +817,13 @@ export default function AdminMessageTemplatesPage() {
                 {renderTemplateCard('template_ambassador_share_wa')}
               </Box>
 
-              {/* 2. Exhibitor Direct Pass WhatsApp */}
+              {/* 2. Ambassador Onboarding & Credentials Template */}
+              {renderTemplateCard('template_ambassador_onboarding_wa')}
+
+              {/* 3. Exhibitor Direct Pass WhatsApp */}
               {renderTemplateCard('template_stall_wa')}
 
-              {/* 3. Customer Direct Pass WhatsApp */}
+              {/* 4. Customer Direct Pass WhatsApp */}
               {renderTemplateCard('template_ticket_wa')}
             </Stack>
           </Tabs.Panel>

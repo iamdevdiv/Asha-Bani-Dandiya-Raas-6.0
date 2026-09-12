@@ -307,6 +307,47 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
       helpline: '+91 6399063455',
     },
   },
+
+  template_ambassador_onboarding_wa: {
+    key: 'template_ambassador_onboarding_wa',
+    title: 'Ambassador Onboarding & Credentials (WhatsApp)',
+    category: 'whatsapp',
+    channel: 'WhatsApp',
+    description: 'Congratulatory welcome and onboarding message sent by Admin to active campus ambassadors containing their login link, credentials, and referral link.',
+    defaultText:
+      `*CONGRATULATIONS {{name}}!* 🎉\n\n` +
+      `Welcome to the official Campus Ambassador team for *Asha Bani Dandiya Raas 6.0*!\n\n` +
+      `Here are your Ambassador Portal login credentials:\n` +
+      `- *Login Link:* {{login_url}}\n` +
+      `- *Registered Mobile:* {{mobile}}\n` +
+      `- *Password:* {{password}}\n\n` +
+      `*Your Unique Referral Link to Share:*\n` +
+      `{{referral_url}}\n\n` +
+      `Share this link with your friends, family, and college groups! Every pass booked through your link earns you milestone rewards, free entry passes, and food stall vouchers.\n\n` +
+      `Track your live referrals anytime on your dashboard:\n` +
+      `{{login_url}}\n\n` +
+      `We are thrilled to have you lead the festivities! 🌟`,
+    availableTokens: [
+      { token: '{{name}}', label: 'Ambassador Full Name', example: 'Rahul Sharma' },
+      { token: '{{mobile}}', label: 'Registered Mobile Number', example: '9876543210' },
+      { token: '{{password}}', label: 'Login Password', example: 'AshaBani@2026' },
+      { token: '{{login_url}}', label: 'Ambassador Login Link', example: 'https://ashabani.com/ambassador/login' },
+      { token: '{{ref_code}}', label: 'Unique Referral Code', example: 'AMB_RAHU123' },
+      { token: '{{referral_url}}', label: 'Referral Link to Share', example: 'https://ashabani.com/dandiyaraas?ref=AMB_RAHU123' },
+      { token: '{{event_date}}', label: 'Event Date', example: '13 October 2026' },
+      { token: '{{venue}}', label: 'Event Venue', example: 'Maharaja Agrasen Bhavan, Saharanpur' },
+    ],
+    samplePreviewData: {
+      name: 'Rahul Sharma',
+      mobile: '9876543210',
+      password: 'AshaBani@2026',
+      login_url: 'https://ashabani.com/ambassador/login',
+      ref_code: 'AMB_RAHU123',
+      referral_url: 'https://ashabani.com/dandiyaraas?ref=AMB_RAHU123',
+      event_date: '13 October 2026',
+      venue: 'Maharaja Agrasen Bhavan, Saharanpur',
+    },
+  },
 };
 
 /**

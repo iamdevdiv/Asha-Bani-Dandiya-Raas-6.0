@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -14,6 +14,7 @@ import {
   Drawer,
   Stack,
   Badge,
+  Divider,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
@@ -22,14 +23,47 @@ import {
   IconSparkles,
   IconPhoneCall,
   IconShieldLock,
+  IconLogin,
+  IconLogout,
+  IconCrown,
 } from '@tabler/icons-react';
 
 export function Navbar() {
   const pathname = usePathname();
   const [opened, { toggle, close }] = useDisclosure(false);
+  const [ambassadorAuth, setAmbassadorAuth] = useState<{ authenticated: boolean; name?: string } | null>(null);
 
   const isCustomerHome = pathname === '/dandiyaraas';
   const isStallPage = pathname.startsWith('/dandiyaraas/stall');
+  const isAmbassadorRoute = pathname?.startsWith('/ambassador');
+
+  useEffect(() => {
+    if (isAmbassadorRoute) {
+      fetch('/api/ambassadors/me')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.authenticated) {
+            setAmbassadorAuth({ authenticated: true, name: data.ambassador?.name });
+          } else {
+            setAmbassadorAuth({ authenticated: false });
+          }
+        })
+        .catch(() => setAmbassadorAuth({ authenticated: false }));
+    } else {
+      setAmbassadorAuth(null);
+    }
+  }, [pathname, isAmbassadorRoute]);
+
+  const handleAmbassadorLogout = async () => {
+    close();
+    try {
+      await fetch('/api/ambassadors/logout', { method: 'POST' });
+    } catch {
+      // ignore
+    }
+    setAmbassadorAuth({ authenticated: false });
+    window.location.href = '/ambassador/login';
+  };
 
   return (
     <Box
@@ -139,6 +173,32 @@ export function Navbar() {
             >
               Book a Stall
             </Button>
+
+            {/* Ambassador Auth Button: ONLY on /ambassador routes */}
+            {isAmbassadorRoute && (
+              ambassadorAuth?.authenticated ? (
+                <Button
+                  onClick={handleAmbassadorLogout}
+                  variant="subtle"
+                  color="red"
+                  size="sm"
+                  leftSection={<IconLogout size={16} />}
+                >
+                  Logout
+                </Button>
+              ) : (
+                <Button
+                  component={Link}
+                  href="/ambassador/login"
+                  variant="light"
+                  color="royalGold"
+                  size="sm"
+                  leftSection={<IconLogin size={16} />}
+                >
+                  Ambassador Login
+                </Button>
+              )
+            )}
           </Group>
 
           {/* Mobile Menu Trigger */}
@@ -217,6 +277,58 @@ export function Navbar() {
           >
             Contact & Support
           </Button>
+
+          {/* Ambassador Auth Action: ONLY on /ambassador routes */}
+          {isAmbassadorRoute && (
+            <Box mt="xs" pt="xs" style={{ borderTop: '1px solid rgba(234, 179, 8, 0.25)' }}>
+              {ambassadorAuth?.authenticated ? (
+                <Stack gap="xs">
+                  {ambassadorAuth.name && (
+                    <Text size="xs" c="royalGold.4" fw={600} px={4}>
+                      Logged in: {ambassadorAuth.name}
+                    </Text>
+                  )}
+                  {pathname !== '/ambassador/dashboard' && (
+                    <Button
+                      component={Link}
+                      href="/ambassador/dashboard"
+                      onClick={close}
+                      variant="light"
+                      color="royalGold"
+                      fullWidth
+                      justify="start"
+                      leftSection={<IconCrown size={18} color="#facc15" />}
+                    >
+                      Ambassador Dashboard
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleAmbassadorLogout}
+                    variant="light"
+                    color="red"
+                    fullWidth
+                    justify="start"
+                    leftSection={<IconLogout size={18} />}
+                  >
+                    Ambassador Logout
+                  </Button>
+                </Stack>
+              ) : (
+                <Button
+                  component={Link}
+                  href="/ambassador/login"
+                  onClick={close}
+                  variant="light"
+                  color="royalGold"
+                  fullWidth
+                  justify="start"
+                  leftSection={<IconLogin size={18} />}
+                >
+                  Ambassador Login
+                </Button>
+              )}
+            </Box>
+          )}
         </Stack>
       </Drawer>
     </Box>

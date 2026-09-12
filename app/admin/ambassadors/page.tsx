@@ -15,6 +15,7 @@ import {
   Tabs,
   Modal,
   TextInput,
+  Textarea,
   PasswordInput,
   NumberInput,
   Select,
@@ -48,8 +49,14 @@ import {
   IconMapPin,
   IconCalendar,
   IconExternalLink,
+  IconBrandWhatsapp,
+  IconCopy,
+  IconSend,
+  IconRefresh,
 } from '@tabler/icons-react';
 import ConfirmationModal from '@/components/ConfirmationModal';
+import { DEFAULT_TEMPLATES, renderMessageTemplate } from '@/lib/message-templates-core';
+import { openWhatsAppChat } from '@/lib/whatsapp';
 
 export default function AdminAmbassadorsPage() {
   const [loading, setLoading] = useState(true);
@@ -82,12 +89,62 @@ export default function AdminAmbassadorsPage() {
   const [referredBookings, setReferredBookings] = useState<any[]>([]);
   const [loadingReferredBookings, setLoadingReferredBookings] = useState(false);
 
+  // Message Templates & Credentials Modal State
+  const [waTemplates, setWaTemplates] = useState<Record<string, string>>({});
+  const [selectedAmbForCredentials, setSelectedAmbForCredentials] = useState<any | null>(null);
+  const [credentialsPassword, setCredentialsPassword] = useState('');
+  const [credentialsCustomMessage, setCredentialsCustomMessage] = useState('');
+
+  const generateCredentialsMessage = (amb: any, pwd: string) => {
+    if (!amb) return '';
+    const template = waTemplates['template_ambassador_onboarding_wa'] || DEFAULT_TEMPLATES.template_ambassador_onboarding_wa.defaultText;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://ashabani.com';
+    const loginUrl = `${origin}/ambassador/login`;
+    const refCode = amb.refCode || amb.referralCode || '';
+    const referralUrl = `${origin}/dandiyaraas?ref=${refCode}`;
+
+    return renderMessageTemplate(template, {
+      name: amb.name || 'Ambassador',
+      mobile: amb.mobile || '',
+      password: pwd || '[Password to be set by admin]',
+      login_url: loginUrl,
+      ref_code: refCode,
+      referral_url: referralUrl,
+      event_date: '13 October 2026',
+      venue: 'Maharaja Agrasen Bhavan, Saharanpur',
+    });
+  };
+
+  const handleOpenSendCredentials = (amb: any, initialPassword = '') => {
+    setSelectedAmbForCredentials(amb);
+    setCredentialsPassword(initialPassword);
+    setCredentialsCustomMessage(generateCredentialsMessage(amb, initialPassword));
+  };
+
+  const handlePasswordChangeInCredentialsModal = (val: string) => {
+    setCredentialsPassword(val);
+    if (selectedAmbForCredentials) {
+      setCredentialsCustomMessage(generateCredentialsMessage(selectedAmbForCredentials, val));
+    }
+  };
+
+  const handleGenerateRandomPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let randomStr = '';
+    for (let i = 0; i < 6; i++) {
+      randomStr += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const gen = `Asha@${randomStr}`;
+    handlePasswordChangeInCredentialsModal(gen);
+  };
+
   const fetchData = () => {
     Promise.all([
       fetch('/api/admin/ambassadors').then((res) => res.json()),
       fetch('/api/admin/ambassadors/tiers').then((res) => res.json()),
+      fetch('/api/admin/message-templates').then((res) => res.json()).catch(() => null),
     ])
-      .then(([ambData, tierData]) => {
+      .then(([ambData, tierData, templateData]) => {
         if (ambData.success && ambData.ambassadors) {
           setAmbassadors(ambData.ambassadors);
         }
@@ -105,6 +162,9 @@ export default function AdminAmbassadorsPage() {
             setTier2Voucher(t2.voucherAmount);
             setTier2Applicability(t2.voucherApplicableTo || 'both');
           }
+        }
+        if (templateData?.success && templateData?.templates) {
+          setWaTemplates(templateData.templates);
         }
       })
       .catch((err) => console.error('Error fetching ambassadors:', err))
@@ -175,8 +235,13 @@ export default function AdminAmbassadorsPage() {
         color: 'green',
       });
 
+      const updatedAmb = data.ambassador || { ...selectedAmbassador, status: 'approved' };
+      const savedPwd = newPassword.trim();
       handleClosePasswordModal();
       fetchData();
+
+      // Automatically open Send Credentials modal with the saved password
+      handleOpenSendCredentials(updatedAmb, savedPwd);
     } catch (err: any) {
       notifications.show({
         title: passwordModalMode === 'edit' ? 'Update Error' : 'Approval Error',
@@ -540,6 +605,17 @@ export default function AdminAmbassadorsPage() {
                           </Table.Td>
                           <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                             <Group gap={6} justify="flex-end" wrap="nowrap">
+                              <Tooltip label="Send Welcome & Credentials (WhatsApp)">
+                                <ActionIcon
+                                  color="green"
+                                  variant="light"
+                                  size="sm"
+                                  radius="md"
+                                  onClick={() => handleOpenSendCredentials(a)}
+                                >
+                                  <IconBrandWhatsapp size={16} />
+                                </ActionIcon>
+                              </Tooltip>
                               <Tooltip label="View Referred Ticket Bookings">
                                 <ActionIcon
                                   color="royalGold"
@@ -941,6 +1017,166 @@ export default function AdminAmbassadorsPage() {
             </Button>
           </Group>
         </Stack>
+      </Modal>
+
+      {/* Send Ambassador Welcome & Credentials Modal */}
+      <Modal
+        opened={!!selectedAmbForCredentials}
+        onClose={() => setSelectedAmbForCredentials(null)}
+        size="lg"
+        radius="lg"
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="green" variant="light" size="md" radius="xl">
+              <IconBrandWhatsapp size={18} />
+            </ThemeIcon>
+            <Text fw={700} c="white" style={{ fontFamily: "'Cinzel', serif" }}>
+              Send Welcome & Credentials (WhatsApp)
+            </Text>
+          </Group>
+        }
+        styles={{
+          content: { backgroundColor: '#140305', border: '1px solid rgba(234, 179, 8, 0.3)' },
+          header: { backgroundColor: '#140305' },
+        }}
+      >
+        {selectedAmbForCredentials && (
+          <Stack gap="md">
+            <Paper p="sm" radius="md" style={{ backgroundColor: '#1f0406', border: '1px solid rgba(234, 179, 8, 0.25)' }}>
+              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                <Box>
+                  <Text size="10px" c="gray.4" fw={700}>AMBASSADOR NAME</Text>
+                  <Text size="xs" fw={700} c="white">{selectedAmbForCredentials.name}</Text>
+                </Box>
+                <Box>
+                  <Text size="10px" c="gray.4" fw={700}>MOBILE (PRE-FILLED)</Text>
+                  <Text size="xs" fw={700} c="green.3">
+                    +91 {selectedAmbForCredentials.mobile}
+                  </Text>
+                </Box>
+                <Box>
+                  <Text size="10px" c="gray.4" fw={700}>REFERRAL CODE</Text>
+                  <Badge size="xs" color="yellow" variant="light">
+                    {selectedAmbForCredentials.refCode || selectedAmbForCredentials.referralCode || 'Pending'}
+                  </Badge>
+                </Box>
+                <Box>
+                  <Text size="10px" c="gray.4" fw={700}>LOGIN PORTAL</Text>
+                  <Text size="xs" c="yellow.2">/ambassador/login</Text>
+                </Box>
+              </SimpleGrid>
+            </Paper>
+
+            <Group justify="space-between" align="flex-end">
+              <TextInput
+                label="Login Password to Include"
+                description="Enter or generate the password to be communicated to the ambassador"
+                placeholder="Enter password (e.g. Asha@2026)"
+                value={credentialsPassword}
+                onChange={(e) => handlePasswordChangeInCredentialsModal(e.currentTarget.value)}
+                style={{ flex: 1 }}
+              />
+              <Button
+                variant="light"
+                color="yellow"
+                size="sm"
+                onClick={handleGenerateRandomPassword}
+                leftSection={<IconRefresh size={14} />}
+              >
+                Generate
+              </Button>
+            </Group>
+
+            <Stack gap={4}>
+              <Group justify="space-between" align="center">
+                <Text size="xs" fw={700} c="gray.3">
+                  EDITABLE WHATSAPP MESSAGE
+                </Text>
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="compact-xs"
+                  leftSection={<IconRefresh size={12} />}
+                  onClick={() => {
+                    setCredentialsCustomMessage(generateCredentialsMessage(selectedAmbForCredentials, credentialsPassword));
+                    notifications.show({ title: 'Template Reset', message: 'Message restored to admin template default', color: 'yellow' });
+                  }}
+                >
+                  Reset to Template Default
+                </Button>
+              </Group>
+
+              <Textarea
+                minRows={9}
+                maxRows={16}
+                autosize
+                value={credentialsCustomMessage}
+                onChange={(e) => setCredentialsCustomMessage(e.currentTarget.value)}
+                styles={{
+                  input: {
+                    backgroundColor: '#0a0102',
+                    borderColor: 'rgba(234, 179, 8, 0.35)',
+                    color: '#fef08a',
+                    fontFamily: "'Courier New', Courier, monospace",
+                    fontSize: '12.5px',
+                    lineHeight: '1.45',
+                  },
+                }}
+              />
+            </Stack>
+
+            <Divider color="rgba(234, 179, 8, 0.2)" />
+
+            <Group justify="space-between" wrap="wrap" gap="sm">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setSelectedAmbForCredentials(null)}
+              >
+                Close
+              </Button>
+
+              <Group gap="xs">
+                <Button
+                  variant="light"
+                  color="yellow"
+                  size="sm"
+                  leftSection={<IconCopy size={16} />}
+                  onClick={() => {
+                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                      navigator.clipboard.writeText(credentialsCustomMessage);
+                      notifications.show({
+                        title: 'Copied!',
+                        message: 'Message copied to clipboard',
+                        color: 'green',
+                      });
+                    }
+                  }}
+                >
+                  Copy Message
+                </Button>
+
+                <Button
+                  color="teal"
+                  variant="filled"
+                  size="sm"
+                  leftSection={<IconBrandWhatsapp size={16} />}
+                  onClick={() => {
+                    openWhatsAppChat(selectedAmbForCredentials.mobile || '', credentialsCustomMessage);
+                    notifications.show({
+                      title: 'Opening WhatsApp',
+                      message: `Opening chat for ${selectedAmbForCredentials.name}...`,
+                      color: 'green',
+                    });
+                  }}
+                  style={{ fontWeight: 700 }}
+                >
+                  Send on WhatsApp
+                </Button>
+              </Group>
+            </Group>
+          </Stack>
+        )}
       </Modal>
 
       {/* Reject Application Confirmation Modal */}

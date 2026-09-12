@@ -17,6 +17,7 @@ import {
   Badge,
   Paper,
   Divider,
+  Skeleton,
 } from '@mantine/core';
 import {
   IconDisc,
@@ -41,12 +42,13 @@ import {
 } from '@tabler/icons-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
-import { DEFAULT_SETTINGS, INITIAL_TICKET_PHASES } from '@/lib/stall-data';
+import { DEFAULT_SETTINGS } from '@/lib/stall-data';
 
 export default function CustomerHomePage() {
   const [settings, setSettings] = useState<Record<string, string>>(DEFAULT_SETTINGS);
-  const [allPhases, setAllPhases] = useState<any[]>(INITIAL_TICKET_PHASES);
-  const [currentPhase, setCurrentPhase] = useState<any>(INITIAL_TICKET_PHASES[0]);
+  const [allPhases, setAllPhases] = useState<any[]>([]);
+  const [currentPhase, setCurrentPhase] = useState<any>(null);
+  const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
   const [isSalesOpen, setIsSalesOpen] = useState<boolean>(() => {
     try {
       const startDate = DEFAULT_SETTINGS.ticket_booking_start_date || '2026-09-01';
@@ -99,7 +101,8 @@ export default function CustomerHomePage() {
           if (data.currentActive) setCurrentPhase(data.currentActive);
         }
       })
-      .catch((err) => console.warn('Could not fetch ticket phases:', err));
+      .catch((err) => console.warn('Could not fetch ticket phases:', err))
+      .finally(() => setPhasesLoading(false));
   }, []);
 
   const bookingNotice = settings.ticket_booking_msg || 'Ticket bookings start from 1 September 2026';
@@ -292,46 +295,59 @@ export default function CustomerHomePage() {
                     ● PASSES NOW AVAILABLE
                   </Badge>
 
-                  <Text fw={800} size="lg" className="gold-gradient-text" ta="center" style={{ fontFamily: "'Cinzel', serif" }}>
-                    {currentPhase?.name || 'Grand Dandiya Entry Passes'}
-                  </Text>
+                  {phasesLoading ? (
+                    <Stack gap={8} align="center" w="100%" my={4}>
+                      <Skeleton height={26} width={260} radius="md" />
+                      <Skeleton height={18} width={220} radius="md" />
+                      <Group gap={6} justify="center" wrap="wrap" mt={4}>
+                        <Skeleton height={26} width={200} radius="md" />
+                        <Skeleton height={26} width={210} radius="md" />
+                      </Group>
+                    </Stack>
+                  ) : (
+                    <>
+                      <Text fw={800} size="lg" className="gold-gradient-text" ta="center" style={{ fontFamily: "'Cinzel', serif" }}>
+                        {currentPhase?.name || 'Grand Dandiya Entry Passes'}
+                      </Text>
 
-                  <Text size="sm" c="gray.3" ta="center">
-                    ₹{currentPhase?.adultPrice || 499} / Adult • ₹{currentPhase?.childPrice || 199} / Child (Under 55&quot;)
-                  </Text>
+                      <Text size="sm" c="gray.3" ta="center">
+                        ₹{currentPhase?.adultPrice || 499} / Adult • ₹{currentPhase?.childPrice || 199} / Child (Under 55&quot;)
+                      </Text>
 
-                  <Group gap={6} justify="center" wrap="wrap">
-                    <Badge
-                      color="yellow"
-                      variant="light"
-                      size="sm"
-                      leftSection={<IconGift size={13} color="#facc15" style={{ flexShrink: 0 }} />}
-                      style={{
-                        height: 'auto',
-                        padding: '5px 10px',
-                        whiteSpace: 'normal',
-                        lineHeight: 1.25,
-                        textAlign: 'center',
-                      }}
-                    >
-                      Includes ₹{currentPhase?.voucherAmount || 100} Free Stall Voucher
-                    </Badge>
-                    <Badge
-                      color="yellow"
-                      variant="light"
-                      size="sm"
-                      leftSection={<IconSparkles size={13} color="#facc15" style={{ flexShrink: 0 }} />}
-                      style={{
-                        height: 'auto',
-                        padding: '5px 10px',
-                        whiteSpace: 'normal',
-                        lineHeight: 1.25,
-                        textAlign: 'center',
-                      }}
-                    >
-                      Free Dandiya Sticks for All Attendees
-                    </Badge>
-                  </Group>
+                      <Group gap={6} justify="center" wrap="wrap">
+                        <Badge
+                          color="yellow"
+                          variant="light"
+                          size="sm"
+                          leftSection={<IconGift size={13} color="#facc15" style={{ flexShrink: 0 }} />}
+                          style={{
+                            height: 'auto',
+                            padding: '5px 10px',
+                            whiteSpace: 'normal',
+                            lineHeight: 1.25,
+                            textAlign: 'center',
+                          }}
+                        >
+                          Includes ₹{currentPhase?.voucherAmount || 100} Free Stall Voucher
+                        </Badge>
+                        <Badge
+                          color="yellow"
+                          variant="light"
+                          size="sm"
+                          leftSection={<IconSparkles size={13} color="#facc15" style={{ flexShrink: 0 }} />}
+                          style={{
+                            height: 'auto',
+                            padding: '5px 10px',
+                            whiteSpace: 'normal',
+                            lineHeight: 1.25,
+                            textAlign: 'center',
+                          }}
+                        >
+                          Free Dandiya Sticks for All Attendees
+                        </Badge>
+                      </Group>
+                    </>
+                  )}
 
                   <Group justify="center" gap="sm" mt="xs" w="100%">
                     <Button
@@ -415,39 +431,67 @@ export default function CustomerHomePage() {
           </Stack>
 
           {/* Phases Grid */}
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing={{ base: 'md', sm: 'lg' }}>
-            {(allPhases.length > 0 ? allPhases : [
-              {
-                phaseNumber: 1,
-                name: 'Phase 1 - Early Bird',
-                startDate: '2026-09-01',
-                endDate: '2026-09-10',
-                adultPrice: 499,
-                childPrice: 199,
-                voucherAmount: 100,
-              },
-              {
-                phaseNumber: 2,
-                name: 'Phase 2 - Regular Entry',
-                startDate: '2026-09-11',
-                endDate: '2026-09-20',
-                adultPrice: 599,
-                childPrice: 199,
-                voucherAmount: 100,
-              },
-              {
-                phaseNumber: 3,
-                name: 'Phase 3 - Last Chance',
-                startDate: '2026-09-21',
-                endDate: '2026-10-13',
-                adultPrice: 699,
-                childPrice: 199,
-                voucherAmount: 100,
-              },
-            ]).map((p: any) => {
-              const istToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-              const isPhaseActive = isSalesOpen && (currentPhase?.id ? p.id === currentPhase?.id : (istToday >= p.startDate && istToday <= p.endDate));
-              const isPhasePassed = istToday > p.endDate;
+          {phasesLoading ? (
+            <SimpleGrid cols={{ base: 1, md: 3 }} spacing={{ base: 'md', sm: 'lg' }}>
+              {[1, 2, 3].map((idx) => (
+                <Paper
+                  key={idx}
+                  p={{ base: 'md', sm: 'xl' }}
+                  radius="xl"
+                  style={{
+                    backgroundColor: 'rgba(20, 3, 5, 0.85)',
+                    border: '1px solid rgba(234, 179, 8, 0.25)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    minHeight: 400,
+                  }}
+                  className="festive-card"
+                >
+                  <Stack gap="md">
+                    <Group justify="space-between" align="center">
+                      <Skeleton height={22} width={80} radius="xl" />
+                      <Skeleton height={22} width={90} radius="xl" />
+                    </Group>
+                    <Box>
+                      <Skeleton height={26} width="85%" radius="md" mb={8} />
+                      <Skeleton height={14} width="50%" radius="md" />
+                    </Box>
+                    <Divider color="rgba(234, 179, 8, 0.2)" />
+                    <Stack gap={8}>
+                      <Group justify="space-between" align="center">
+                        <Skeleton height={16} width={130} radius="md" />
+                        <Skeleton height={26} width={70} radius="md" />
+                      </Group>
+                      <Group justify="space-between" align="center">
+                        <Skeleton height={16} width={100} radius="md" />
+                        <Skeleton height={20} width={60} radius="md" />
+                      </Group>
+                    </Stack>
+                    <Paper
+                      p="xs"
+                      radius="md"
+                      style={{
+                        backgroundColor: 'rgba(234, 179, 8, 0.05)',
+                        border: '1px dashed rgba(250, 204, 21, 0.25)',
+                      }}
+                    >
+                      <Stack gap={8}>
+                        <Skeleton height={14} width="92%" radius="md" />
+                        <Skeleton height={14} width="80%" radius="md" />
+                      </Stack>
+                    </Paper>
+                  </Stack>
+                  <Skeleton height={42} width="100%" radius="xl" mt="lg" />
+                </Paper>
+              ))}
+            </SimpleGrid>
+          ) : (
+            <SimpleGrid cols={{ base: 1, md: 3 }} spacing={{ base: 'md', sm: 'lg' }}>
+              {allPhases.map((p: any) => {
+                const istToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+                const isPhaseActive = isSalesOpen && (currentPhase?.id ? p.id === currentPhase?.id : (istToday >= p.startDate && istToday <= p.endDate));
+                const isPhasePassed = istToday > p.endDate;
 
               const formatPhaseDate = (dateStr: string) => {
                 if (!dateStr) return '';
