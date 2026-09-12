@@ -32,6 +32,9 @@ import {
   IconSend,
   IconCheck,
   IconSparkles,
+  IconBrandInstagram,
+  IconPlayerPlay,
+  IconExternalLink,
 } from '@tabler/icons-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -142,6 +145,70 @@ export default function AmbassadorApplyPage() {
               Represent Asha Bani Dandiya Raas 6.0 in your college, network, and community. Earn exclusive free entry passes, cash stall vouchers, and VIP perks!
             </Text>
           </Box>
+
+          {/* Procedure Video Reel Guide Banner */}
+          <Paper
+            p={{ base: 'md', sm: 'lg' }}
+            radius="xl"
+            style={{
+              background: 'linear-gradient(135deg, rgba(38, 8, 14, 0.95) 0%, rgba(20, 3, 5, 0.95) 100%)',
+              border: '1.5px solid rgba(250, 204, 21, 0.4)',
+              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(234, 179, 8, 0.04)',
+            }}
+          >
+            <Group justify="space-between" align="center" wrap="wrap" gap="md">
+              <Group gap="md" align="center" style={{ flex: 1, minWidth: 260 }}>
+                <ThemeIcon
+                  size={46}
+                  radius="xl"
+                  variant="gradient"
+                  gradient={{ from: '#f58529', to: '#dd2a7b', deg: 45 }}
+                  style={{ flexShrink: 0, boxShadow: '0 4px 15px rgba(221, 42, 123, 0.35)' }}
+                >
+                  <IconBrandInstagram size={26} color="#ffffff" />
+                </ThemeIcon>
+                <Box style={{ flex: 1 }}>
+                  <Group gap={6} align="center">
+                    <Badge color="yellow" variant="light" size="xs">
+                      STEP-BY-STEP PROCEDURE
+                    </Badge>
+                    <Text size="xs" fw={700} c="royalGold.3">
+                      OFFICIAL INSTAGRAM REEL
+                    </Text>
+                  </Group>
+                  <Text fw={700} size="sm" c="white" mt={3} style={{ fontFamily: "'Cinzel', serif" }}>
+                    Watch How the Ambassador Program Works
+                  </Text>
+                  <Text size="xs" c="gray.3" mt={2}>
+                    Watch this quick reel to understand the complete application procedure, referral tracking, and milestone reward rules before submitting your form.
+                  </Text>
+                </Box>
+              </Group>
+
+              <Button
+                component="a"
+                href="https://www.instagram.com/reel/DdMSxbZJsWL/?stkn=ZG85NXZxN3V3Zzk3"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="filled"
+                size="sm"
+                radius="xl"
+                w={{ base: '100%', sm: 'auto' }}
+                leftSection={<IconPlayerPlay size={16} />}
+                rightSection={<IconExternalLink size={14} />}
+                style={{
+                  background: 'linear-gradient(135deg, #e1306c 0%, #f77737 100%)',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  boxShadow: '0 4px 16px rgba(225, 48, 108, 0.35)',
+                  flexShrink: 0,
+                }}
+                className="hover-lift"
+              >
+                Watch Video Guide
+              </Button>
+            </Group>
+          </Paper>
 
           {/* Ambassador Perks Overview */}
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
