@@ -655,6 +655,7 @@ export default function CustomerHomePage() {
               );
             })}
           </SimpleGrid>
+        )}
 
           {/* Child Height Advisory */}
           <Paper
