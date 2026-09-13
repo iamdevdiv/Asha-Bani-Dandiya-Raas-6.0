@@ -11,7 +11,8 @@ export default function RefundPolicyPage() {
     <Box className="festive-background">
       <Navbar />
 
-      <Container size="md" py={60}>
+      <Container size="lg" px={{ base: 'md', sm: 'xl' }} py={{ base: 40, sm: 60 }}>
+        <Box maw={900} mx="auto">
         <Paper
           p={{ base: 'lg', md: 'xl' }}
           radius="xl"
@@ -65,6 +66,7 @@ export default function RefundPolicyPage() {
             </Text>
           </Stack>
         </Paper>
+        </Box>
       </Container>
 
       <Footer />

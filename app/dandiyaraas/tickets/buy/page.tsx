@@ -398,7 +398,7 @@ export default function TicketPurchasePage() {
     return (
       <Box className="festive-background" style={{ minHeight: '100vh' }}>
         <Navbar />
-        <Container size="sm" py={100}>
+        <Container size="sm" px={{ base: 'md', sm: 'xl' }} py={100}>
           <Center>
             <Stack align="center" gap="md">
               <Loader color="royalGold" size="xl" />
@@ -418,7 +418,7 @@ export default function TicketPurchasePage() {
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       <Navbar />
 
-      <Container size="sm" py={{ base: 30, sm: 50 }} style={{ flexGrow: 1 }}>
+      <Container size="sm" px={{ base: 'md', sm: 'xl' }} py={{ base: 30, sm: 50 }} style={{ flexGrow: 1, width: '100%' }}>
         <Stack gap="xl">
           {/* Top Back Nav & Badge */}
           <Group justify="space-between" align="center">

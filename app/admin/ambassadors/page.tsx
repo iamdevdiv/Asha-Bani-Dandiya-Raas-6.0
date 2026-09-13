@@ -960,7 +960,7 @@ export default function AdminAmbassadorsPage() {
                           <Divider color="rgba(255, 255, 255, 0.08)" my={4} />
 
                           <Group gap={6} align="flex-start">
-                            <IconMapPin size={15} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <IconMapPin size={15} color="#facc15" className="icon-align-text" />
                             <Text size="xs" c="gray.4" style={{ flexShrink: 0 }}>Address:</Text>
                             <Text size="xs" c="gray.2">{b.address}</Text>
                           </Group>

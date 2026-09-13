@@ -93,7 +93,8 @@ export default function ContactPage() {
     <Box className="festive-background">
       <Navbar />
 
-      <Container size="lg" py={{ base: 35, sm: 60 }} px={{ base: 'xs', sm: 'md' }}>
+      <Container size="xl" py={{ base: 35, sm: 60 }} px={{ base: 'md', sm: 'xl' }}>
+        <Box maw={1100} mx="auto">
         <Stack align="center" gap="xs" mb={40} ta="center">
           <Title
             order={1}
@@ -280,6 +281,7 @@ export default function ContactPage() {
             </form>
           </Paper>
         </SimpleGrid>
+        </Box>
       </Container>
 
       <Footer />

@@ -95,7 +95,7 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
     return (
       <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Navbar />
-        <Container size="sm" py={80} style={{ flexGrow: 1, textAlign: 'center' }}>
+        <Container size="sm" px={{ base: 'md', sm: 'xl' }} py={80} style={{ flexGrow: 1, textAlign: 'center' }}>
           <Alert color="red" title="Ticket Pass Not Found" icon={<IconAlertTriangle size={24} />}>
             We could not locate this ticket pass. Please verify the URL or contact event organizers.
           </Alert>
@@ -112,7 +112,7 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
     <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      <Container size="sm" py={{ base: 30, sm: 50 }} px={{ base: 'xs', sm: 'md' }} style={{ flexGrow: 1 }}>
+      <Container size="sm" py={{ base: 30, sm: 50 }} px={{ base: 'md', sm: 'xl' }} style={{ flexGrow: 1, width: '100%' }}>
         <Stack gap="xl" align="center">
           {/* Top Bar */}
           <Group justify="space-between" align="center" w="100%" maw={480}>
@@ -169,7 +169,7 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
               }}
             >
               <Group justify="space-between" align="center" wrap="wrap" gap="sm">
-                <Group gap="sm" wrap="nowrap" align="center" style={{ flex: 1, minWidth: 220 }}>
+                <Group gap="sm" wrap="nowrap" align="center" style={{ flex: 1, minWidth: 'min(100%, 200px)' }}>
                   <ThemeIcon size={36} radius="md" color={(booking.voucherBalance ?? 0) > 0 ? 'yellow' : 'gray'} variant="filled" style={{ flexShrink: 0 }}>
                     <IconBuildingStore size={20} color="#140305" />
                   </ThemeIcon>

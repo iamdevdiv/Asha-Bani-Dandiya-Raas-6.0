@@ -244,7 +244,7 @@ export default function StallBookingPage() {
       <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       <Navbar />
 
-      <Container size="xl" py={40}>
+      <Container size="xl" px={{ base: 'md', sm: 'xl' }} py={{ base: 30, sm: 40 }}>
         <Stack align="center" gap="xs" mb={35} ta="center">
           <Badge color="royalGold" size="lg" variant="filled" className="badge-gold-filled" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }}>
             OFFICIAL STALL ALLOTMENT PORTAL
@@ -332,7 +332,7 @@ export default function StallBookingPage() {
                     border: '1px solid rgba(234, 179, 8, 0.4)',
                   }}
                 >
-                  <Group justify="space-between" align="center" wrap="nowrap" gap="sm">
+                  <Group justify="space-between" align="center" wrap="wrap" gap="sm">
                     <Box style={{ flex: 1, minWidth: 0 }}>
                       <Text size="xs" fw={700} c="royalGold.3">
                         SELECTED CANOPY BOOTH

@@ -136,7 +136,7 @@ export default function AdminSettingsPage() {
   };
 
   return (
-    <Container size="lg" py="md">
+    <Container size="xl" p={0}>
       <Group justify="space-between" align="center" mb="lg" gap="md">
         <Box style={{ flex: 1, minWidth: 'min(100%, 280px)' }}>
           <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", wordBreak: 'normal' }}>

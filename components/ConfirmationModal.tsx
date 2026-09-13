@@ -120,7 +120,7 @@ export function ConfirmationModal({
       }}
     >
       <Paper
-        p={24}
+        p={{ base: 16, sm: 24 }}
         radius="xl"
         style={{
           background: 'linear-gradient(180deg, #1c050a 0%, #110204 100%)',
@@ -167,7 +167,7 @@ export function ConfirmationModal({
           </Group>
 
           {/* Action Buttons */}
-          <Group justify="flex-end" gap="sm">
+          <Group justify="flex-end" gap="sm" wrap="wrap">
             <Button
               variant="subtle"
               color="gray"

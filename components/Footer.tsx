@@ -33,7 +33,7 @@ export function Footer() {
         marginTop: 60,
       }}
     >
-      <Container size="xl">
+      <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="xl">
           {/* Col 1: About Event */}
           <Box>
@@ -84,7 +84,7 @@ export function Footer() {
                 EVENT DETAILS
               </Text>
               <Group gap="xs" wrap="nowrap" align="flex-start">
-                <IconMapPin size={18} color="#facc15" style={{ flexShrink: 0, marginTop: 3 }} />
+                <IconMapPin size={18} color="#facc15" className="icon-align-text" />
                 <Text size="sm" c="gray.3" style={{ flex: 1, minWidth: 0, wordBreak: 'break-word', lineHeight: 1.5 }}>
                   Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur
                 </Text>

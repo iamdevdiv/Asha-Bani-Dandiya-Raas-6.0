@@ -166,7 +166,7 @@ export function AdminLayoutWrapper({ children }: AdminLayoutWrapperProps) {
         breakpoint: 'sm',
         collapsed: { mobile: !opened },
       }}
-      padding="md"
+      padding={{ base: 'xs', sm: 'md' }}
       styles={{
         main: {
           backgroundColor: '#0d0204',

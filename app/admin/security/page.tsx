@@ -68,7 +68,8 @@ export default function AdminSecurityPage() {
   };
 
   return (
-    <Container size="sm" py="md">
+    <Container size="xl" p={0}>
+      <Box maw={580}>
       <Box mb="lg">
         <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
           Admin Security &amp; Password
@@ -137,6 +138,7 @@ export default function AdminSecurityPage() {
           </Stack>
         </form>
       </Paper>
+      </Box>
     </Container>
   );
 }

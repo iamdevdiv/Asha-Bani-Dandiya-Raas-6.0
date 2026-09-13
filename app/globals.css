@@ -25,16 +25,33 @@ body {
   overflow-wrap: break-word;
 }
 
+/* Universal SVG icon vertical alignment and sizing in flex containers */
+.tabler-icon,
+.mantine-ThemeIcon-root svg,
+.mantine-Button-section svg,
+.mantine-Badge-section svg {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 /* Ensure SVG icons in flex rows never squish or force text to wrap below */
-.mantine-Group-root>svg,
+.mantine-Group-root > svg,
 .mantine-ThemeIcon-root {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* Helper to optically align icons with the first line of multiline text in flex-start rows */
+.icon-align-text {
+  margin-top: 0.18em !important;
   flex-shrink: 0;
 }
 
 /* Ensure text inside flex groups wraps naturally */
-.mantine-Group-root>.mantine-Text-root,
-.mantine-Group-root>.mantine-Anchor-root,
-.mantine-Group-root>div {
+.mantine-Group-root > .mantine-Text-root,
+.mantine-Group-root > .mantine-Anchor-root,
+.mantine-Group-root > div {
   min-width: 0;
 }
 
@@ -183,6 +200,14 @@ body {
   padding-bottom: 0 !important;
 }
 
+.mantine-Badge-section {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+}
+
 .mantine-Badge-label {
   overflow: visible !important;
   text-overflow: clip !important;
@@ -191,11 +216,11 @@ body {
   align-items: center !important;
   justify-content: center !important;
   line-height: 1 !important;
-  margin-top: 1px !important;
 }
 
-/* Ensure Table cells with badges or data don't collapse */
-.mantine-Table-table {
+/* Ensure wide data tables in scroll containers don't collapse */
+.mantine-Table-ScrollContainer table.mantine-Table-table,
+[data-scroll-container] table.mantine-Table-table {
   min-width: 850px;
 }
 

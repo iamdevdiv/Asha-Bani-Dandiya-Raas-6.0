@@ -127,7 +127,7 @@ export default function AmbassadorApplyPage() {
     <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      <Container size="md" py={60} style={{ flexGrow: 1 }}>
+      <Container size="md" px={{ base: 'md', sm: 'xl' }} py={{ base: 40, sm: 60 }} style={{ flexGrow: 1 }}>
         <Stack gap="xl">
           {/* Header */}
           <Box ta="center">
@@ -157,7 +157,7 @@ export default function AmbassadorApplyPage() {
             }}
           >
             <Group justify="space-between" align="center" wrap="wrap" gap="md">
-              <Group gap="md" align="center" style={{ flex: 1, minWidth: 260 }}>
+              <Group gap="md" align="center" style={{ flex: 1, minWidth: 'min(100%, 260px)' }}>
                 <ThemeIcon
                   size={46}
                   radius="xl"

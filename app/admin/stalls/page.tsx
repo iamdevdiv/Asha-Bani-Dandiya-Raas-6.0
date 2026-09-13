@@ -203,7 +203,7 @@ export default function AdminStallsPage() {
     .reduce((acc, s) => acc + (s.price || 0), 0);
 
   return (
-    <Container size="xl" py="md">
+    <Container size="xl" p={0}>
       {/* Header */}
       <Group justify="space-between" align="center" mb="lg" gap="md">
         <Box style={{ flex: 1, minWidth: 'min(100%, 280px)' }}>

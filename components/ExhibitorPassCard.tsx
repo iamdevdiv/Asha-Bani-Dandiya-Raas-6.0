@@ -291,7 +291,7 @@ export function ExhibitorPassCard({ booking, showDownloadButton = true }: Exhibi
               </Group>
             </Group>
             <Group gap={6} wrap="nowrap" align="flex-start">
-              <IconMapPin size={14} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+              <IconMapPin size={14} color="#facc15" className="icon-align-text" />
               <Text size="xs" c="gray.3" style={{ lineHeight: 1.35, fontSize: '0.74rem', flex: 1, minWidth: 0 }}>
                 Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur
               </Text>

@@ -389,7 +389,7 @@ export default function AdminMediaPage() {
   };
 
   return (
-    <Container size="xl" py="md">
+    <Container size="xl" p={0}>
       {/* Header */}
       <Group justify="space-between" align="center" mb="lg" gap="md">
         <Box style={{ flex: 1, minWidth: 'min(100%, 280px)' }}>

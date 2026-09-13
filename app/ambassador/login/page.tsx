@@ -83,7 +83,7 @@ export default function AmbassadorLoginPage() {
     <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      <Container size="xs" py={80} style={{ flexGrow: 1 }}>
+      <Container size="xs" px={{ base: 'md', sm: 'xl' }} py={{ base: 40, sm: 80 }} style={{ flexGrow: 1, width: '100%' }}>
         <Stack gap="xl">
           <Button
             component={Link}

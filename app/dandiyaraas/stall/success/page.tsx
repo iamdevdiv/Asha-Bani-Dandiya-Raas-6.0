@@ -63,7 +63,7 @@ function SuccessContent() {
 
   if (loading) {
     return (
-      <Container size="md" py={100} style={{ textAlign: 'center' }}>
+      <Container size="md" px={{ base: 'md', sm: 'xl' }} py={100} style={{ textAlign: 'center' }}>
         <Loader color="royalGold" size="xl" />
         <Text mt="md" c="gray.3">
           Loading your official stall allotment details...
@@ -74,7 +74,7 @@ function SuccessContent() {
 
   if (!booking) {
     return (
-      <Container size="md" py={80} style={{ textAlign: 'center' }}>
+      <Container size="md" px={{ base: 'md', sm: 'xl' }} py={80} style={{ textAlign: 'center' }}>
         <Paper p="xl" radius="lg" style={{ backgroundColor: 'rgba(36, 8, 14, 0.8)' }}>
           <Title order={2} c="white" mb="sm">
             Booking Information Not Found
@@ -91,7 +91,7 @@ function SuccessContent() {
   }
 
   return (
-    <Container size="lg" py={{ base: 30, sm: 50 }} px={{ base: 'xs', sm: 'md' }}>
+    <Container size="xl" py={{ base: 30, sm: 50 }} px={{ base: 'md', sm: 'xl' }}>
       {/* Top Banner */}
       <Stack align="center" gap="xs" mb={35} ta="center">
         <ThemeIcon size={60} radius="50%" color="green" variant="light">
@@ -135,7 +135,7 @@ function SuccessContent() {
 
             <Stack gap="sm">
               <Group gap="xs" wrap="nowrap" align="start">
-                <IconCalendarEvent size={18} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+                <IconCalendarEvent size={18} color="#facc15" className="icon-align-text" />
                 <Box>
                   <Text size="xs" fw={700} c="royalGold.3">EVENT DATE</Text>
                   <Text size="sm" fw={700} c="white">Tuesday, 13 October 2026</Text>
@@ -143,7 +143,7 @@ function SuccessContent() {
               </Group>
 
               <Group gap="xs" wrap="nowrap" align="start">
-                <IconClock size={18} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+                <IconClock size={18} color="#facc15" className="icon-align-text" />
                 <Box>
                   <Text size="xs" fw={700} c="royalGold.3">TIMINGS</Text>
                   <Text size="sm" c="white">Vendor Advance Setup: <strong>4:00 PM</strong></Text>
@@ -152,7 +152,7 @@ function SuccessContent() {
               </Group>
 
               <Group gap="xs" wrap="nowrap" align="start">
-                <IconMapPin size={18} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+                <IconMapPin size={18} color="#facc15" className="icon-align-text" />
                 <Box>
                   <Text size="xs" fw={700} c="royalGold.3">VENUE LOCATION</Text>
                   <Text size="sm" fw={700} c="white">Maharaja Agrasen Bhavan</Text>
@@ -260,7 +260,7 @@ export default function BookingSuccessPage() {
       <Navbar />
       <Suspense
         fallback={
-          <Container size="md" py={100} style={{ textAlign: 'center' }}>
+          <Container size="md" px={{ base: 'md', sm: 'xl' }} py={100} style={{ textAlign: 'center' }}>
             <Loader color="royalGold" size="xl" />
           </Container>
         }

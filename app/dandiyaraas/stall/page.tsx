@@ -136,7 +136,8 @@ export default function StallExhibitorPage() {
           textAlign: 'center',
         }}
       >
-        <Container size="md" px={{ base: 'xs', sm: 'md' }}>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
+          <Box maw={860} mx="auto">
           <Stack align="center" gap="md">
             <Badge
               size="lg"
@@ -184,6 +185,7 @@ export default function StallExhibitorPage() {
               </Button>
             </Group>
           </Stack>
+          </Box>
         </Container>
       </Box>
 
@@ -195,7 +197,7 @@ export default function StallExhibitorPage() {
           borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
         }}
       >
-        <Container size="xl">
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
           <Stack align="center" gap="xs" mb="lg">
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
               DIMENSIONS &amp; ZONING
@@ -224,7 +226,7 @@ export default function StallExhibitorPage() {
           borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
         }}
       >
-        <Container size="xl">
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
           <Stack align="center" gap="xs" mb="md">
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
               EVENT GALLERY
@@ -254,7 +256,7 @@ export default function StallExhibitorPage() {
           borderBottom: '1px solid rgba(234, 179, 8, 0.15)',
         }}
       >
-        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
           <Stack align="center" gap="xs" mb={40}>
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
               GROWTH &amp; SCALE
@@ -265,31 +267,26 @@ export default function StallExhibitorPage() {
               ta="center"
               style={{ fontFamily: "'Cinzel', serif" }}
             >
-              What&apos;s Different This Year?
+              What Makes 2026 Bigger &amp; Better?
             </Title>
             <Text size="sm" c="gray.4" ta="center" maw={650}>
-              We are raising the bar for the 6th edition with unmatched production value, wider regional outreach, and elevated brand opportunities.
+              We are expanding the venue layout, introducing air-conditioned luxury food zones, and projecting higher footfalls.
             </Text>
           </Stack>
 
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
-            {whatIsDifferent.map((item, index) => (
-              <Card key={index} className="festive-card" p={{ base: 'md', sm: 'xl' }}>
-                <ThemeIcon
-                  size={50}
-                  radius="md"
-                  mb="md"
-                  style={{
-                    background: 'rgba(234, 179, 8, 0.15)',
-                    border: '1px solid rgba(234, 179, 8, 0.3)',
-                  }}
-                >
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+            {stats.map((item, idx) => (
+              <Card key={idx} p="md" radius="lg" className="festive-card" style={{ textAlign: 'center' }}>
+                <ThemeIcon size={46} radius="50%" color="royalGold" variant="light" mx="auto" mb="sm">
                   {item.icon}
                 </ThemeIcon>
-                <Title order={3} size="h4" c="white" mb="xs" style={{ fontFamily: "'Cinzel', serif" }}>
-                  {item.title}
+                <Title order={3} size="h3" c="yellow.3" style={{ fontFamily: "'Cinzel', serif" }}>
+                  {item.value}
                 </Title>
-                <Text size="sm" c="gray.4" style={{ lineHeight: 1.6 }}>
+                <Text fw={700} size="xs" c="white" mt={4} style={{ letterSpacing: '0.05em' }}>
+                  {item.label}
+                </Text>
+                <Text size="xs" c="gray.4" mt={4} style={{ lineHeight: 1.4 }}>
                   {item.desc}
                 </Text>
               </Card>
@@ -300,7 +297,7 @@ export default function StallExhibitorPage() {
 
       {/* PERKS & BENEFITS SECTION */}
       <Box py={{ base: 45, sm: 80 }}>
-        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
           <Stack align="center" gap="xs" mb={50}>
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.12em' }}>
               EXHIBITOR ADVANTAGE
@@ -349,71 +346,73 @@ export default function StallExhibitorPage() {
 
       {/* STALL REGULATIONS & GUIDELINES */}
       <Box py={{ base: 45, sm: 80 }}>
-        <Container size="lg" px={{ base: 'xs', sm: 'md' }}>
-          <Paper
-            p={{ base: 'md', sm: 'xl' }}
-            radius="xl"
-            style={{
-              backgroundColor: 'rgba(36, 8, 14, 0.75)',
-              border: '1px solid rgba(234, 179, 8, 0.3)',
-              boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
-            }}
-          >
-            <Group gap="sm" mb="md" align="center" wrap="nowrap">
-              <ThemeIcon size={36} radius="md" color="yellow" variant="light" style={{ flexShrink: 0 }}>
-                <IconShieldCheck size={22} />
-              </ThemeIcon>
-              <Title order={3} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", flex: 1, minWidth: 0, wordBreak: 'break-word' }}>
-                Exhibitor Terms &amp; Stall Regulations
-              </Title>
-            </Group>
-
-            <Text size="sm" c="gray.4" mb="lg">
-              Please review the following essential policies prior to reserving your stall:
-            </Text>
-
-            <List
-              spacing="sm"
-              size="sm"
-              icon={
-                <ThemeIcon color="royalGold" size={20} radius="xl" variant="light">
-                  <IconCheck size={12} stroke={3} />
-                </ThemeIcon>
-              }
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
+          <Box maw={1000} mx="auto">
+            <Paper
+              p={{ base: 'md', sm: 'xl' }}
+              radius="xl"
+              style={{
+                backgroundColor: 'rgba(36, 8, 14, 0.75)',
+                border: '1px solid rgba(234, 179, 8, 0.3)',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+              }}
             >
-              {regulations.map((reg, index) => (
-                <List.Item key={index}>
-                  <Text size="sm" c="gray.2">
-                    {reg}
-                  </Text>
-                </List.Item>
-              ))}
-            </List>
-
-            <Box mt="xl" pt="md" style={{ borderTop: '1px solid rgba(234, 179, 8, 0.2)' }}>
-              <Group justify="space-between" align="center" wrap="wrap" gap="md">
-                <Box>
-                  <Text fw={700} size="sm" c="royalGold.3">
-                    Questions or Custom Requirements?
-                  </Text>
-                  <Text size="xs" c="gray.4">
-                    Call our Stall Allotment Coordinator: +91 6399063455
-                  </Text>
-                </Box>
-
-                <Button
-                  component={Link}
-                  href="/dandiyaraas/stall/book"
-                  size="md"
-                  className="btn-auspicious-gold"
-                  leftSection={<IconBuildingStore size={20} />}
-                  rightSection={<IconArrowRight size={16} />}
-                >
-                  Proceed to Interactive Booking
-                </Button>
+              <Group gap="sm" mb="md" align="center" wrap="nowrap">
+                <ThemeIcon size={36} radius="md" color="yellow" variant="light" style={{ flexShrink: 0 }}>
+                  <IconShieldCheck size={22} />
+                </ThemeIcon>
+                <Title order={3} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", flex: 1, minWidth: 0, wordBreak: 'break-word' }}>
+                  Exhibitor Terms &amp; Stall Regulations
+                </Title>
               </Group>
-            </Box>
-          </Paper>
+
+              <Text size="sm" c="gray.4" mb="lg">
+                Please review the following essential policies prior to reserving your stall:
+              </Text>
+
+              <List
+                spacing="sm"
+                size="sm"
+                icon={
+                  <ThemeIcon color="royalGold" size={20} radius="xl" variant="light">
+                    <IconCheck size={12} stroke={3} />
+                  </ThemeIcon>
+                }
+              >
+                {regulations.map((reg, index) => (
+                  <List.Item key={index}>
+                    <Text size="sm" c="gray.2">
+                      {reg}
+                    </Text>
+                  </List.Item>
+                ))}
+              </List>
+
+              <Box mt="xl" pt="md" style={{ borderTop: '1px solid rgba(234, 179, 8, 0.2)' }}>
+                <Group justify="space-between" align="center" wrap="wrap" gap="md">
+                  <Box>
+                    <Text fw={700} size="sm" c="royalGold.3">
+                      Questions or Custom Requirements?
+                    </Text>
+                    <Text size="xs" c="gray.4">
+                      Call our Stall Allotment Coordinator: +91 6399063455
+                    </Text>
+                  </Box>
+
+                  <Button
+                    component={Link}
+                    href="/dandiyaraas/stall/book"
+                    size="md"
+                    className="btn-auspicious-gold"
+                    leftSection={<IconBuildingStore size={20} />}
+                    rightSection={<IconArrowRight size={16} />}
+                  >
+                    Proceed to Interactive Booking
+                  </Button>
+                </Group>
+              </Box>
+            </Paper>
+          </Box>
         </Container>
       </Box>
 

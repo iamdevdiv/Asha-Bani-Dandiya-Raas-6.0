@@ -203,7 +203,7 @@ export default function CustomerHomePage() {
         />
 
         {/* Content Container */}
-        <Container size="md" px={{ base: 'sm', sm: 'md' }} style={{ position: 'relative', zIndex: 3, textAlign: 'center' }}>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }} style={{ position: 'relative', zIndex: 3, textAlign: 'center' }}>
           <Stack align="center" gap="lg">
             {/* Auspicious Badge */}
             <Badge
@@ -404,7 +404,7 @@ export default function CustomerHomePage() {
           borderTop: '1px solid rgba(234, 179, 8, 0.2)',
         }}
       >
-        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
           <Stack align="center" gap="xs" mb={{ base: 30, sm: 50 }}>
             <Badge
               size="md"
@@ -669,7 +669,7 @@ export default function CustomerHomePage() {
             }}
           >
             <Group justify="center" gap="xs" wrap="nowrap" align="flex-start">
-              <IconSparkles size={18} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+              <IconSparkles size={18} color="#facc15" className="icon-align-text" />
               <Text size="xs" c="gray.3" style={{ flex: 1, textAlign: 'left' }}>
                 <b>Child Policy:</b> Children strictly under <b>55 inches (4&apos;7&quot;)</b> in height qualify for child passes. Physical height measurement will be verified at the gate.
               </Text>
@@ -680,7 +680,7 @@ export default function CustomerHomePage() {
 
       {/* WHAT'S IN STORE FOR YOU? SECTION */}
       <Box py={{ base: 50, sm: 80 }} style={{ borderTop: '1px solid rgba(234, 179, 8, 0.15)' }}>
-        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
           <Stack align="center" gap="xs" mb={{ base: 30, sm: 50 }}>
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.15em' }}>
               EVENT EXPERIENCES
@@ -743,7 +743,7 @@ export default function CustomerHomePage() {
           borderTop: '1px solid rgba(234, 179, 8, 0.2)',
         }}
       >
-        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
           <Stack align="center" gap="xs" mb={{ base: 30, sm: 50 }}>
             <Badge
               size="md"
@@ -992,7 +992,7 @@ export default function CustomerHomePage() {
           borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
         }}
       >
-        <Container size="lg" px={{ base: 'xs', sm: 'md' }}>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
           <Stack align="center" gap="xs" mb={{ base: 28, sm: 40 }}>
             <Text fw={700} c="royalGold.4" size="sm" style={{ letterSpacing: '0.15em' }}>
               SCHEDULE &amp; VENUE
@@ -1090,7 +1090,7 @@ export default function CustomerHomePage() {
               border: '1px solid rgba(239, 68, 68, 0.4)',
             }}
           >
-            <Group justify="center" gap="sm" wrap="nowrap" align="center">
+            <Group justify="center" gap="sm" wrap="wrap" align="center">
               <IconAlertCircle size={22} color="#f87171" style={{ flexShrink: 0 }} />
               <Text fw={600} size="sm" c="red.2" ta="center" style={{ flex: 1, minWidth: 0, wordBreak: 'break-word' }}>
                 Important Note: Entry will strictly not be permitted without a valid official pass.
@@ -1102,65 +1102,67 @@ export default function CustomerHomePage() {
 
       {/* INSTAGRAM COMMUNITY SECTION */}
       <Box py={{ base: 45, sm: 70 }}>
-        <Container size="md" px={{ base: 'xs', sm: 'md' }}>
-          <Paper
-            p={{ base: 'lg', sm: 'xl', md: 50 }}
-            radius="xl"
-            style={{
-              background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.3) 0%, rgba(190, 18, 60, 0.3) 100%)',
-              border: '1px solid rgba(234, 179, 8, 0.3)',
-              textAlign: 'center',
-              boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
-            }}
-          >
-            <Stack align="center" gap="md">
-              <ThemeIcon
-                size={64}
-                radius="50%"
-                style={{
-                  background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
-                }}
-              >
-                <IconBrandInstagram size={36} color="#ffffff" />
-              </ThemeIcon>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
+          <Box maw={860} mx="auto">
+            <Paper
+              p={{ base: 'lg', sm: 'xl', md: 50 }}
+              radius="xl"
+              style={{
+                background: 'linear-gradient(135deg, rgba(88, 28, 135, 0.3) 0%, rgba(190, 18, 60, 0.3) 100%)',
+                border: '1px solid rgba(234, 179, 8, 0.3)',
+                textAlign: 'center',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
+              }}
+            >
+              <Stack align="center" gap="md">
+                <ThemeIcon
+                  size={64}
+                  radius="50%"
+                  style={{
+                    background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+                  }}
+                >
+                  <IconBrandInstagram size={36} color="#ffffff" />
+                </ThemeIcon>
 
-              <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
-                Follow Our Official Instagram
-              </Title>
+                <Title order={2} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+                  Follow Our Official Instagram
+                </Title>
 
-              <Text c="gray.3" size="md" maw={500} style={{ lineHeight: 1.6 }}>
-                Get daily artist reveals, venue setup sneak peeks, countdown updates, and tag us in your Dandiya celebration moments.
-              </Text>
+                <Text c="gray.3" size="md" maw={500} style={{ lineHeight: 1.6 }}>
+                  Get daily artist reveals, venue setup sneak peeks, countdown updates, and tag us in your Dandiya celebration moments.
+                </Text>
 
-              <Button
-                component="a"
-                href={instagramUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                size="md"
-                className="btn-auspicious-gold"
-                leftSection={<IconBrandInstagram size={18} style={{ flexShrink: 0 }} />}
-                rightSection={<IconArrowRight size={16} style={{ flexShrink: 0 }} />}
-                w={{ base: '100%', sm: 'auto' }}
-                px={{ base: 'md', sm: 'xl' }}
-                style={{
-                  height: 'auto',
-                  minHeight: 40,
-                  padding: '10px 24px',
-                  whiteSpace: 'normal',
-                  textAlign: 'center',
-                }}
-              >
-                Follow @asha_bani_dandiya_raas_6.0
-              </Button>
-            </Stack>
-          </Paper>
+                <Button
+                  component="a"
+                  href={instagramUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  size="md"
+                  className="btn-auspicious-gold"
+                  leftSection={<IconBrandInstagram size={18} style={{ flexShrink: 0 }} />}
+                  rightSection={<IconArrowRight size={16} style={{ flexShrink: 0 }} />}
+                  w={{ base: '100%', sm: 'auto' }}
+                  px={{ base: 'md', sm: 'xl' }}
+                  style={{
+                    height: 'auto',
+                    minHeight: 40,
+                    padding: '10px 24px',
+                    whiteSpace: 'normal',
+                    textAlign: 'center',
+                  }}
+                >
+                  Follow @asha_bani_dandiya_raas_6.0
+                </Button>
+              </Stack>
+            </Paper>
+          </Box>
         </Container>
       </Box>
 
       {/* STALL PROMOTION BANNER */}
       <Box pb={{ base: 40, sm: 60 }}>
-        <Container size="xl" px={{ base: 'xs', sm: 'md' }}>
+        <Container size="xl" px={{ base: 'md', sm: 'xl' }}>
           <Paper
             p={{ base: 'md', sm: 'xl' }}
             radius="lg"

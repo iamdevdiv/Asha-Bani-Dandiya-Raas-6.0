@@ -288,7 +288,7 @@ export function InteractiveStallGrid({
                         boxShadow: isSelected
                           ? '0 0 20px rgba(250, 204, 21, 0.6), inset 0 0 15px rgba(250, 204, 21, 0.2)'
                           : 'none',
-                        padding: '12px 6px 8px 6px',
+                        padding: 'clamp(8px, 1.8vw, 12px) clamp(2px, 1.2vw, 6px)',
                         textAlign: 'center',
                         overflow: 'hidden',
                       }}

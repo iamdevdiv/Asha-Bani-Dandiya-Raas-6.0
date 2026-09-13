@@ -244,7 +244,7 @@ export default function AdminMessageTemplatesPage() {
 
   if (loading) {
     return (
-      <Container size="xl" py="xl">
+      <Container size="xl" p={0}>
         <Stack align="center" gap="md" py={80}>
           <Loader color="royalGold" size="lg" />
           <Text size="sm" c="gray.4" fw={600}>
@@ -478,7 +478,7 @@ export default function AdminMessageTemplatesPage() {
   };
 
   return (
-    <Container size="xl" py={40}>
+    <Container size="xl" p={0}>
       <Stack gap="xl">
         {/* ========================================================================= */}
         {/* PAGE HEADER                                                               */}

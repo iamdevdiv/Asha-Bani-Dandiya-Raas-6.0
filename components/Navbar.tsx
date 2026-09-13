@@ -77,7 +77,7 @@ export function Navbar() {
         borderBottom: '1px solid rgba(234, 179, 8, 0.25)',
       }}
     >
-      <Container size="xl" py="sm">
+      <Container size="xl" px={{ base: 'md', sm: 'xl' }} py="sm">
         <Group justify="space-between" align="center">
           {/* Logo & Title */}
           <Link href="/dandiyaraas" style={{ textDecoration: 'none' }}>

@@ -146,7 +146,7 @@ export function LayoutLightbox() {
         size="xl"
         centered
         title={
-          <Group gap="xs">
+          <Group gap="xs" wrap="wrap">
             <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
               {selectedBlueprint.title}
             </Text>

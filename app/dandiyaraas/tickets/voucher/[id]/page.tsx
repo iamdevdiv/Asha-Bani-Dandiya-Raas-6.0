@@ -333,7 +333,7 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
     return (
       <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         <Navbar />
-        <Container size="sm" py={80} style={{ flexGrow: 1, textAlign: 'center' }}>
+        <Container size="sm" px={{ base: 'md', sm: 'xl' }} py={80} style={{ flexGrow: 1, textAlign: 'center' }}>
           <Alert color="red" title="Wallet Not Found" icon={<IconAlertTriangle size={24} />}>
             Voucher wallet could not be loaded. Please ensure you are using the correct pass link.
           </Alert>
@@ -350,7 +350,7 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
     <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      <Container size="sm" py={50} style={{ flexGrow: 1 }}>
+      <Container size="sm" px={{ base: 'md', sm: 'xl' }} py={{ base: 30, sm: 50 }} style={{ flexGrow: 1, width: '100%' }}>
         <Stack gap="xl">
           {/* Top Bar */}
           <Group justify="space-between" align="center">

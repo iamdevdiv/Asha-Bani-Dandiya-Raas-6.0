@@ -155,10 +155,10 @@ export default function AmbassadorDashboardPage() {
   const progressPercent = Math.min(100, Math.round((currentRefs / nextTarget) * 100));
 
   return (
-    <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '100vw', overflowX: 'hidden' }}>
+    <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
 
-      <Container size="lg" px={{ base: 'xs', sm: 'md' }} py={{ base: 24, sm: 50 }} style={{ flexGrow: 1, maxWidth: '100%', width: '100%', overflowX: 'hidden' }}>
+      <Container size="xl" px={{ base: 'md', sm: 'xl' }} py={{ base: 24, sm: 40 }} style={{ flexGrow: 1, width: '100%' }}>
         <Stack gap="lg">
           {/* Header Bar */}
           <Group justify="space-between" align="center" wrap="wrap" gap="sm">
@@ -280,7 +280,7 @@ export default function AmbassadorDashboardPage() {
               </SimpleGrid>
 
               <Group gap="xs" align="flex-start" wrap="nowrap" mt={4}>
-                <IconBuildingStore size={16} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+                <IconBuildingStore size={16} color="#facc15" className="icon-align-text" />
                 <Text size="xs" c="gray.3" lh={1.4}>
                   Each referred pass includes a <b>₹{data?.activePhase?.voucherAmount || 100} Free Stall Voucher</b> (Valid at: <span style={{ color: '#facc15', fontWeight: 600 }}>{getVoucherUsabilityLabel(data?.activePhase?.voucherApplicableTo)}</span>).
                 </Text>
@@ -348,7 +348,7 @@ export default function AmbassadorDashboardPage() {
                     Tier 1: {tier1.referralsRequired} Referrals
                   </Text>
                   <Group gap={6} mt={4} align="flex-start" wrap="nowrap">
-                    <IconGift size={15} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <IconGift size={15} color="#facc15" className="icon-align-text" />
                     <Text size="xs" c="gray.3" lh={1.35} style={{ flex: 1, wordBreak: 'break-word' }}>
                       {tier1.voucherAmount > 0 ? (
                         <>
@@ -384,7 +384,7 @@ export default function AmbassadorDashboardPage() {
                     Tier 2: {tier2.referralsRequired} Referrals
                   </Text>
                   <Group gap={6} mt={4} align="flex-start" wrap="nowrap">
-                    <IconGift size={15} color="#facc15" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <IconGift size={15} color="#facc15" className="icon-align-text" />
                     <Text size="xs" c="gray.3" lh={1.35} style={{ flex: 1, wordBreak: 'break-word' }}>
                       {tier2.voucherAmount > 0 ? (
                         <>
@@ -493,8 +493,8 @@ export default function AmbassadorDashboardPage() {
                   No ticket bookings have been completed via your link yet. Share your link above to begin earning!
                 </Text>
               ) : (
-                <Box style={{ overflowX: 'auto', maxWidth: '100%', WebkitOverflowScrolling: 'touch' }}>
-                  <Table striped highlightOnHover verticalSpacing="xs" style={{ minWidth: 460 }}>
+                <Table.ScrollContainer minWidth={460}>
+                  <Table striped highlightOnHover verticalSpacing="xs">
                     <Table.Thead>
                       <Table.Tr>
                         <Table.Th style={{ color: '#facc15' }}>#</Table.Th>
@@ -520,7 +520,7 @@ export default function AmbassadorDashboardPage() {
                       ))}
                     </Table.Tbody>
                   </Table>
-                </Box>
+                </Table.ScrollContainer>
               )}
             </Stack>
           </Paper>
