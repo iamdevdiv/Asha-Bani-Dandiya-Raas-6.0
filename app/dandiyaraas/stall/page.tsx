@@ -80,6 +80,33 @@ export default function StallExhibitorPage() {
     },
   ];
 
+  const stats = [
+    {
+      value: '3,000+',
+      label: 'ESTIMATED FOOTFALL',
+      desc: 'Festive shoppers, dance lovers, and elite family demographics across Saharanpur.',
+      icon: <IconUsers size={24} color="#facc15" />,
+    },
+    {
+      value: '35+',
+      label: 'CURATED STALLS',
+      desc: 'Zoned food court, boutique fashion couture, artisanal jewellery, and brand kiosks.',
+      icon: <IconBuildingStore size={24} color="#facc15" />,
+    },
+    {
+      value: '100%',
+      label: 'POWER & SECURITY',
+      desc: 'Continuous electrical power backup, dedicated bouncers, and active crowd management.',
+      icon: <IconShieldCheck size={24} color="#facc15" />,
+    },
+    {
+      value: '6+ HOURS',
+      label: 'PEAK COMMERCE',
+      desc: 'Non-stop festive evening footfall, live stage announcements, and PR coverage for exhibitors.',
+      icon: <IconClock size={24} color="#facc15" />,
+    },
+  ];
+
   const perks = [
     {
       title: 'Massive Footfall & Sales',
