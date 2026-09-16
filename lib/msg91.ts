@@ -14,6 +14,8 @@ export interface TicketSmsParams {
   venue?: string;
 }
 
+import { INITIAL_STALLS } from './stall-data';
+
 export interface StallSmsParams {
   mobile: string;
   bookerName: string;
@@ -22,6 +24,9 @@ export interface StallSmsParams {
   bookingNumber: string;
   bookingId: string;
   amount?: number;
+  price?: number;
+  stallSection?: string;
+  stallType?: string;
   eventDate?: string;
   venue?: string;
 }
@@ -182,16 +187,24 @@ export async function sendStallBookingSms(params: StallSmsParams) {
 
   const displayName = params.brandName ? `${params.brandName} (${params.bookerName})` : params.bookerName;
 
+  const normalizedStall = (params.stallNumber || '').trim().toUpperCase();
+  const stallDef = INITIAL_STALLS.find((s) => s.stallNumber.toUpperCase() === normalizedStall);
+  const sectionLabel = params.stallSection || stallDef?.sectionLabel || (params.stallType === 'food' ? 'Food Stall' : 'Commercial Canopy');
+  const priceVal = params.price ?? params.amount ?? stallDef?.defaultPrice ?? 0;
+
   const variables: Record<string, string | number> = {
     name: params.bookerName,
     brand_name: params.brandName || params.bookerName,
     stall_number: params.stallNumber,
+    stall_section: sectionLabel,
+    stall_type: sectionLabel,
     booking_id: params.bookingNumber,
     booking_link: bookingLink,
     pass_link: bookingLink,
-    amount: params.amount ?? 0,
+    amount: priceVal,
+    price: priceVal,
     event_date: params.eventDate || '13 October 2026',
-    venue: params.venue || 'Maharaja Agrasen Bhavan, Saharanpur',
+    venue: params.venue || 'Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur',
     // Generic DLT positional aliases
     VAR1: displayName,
     VAR2: params.stallNumber,

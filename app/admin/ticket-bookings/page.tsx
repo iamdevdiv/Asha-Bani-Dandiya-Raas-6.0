@@ -54,6 +54,7 @@ import {
   IconRefresh,
   IconArrowsSort,
   IconX,
+  IconMessageCircle,
 } from '@tabler/icons-react';
 import html2canvas from 'html2canvas';
 import { CustomerPassCard } from '@/components/CustomerPassCard';
@@ -79,6 +80,9 @@ export default function AdminTicketBookingsPage() {
   // Direct Instant Download State
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [directDownloadBooking, setDirectDownloadBooking] = useState<any | null>(null);
+
+  // Resend SMS State
+  const [resendingSmsId, setResendingSmsId] = useState<string | null>(null);
 
   // Manual Confirm Payment State (for captured Razorpay payments showing as pending)
   const [bookingToConfirm, setBookingToConfirm] = useState<any | null>(null);
@@ -315,15 +319,34 @@ export default function AdminTicketBookingsPage() {
       const passesText = `1 Adult${b.childrenCount > 0 ? ` + ${b.childrenCount} Children` : ''}`;
       const usability = getVoucherUsabilityLabel(b.voucherApplicableTo || b.phase?.voucherApplicableTo);
 
+      const rawAmount = b.totalAmount ?? 0;
+      const formattedPrice = typeof rawAmount === 'number' ? rawAmount.toLocaleString('en-IN') : String(rawAmount);
+      const priceLine = rawAmount === 0
+        ? 'Pass Type: Complimentary / Gift Pass (Rs. 0)\n'
+        : `Amount Paid: Rs. ${formattedPrice}\n`;
+      const voucherAmount = b.voucherAmount ?? 0;
+      const voucherLine = voucherAmount > 0
+        ? `Included Voucher: Rs. ${voucherAmount}\n`
+        : `Stall Voucher: None (Rs. 0)\n`;
+
       const msg = renderMessageTemplate(template, {
         name: b.fullName || 'Guest',
+        booker_name: b.fullName || 'Guest',
         booking_id: b.bookingNumber || '',
+        booking_number: b.bookingNumber || '',
         passes_text: passesText,
-        voucher_amount: b.voucherAmount ?? 0,
+        adult_count: b.adultCount ?? 1,
+        children_count: b.childrenCount ?? 0,
+        price: formattedPrice,
+        amount: formattedPrice,
+        price_line: priceLine,
+        voucher_line: voucherLine,
+        voucher_amount: voucherAmount,
         voucher_usability: usability,
         event_date: 'Tuesday, 13 October 2026 (6:00 PM onwards)',
         venue: 'Maharaja Agrasen Bhavan, Saharanpur',
         pass_link: passUrl,
+        booking_link: passUrl,
         helpline: '+91 6399063455',
       });
 
@@ -335,18 +358,49 @@ export default function AdminTicketBookingsPage() {
     if (typeof window !== 'undefined') {
       const origin = window.location.origin;
       const buyUrl = `${origin}/dandiyaraas/tickets/buy`;
+      const displayName = (b.fullName || 'Guest').toUpperCase();
+      const rawAmount = b.totalAmount ?? 0;
+      const formattedPrice = typeof rawAmount === 'number' ? rawAmount.toLocaleString('en-IN') : String(rawAmount);
 
       const msg =
-        `*NAMASTE ${b.fullName.toUpperCase()}!*\n\n` +
-        `We noticed your ticket booking attempt for *Asha Bani Dandiya Raas 6.0* (#${b.bookingNumber}) was not completed.\n\n` +
-        `*Passes:* 1 Adult${b.childrenCount > 0 ? ` + ${b.childrenCount} Children` : ''}\n` +
-        `*Amount:* Rs. ${b.totalAmount}\n` +
+        `*NAMASTE ${displayName}!*\n\n` +
+        `We noticed your ticket booking attempt for *Asha Bani Dandiya Raas 6.0* (#${b.bookingNumber || ''}) was not completed.\n\n` +
+        `*Passes:* 1 Adult${(b.childrenCount || 0) > 0 ? ` + ${b.childrenCount} Children` : ''}\n` +
+        `*Amount:* Rs. ${formattedPrice}\n` +
         `*Event Date:* 13 October 2026\n` +
         `*Venue:* Maharaja Agrasen Bhavan, Saharanpur\n\n` +
         `If you faced any payment issue or need assistance, you can complete your booking here:\n${buyUrl}\n\n` +
         `Feel free to reply if you need any help!`;
 
       openWhatsAppChat(b.mobile || '', msg);
+    }
+  };
+
+  const handleResendSms = async (b: any) => {
+    setResendingSmsId(b.id);
+    try {
+      const res = await fetch('/api/admin/ticket-bookings/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketBookingId: b.id, forceResendSms: true, sendSms: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to dispatch SMS');
+      }
+      notifications.show({
+        title: 'SMS Sent Successfully',
+        message: `Updated confirmation SMS dispatched to +91 ${b.mobile}.`,
+        color: 'green',
+      });
+    } catch (err: any) {
+      notifications.show({
+        title: 'SMS Dispatch Failed',
+        message: err.message || 'Could not dispatch SMS.',
+        color: 'red',
+      });
+    } finally {
+      setResendingSmsId(null);
     }
   };
 
@@ -1143,6 +1197,19 @@ export default function AdminTicketBookingsPage() {
                                   </ActionIcon>
                                 </Tooltip>
 
+                                <Tooltip label="Resend Confirmation SMS">
+                                  <ActionIcon
+                                    color="orange"
+                                    variant="light"
+                                    size="sm"
+                                    radius="md"
+                                    loading={resendingSmsId === b.id}
+                                    onClick={() => handleResendSms(b)}
+                                  >
+                                    <IconMessageCircle size={16} />
+                                  </ActionIcon>
+                                </Tooltip>
+
                                 <Tooltip label="Open Live Pass Link (New Tab)">
                                   <ActionIcon
                                     component="a"
@@ -1389,9 +1456,32 @@ export default function AdminTicketBookingsPage() {
           }}
         >
           {selectedBooking && (
-            <Box py="sm" style={{ display: 'flex', justifyContent: 'center' }}>
+            <Stack gap="md" py="sm" align="center">
               <CustomerPassCard booking={selectedBooking} showDownloadButton={true} />
-            </Box>
+              <Group gap="sm" justify="center" w="100%">
+                <Button
+                  leftSection={<IconBrandWhatsapp size={16} />}
+                  color="green"
+                  variant="light"
+                  radius="md"
+                  size="xs"
+                  onClick={() => handleSendWhatsApp(selectedBooking)}
+                >
+                  Send WhatsApp Pass Link
+                </Button>
+                <Button
+                  leftSection={<IconMessageCircle size={16} />}
+                  color="orange"
+                  variant="light"
+                  radius="md"
+                  size="xs"
+                  loading={resendingSmsId === selectedBooking.id}
+                  onClick={() => handleResendSms(selectedBooking)}
+                >
+                  Resend Confirmation SMS (TextBee)
+                </Button>
+              </Group>
+            </Stack>
           )}
         </Modal>
 

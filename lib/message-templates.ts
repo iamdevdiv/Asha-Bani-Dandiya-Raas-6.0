@@ -20,6 +20,13 @@ export async function getMessageTemplates(): Promise<Record<string, string>> {
     result[key] = settings[key] ? settings[key] : def.defaultText;
   }
 
+  // Cross-sync ambassador unified / common keys
+  const ambUnified = result['template_ambassador_common_sms'] || result['template_ambassador_unified_sms'];
+  if (ambUnified) {
+    result['template_ambassador_common_sms'] = ambUnified;
+    result['template_ambassador_unified_sms'] = ambUnified;
+  }
+
   // Toggle for same template across all ambassador tiers (default: true)
   result['template_ambassador_same_for_all'] =
     settings['template_ambassador_same_for_all'] !== undefined
@@ -34,15 +41,25 @@ export async function getMessageTemplates(): Promise<Record<string, string>> {
  */
 export async function saveMessageTemplate(key: string, value: string): Promise<void> {
   await updateSetting(key, value);
+  if (key === 'template_ambassador_common_sms') {
+    await updateSetting('template_ambassador_unified_sms', value);
+  } else if (key === 'template_ambassador_unified_sms') {
+    await updateSetting('template_ambassador_common_sms', value);
+  }
 }
 
 /**
  * Resets a template key to its default text.
  */
 export async function resetMessageTemplate(key: string): Promise<string> {
-  const def = DEFAULT_TEMPLATES[key];
+  const def = DEFAULT_TEMPLATES[key] || (key === 'template_ambassador_common_sms' ? DEFAULT_TEMPLATES.template_ambassador_unified_sms : undefined);
   if (def) {
     await updateSetting(key, def.defaultText);
+    if (key === 'template_ambassador_common_sms') {
+      await updateSetting('template_ambassador_unified_sms', def.defaultText);
+    } else if (key === 'template_ambassador_unified_sms') {
+      await updateSetting('template_ambassador_common_sms', def.defaultText);
+    }
     return def.defaultText;
   }
   return '';

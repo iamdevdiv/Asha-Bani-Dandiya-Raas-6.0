@@ -124,6 +124,7 @@ export async function sendTextBeeSms(options: SendSmsOptions): Promise<{ success
 
 import { getSettings } from './db';
 import { getMessageTemplates, renderMessageTemplate, getVoucherUsabilityLabel, DEFAULT_TEMPLATES } from './message-templates';
+import { INITIAL_STALLS } from './stall-data';
 
 /**
  * Send customer booking confirmation SMS with digital pass link
@@ -151,12 +152,15 @@ export async function sendTicketBookingSms(booking: {
   const childrenText = (booking.childrenCount || 0) > 0 ? ` + ${booking.childrenCount} Children` : '';
   const voucherAmount = booking.voucherAmount !== undefined ? booking.voucherAmount : 100;
 
+  const rawAmount = booking.totalAmount ?? 0;
+  const formattedPrice = typeof rawAmount === 'number' ? rawAmount.toLocaleString('en-IN') : String(rawAmount);
+
   // Pass pricing / gift status
   let priceLine = '';
   if (booking.totalAmount === 0) {
     priceLine = 'Pass Type: Complimentary / Gift Pass (Rs. 0)\n';
   } else if (booking.totalAmount !== undefined && booking.totalAmount > 0) {
-    priceLine = `Amount Paid: Rs. ${booking.totalAmount}\n`;
+    priceLine = `Amount Paid: Rs. ${formattedPrice}\n`;
   }
 
   // Stall voucher status
@@ -175,15 +179,23 @@ export async function sendTicketBookingSms(booking: {
 
   const message = renderMessageTemplate(templateStr, {
     name: booking.fullName.trim(),
+    booker_name: booking.fullName.trim(),
     booking_id: booking.bookingNumber,
+    booking_number: booking.bookingNumber,
+    price: formattedPrice,
+    amount: formattedPrice,
     price_line: priceLine,
     passes_text: passesText,
+    adult_count: booking.adultCount ?? 1,
+    children_count: booking.childrenCount ?? 0,
     voucher_line: voucherLine,
     voucher_amount: voucherAmount,
     voucher_usability: usability,
     event_date: eventDate,
     venue,
     pass_link: passUrl,
+    booking_link: passUrl,
+    helpline: '+91 6399063455',
   });
 
   const res = await sendTextBeeSms({
@@ -200,11 +212,14 @@ export async function sendTicketBookingSms(booking: {
 export async function sendStallBookingSms(booking: {
   id: string;
   bookerName: string;
-  brandName: string;
+  brandName?: string;
   stallNumber: string;
   stallType?: string;
   mobile: string;
   bookingNumber: string;
+  amount?: number | string;
+  price?: number | string;
+  stallSection?: string;
 }) {
   console.log('[TextBee SMS DEBUG] Triggering Stall Booking SMS for booking:', booking.bookingNumber, 'Mobile:', booking.mobile);
 
@@ -215,24 +230,58 @@ export async function sendStallBookingSms(booking: {
 
   const baseUrl = getEnvValue('NEXT_PUBLIC_BASE_URL') || 'https://ashabani.com';
   const stallPassUrl = `${baseUrl}/dandiyaraas/stall/pass/${booking.id}`;
-  const stallTypeLabel = booking.stallType === 'food' ? 'Food Canopy' : 'Commercial Canopy';
+
+  // 1. Resolve stall category / section label
+  const normalizedStall = (booking.stallNumber || '').trim().toUpperCase();
+  const stallDef = INITIAL_STALLS.find((s) => s.stallNumber.toUpperCase() === normalizedStall);
+
+  let stallSection = booking.stallSection;
+  if (!stallSection) {
+    if (stallDef?.sectionLabel) {
+      stallSection = stallDef.sectionLabel;
+    } else if (booking.stallType === 'food') {
+      stallSection = 'Food Stall';
+    } else if (booking.stallType === 'turning_premium') {
+      stallSection = 'Turning Premium Location';
+    } else if (booking.stallType === 'front_visibility') {
+      stallSection = 'Front Visibility (Prime)';
+    } else if (booking.stallType === 'outstanding_visibility') {
+      stallSection = 'Outstanding Visibility';
+    } else if (booking.stallType) {
+      stallSection = booking.stallType;
+    } else {
+      stallSection = 'Commercial Canopy';
+    }
+  }
+
+  // 2. Resolve price / amount
+  const rawPrice = booking.amount !== undefined ? booking.amount : (booking.price !== undefined ? booking.price : (stallDef?.defaultPrice ?? 0));
+  const formattedPrice = typeof rawPrice === 'number' ? rawPrice.toLocaleString('en-IN') : String(rawPrice);
 
   const settings = await getSettings();
   const templates = await getMessageTemplates();
   const templateStr = templates.template_stall_sms || DEFAULT_TEMPLATES.template_stall_sms.defaultText;
 
   const eventDate = settings.event_date || '13 October 2026';
-  const venue = `${settings.venue_name || 'Maharaja Agrasen Bhavan'}, ${settings.venue_address || 'Saharanpur'}`;
+  const venue = `${settings.venue_name || 'Maharaja Agrasen Bhavan'}, ${settings.venue_address || 'Aggarwal Dharamshala, Saharanpur'}`;
 
   const message = renderMessageTemplate(templateStr, {
     name: booking.bookerName.trim(),
+    booker_name: booking.bookerName.trim(),
+    brand_or_name: (booking.brandName || booking.bookerName).trim().toUpperCase(),
+    brand_name: booking.brandName || booking.bookerName,
     stall_number: booking.stallNumber,
-    stall_type: stallTypeLabel,
-    brand_name: booking.brandName,
+    stall_section: stallSection,
+    stall_type: stallSection,
+    price: formattedPrice,
+    amount: formattedPrice,
     booking_id: booking.bookingNumber,
+    booking_number: booking.bookingNumber,
     event_date: eventDate,
     venue,
     pass_link: stallPassUrl,
+    booking_link: stallPassUrl,
+    helpline: '+91 6399063455',
   });
 
   const res = await sendTextBeeSms({
@@ -282,7 +331,16 @@ export async function sendAmbassadorTierUnlockedSms(params: {
   const templates = await getMessageTemplates();
   const isSameForAll = templates.template_ambassador_same_for_all !== 'false';
 
-  let templateStr = templates.template_ambassador_common_sms || DEFAULT_TEMPLATES.template_ambassador_common_sms.defaultText;
+  const defaultCommonText =
+    DEFAULT_TEMPLATES.template_ambassador_common_sms?.defaultText ||
+    DEFAULT_TEMPLATES.template_ambassador_unified_sms?.defaultText ||
+    '';
+
+  let templateStr =
+    templates.template_ambassador_common_sms ||
+    templates.template_ambassador_unified_sms ||
+    defaultCommonText;
+
   if (!isSameForAll) {
     const tierKey = `template_ambassador_tier_${params.tierLevel}_sms`;
     if (templates[tierKey]) {
@@ -294,14 +352,18 @@ export async function sendAmbassadorTierUnlockedSms(params: {
 
   const message = renderMessageTemplate(templateStr, {
     ambassador_name: params.ambassadorName.trim(),
+    name: params.ambassadorName.trim(),
     tier_name: params.tierName,
     tier_level: params.tierLevel,
     referral_count: params.referralCount,
     voucher_amount: params.voucherAmount || 0,
     reward_lines: rewardLines,
     booking_number: params.bookingNumber || '',
+    booking_id: params.bookingNumber || '',
     pass_link: passUrl || '',
+    booking_link: passUrl || '',
     dashboard_url: dashboardUrl,
+    helpline: '+91 6399063455',
   });
 
   const res = await sendTextBeeSms({

@@ -110,6 +110,8 @@ export default function AmbassadorDashboardPage() {
 
       const msg = renderMessageTemplate(template, {
         referral_url: url,
+        referral_link: url,
+        ref_url: url,
         voucher_amount: voucherAmount,
         voucher_usability: usability,
         phase_name: activePhase?.name || 'Current Phase',
@@ -117,6 +119,8 @@ export default function AmbassadorDashboardPage() {
         event_date: '13 October 2026',
         venue: 'Maharaja Agrasen Bhavan, Saharanpur',
         ambassador_name: data.ambassador.name || 'Campus Ambassador',
+        name: data.ambassador.name || 'Campus Ambassador',
+        helpline: '+91 6399063455',
       });
 
       openWhatsAppChat('', msg);

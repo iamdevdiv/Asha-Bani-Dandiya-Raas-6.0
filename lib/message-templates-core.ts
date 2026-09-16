@@ -96,6 +96,47 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
     },
   },
 
+  template_ambassador_common_sms: {
+    key: 'template_ambassador_common_sms',
+    title: 'Ambassador Milestone Unlocked SMS (Unified)',
+    category: 'sms',
+    channel: 'SMS',
+    description: 'Dispatched automatically when an ambassador hits a reward tier milestone, used when "Unified Message" is enabled.',
+    defaultText:
+      `Namaste {{ambassador_name}}!\n\n` +
+      `Congratulations! You have achieved {{tier_name}} with {{referral_count}} referrals for Asha Bani Dandiya Raas 6.0!\n\n` +
+      `{{reward_lines}}` +
+      `Track your live milestone rewards on your dashboard:\n{{dashboard_url}}`,
+    availableTokens: [
+      { token: '{{ambassador_name}}', label: 'Ambassador Full Name', example: 'Rahul Sharma' },
+      { token: '{{name}}', label: 'Ambassador Name', example: 'Rahul Sharma' },
+      { token: '{{tier_name}}', label: 'Tier Name', example: 'Tier 1 - Silver Ambassador' },
+      { token: '{{tier_level}}', label: 'Tier Level Number', example: '1' },
+      { token: '{{referral_count}}', label: 'Referrals Count', example: '10' },
+      { token: '{{reward_lines}}', label: 'Reward Lines (Passes + Voucher details)', example: 'Complimentary Entry Pass: TK-FREE-8821\nIncluded Stall Voucher: Rs. 500\nDownload Pass: https://...\n\n' },
+      { token: '{{booking_number}}', label: 'Generated Free Pass Number (if any)', example: 'TK-FREE-8821' },
+      { token: '{{booking_id}}', label: 'Generated Free Pass ID (if any)', example: 'TK-FREE-8821' },
+      { token: '{{pass_link}}', label: 'Generated Free Pass URL (if any)', example: 'https://ashabani.com/dandiyaraas/tickets/pass/sample' },
+      { token: '{{booking_link}}', label: 'Pass URL Link', example: 'https://ashabani.com/dandiyaraas/tickets/pass/sample' },
+      { token: '{{voucher_amount}}', label: 'Milestone Voucher Amount', example: '500' },
+      { token: '{{dashboard_url}}', label: 'Ambassador Dashboard URL', example: 'https://ashabani.com/ambassador/dashboard' },
+    ],
+    samplePreviewData: {
+      ambassador_name: 'Rahul Sharma',
+      name: 'Rahul Sharma',
+      tier_name: 'Tier 1 - Silver Ambassador',
+      tier_level: '1',
+      referral_count: '10',
+      voucher_amount: '500',
+      reward_lines: 'Complimentary Entry Pass: TK-FREE-8821\nIncluded Stall Voucher: Rs. 500\nDownload Your Digital Pass:\nhttps://ashabani.com/dandiyaraas/tickets/pass/sample_free\n\n',
+      booking_number: 'TK-FREE-8821',
+      booking_id: 'TK-FREE-8821',
+      pass_link: 'https://ashabani.com/dandiyaraas/tickets/pass/sample_free',
+      booking_link: 'https://ashabani.com/dandiyaraas/tickets/pass/sample_free',
+      dashboard_url: 'https://ashabani.com/ambassador/dashboard',
+    },
+  },
+
   template_ambassador_unified_sms: {
     key: 'template_ambassador_unified_sms',
     title: 'Ambassador Milestone Unlocked SMS (Unified)',
@@ -109,23 +150,30 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
       `Track your live milestone rewards on your dashboard:\n{{dashboard_url}}`,
     availableTokens: [
       { token: '{{ambassador_name}}', label: 'Ambassador Full Name', example: 'Rahul Sharma' },
+      { token: '{{name}}', label: 'Ambassador Name', example: 'Rahul Sharma' },
       { token: '{{tier_name}}', label: 'Tier Name', example: 'Tier 1 - Silver Ambassador' },
       { token: '{{tier_level}}', label: 'Tier Level Number', example: '1' },
       { token: '{{referral_count}}', label: 'Referrals Count', example: '10' },
       { token: '{{reward_lines}}', label: 'Reward Lines (Passes + Voucher details)', example: 'Complimentary Entry Pass: TK-FREE-8821\nIncluded Stall Voucher: Rs. 500\nDownload Pass: https://...\n\n' },
       { token: '{{booking_number}}', label: 'Generated Free Pass Number (if any)', example: 'TK-FREE-8821' },
+      { token: '{{booking_id}}', label: 'Generated Free Pass ID (if any)', example: 'TK-FREE-8821' },
       { token: '{{pass_link}}', label: 'Generated Free Pass URL (if any)', example: 'https://ashabani.com/dandiyaraas/tickets/pass/sample' },
+      { token: '{{booking_link}}', label: 'Pass URL Link', example: 'https://ashabani.com/dandiyaraas/tickets/pass/sample' },
+      { token: '{{voucher_amount}}', label: 'Milestone Voucher Amount', example: '500' },
       { token: '{{dashboard_url}}', label: 'Ambassador Dashboard URL', example: 'https://ashabani.com/ambassador/dashboard' },
     ],
     samplePreviewData: {
       ambassador_name: 'Rahul Sharma',
+      name: 'Rahul Sharma',
       tier_name: 'Tier 1 - Silver Ambassador',
       tier_level: '1',
       referral_count: '10',
       voucher_amount: '500',
       reward_lines: 'Complimentary Entry Pass: TK-FREE-8821\nIncluded Stall Voucher: Rs. 500\nDownload Your Digital Pass:\nhttps://ashabani.com/dandiyaraas/tickets/pass/sample_free\n\n',
       booking_number: 'TK-FREE-8821',
+      booking_id: 'TK-FREE-8821',
       pass_link: 'https://ashabani.com/dandiyaraas/tickets/pass/sample_free',
+      booking_link: 'https://ashabani.com/dandiyaraas/tickets/pass/sample_free',
       dashboard_url: 'https://ashabani.com/ambassador/dashboard',
     },
   },
@@ -143,16 +191,22 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
       `Keep going for Tier 2 Gold rewards:\n{{dashboard_url}}`,
     availableTokens: [
       { token: '{{ambassador_name}}', label: 'Ambassador Name', example: 'Rahul Sharma' },
+      { token: '{{name}}', label: 'Ambassador Name', example: 'Rahul Sharma' },
       { token: '{{tier_name}}', label: 'Tier Name', example: 'Tier 1 - Silver Ambassador' },
       { token: '{{referral_count}}', label: 'Referrals Reached', example: '10' },
       { token: '{{reward_lines}}', label: 'Auto-formatted Pass & Voucher Details', example: 'Complimentary Entry Pass: TK-FREE-8821\nIncluded Voucher: Rs. 500\nDownload Pass: https://...\n\n' },
+      { token: '{{booking_number}}', label: 'Pass Number', example: 'TK-FREE-8821' },
+      { token: '{{pass_link}}', label: 'Pass URL', example: 'https://ashabani.com/dandiyaraas/tickets/pass/sample' },
       { token: '{{dashboard_url}}', label: 'Ambassador Dashboard URL', example: 'https://ashabani.com/ambassador/dashboard' },
     ],
     samplePreviewData: {
       ambassador_name: 'Rahul Sharma',
+      name: 'Rahul Sharma',
       tier_name: 'Tier 1 - Silver Ambassador',
       referral_count: '10',
       reward_lines: 'Complimentary Entry Pass: TK-FREE-8821\nIncluded Stall Voucher: Rs. 500\nDownload Your Digital Pass:\nhttps://ashabani.com/dandiyaraas/tickets/pass/sample_free\n\n',
+      booking_number: 'TK-FREE-8821',
+      pass_link: 'https://ashabani.com/dandiyaraas/tickets/pass/sample_free',
       dashboard_url: 'https://ashabani.com/ambassador/dashboard',
     },
   },
@@ -170,6 +224,7 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
       `Track your live milestone settlements:\n{{dashboard_url}}`,
     availableTokens: [
       { token: '{{ambassador_name}}', label: 'Ambassador Name', example: 'Rahul Sharma' },
+      { token: '{{name}}', label: 'Ambassador Name', example: 'Rahul Sharma' },
       { token: '{{tier_name}}', label: 'Tier Name', example: 'Tier 2 - Gold Ambassador' },
       { token: '{{referral_count}}', label: 'Referrals Reached', example: '25' },
       { token: '{{reward_lines}}', label: 'Auto-formatted Pass & Voucher Details', example: 'Milestone Stall Voucher: Rs. 1000\n\n' },
@@ -177,6 +232,7 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
     ],
     samplePreviewData: {
       ambassador_name: 'Rahul Sharma',
+      name: 'Rahul Sharma',
       tier_name: 'Tier 2 - Gold Ambassador',
       referral_count: '25',
       reward_lines: 'Milestone Stall Voucher: Rs. 1000 Credited\n\n',
@@ -360,16 +416,202 @@ export function getVoucherUsabilityLabel(applicableTo?: string | null): string {
 }
 
 /**
- * Safely replaces all {{tokens}} with provided variables.
- * Leaves unmapped tokens intact or replaces with empty string.
+ * Safely replaces all {{tokens}} with provided variables, alias fallbacks, and smart defaults.
+ * Prevents raw {{unreplaced_tokens}} from leaking to customer SMS/WhatsApp messages.
  */
-export function renderMessageTemplate(template: string, variables: Record<string, any>): string {
+export function renderMessageTemplate(
+  template: string,
+  variables: Record<string, any>,
+  options?: { preserveUnmatchedTokens?: boolean }
+): string {
   if (!template) return '';
 
-  return template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, token) => {
+  const rendered = template.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, token) => {
+    // 1. Direct match (if defined and non-null)
     if (variables[token] !== undefined && variables[token] !== null) {
       return String(variables[token]);
     }
-    return match;
+
+    const lowerToken = token.toLowerCase();
+
+    // 2. Case-insensitive direct match
+    for (const [k, v] of Object.entries(variables)) {
+      if (k.toLowerCase() === lowerToken && v !== undefined && v !== null) {
+        return String(v);
+      }
+    }
+
+    // 3. Bidirectional Alias Groups
+    // Name aliases
+    if (['name', 'booker_name', 'ambassador_name', 'full_name', 'customer_name'].includes(lowerToken)) {
+      const val =
+        variables['name'] ??
+        variables['booker_name'] ??
+        variables['ambassador_name'] ??
+        variables['full_name'] ??
+        variables['customer_name'] ??
+        variables['brand_or_name'];
+      if (val !== undefined && val !== null) return String(val);
+      return 'Guest';
+    }
+
+    // Price / Amount aliases
+    if (['price', 'amount', 'total_amount', 'amount_paid', 'rent'].includes(lowerToken)) {
+      const val =
+        variables['price'] ??
+        variables['amount'] ??
+        variables['total_amount'] ??
+        variables['amount_paid'] ??
+        variables['rent'];
+      if (val !== undefined && val !== null) return String(val);
+      return '0';
+    }
+
+    // Stall Section / Type aliases
+    if (['stall_section', 'stall_type', 'section', 'category', 'stall_category'].includes(lowerToken)) {
+      const val =
+        variables['stall_section'] ??
+        variables['stall_type'] ??
+        variables['section'] ??
+        variables['category'] ??
+        variables['stall_category'];
+      if (val !== undefined && val !== null && String(val).trim() !== '') return String(val);
+      return '';
+    }
+
+    // Stall Number aliases
+    if (['stall_number', 'stall_no', 'stall'].includes(lowerToken)) {
+      const val = variables['stall_number'] ?? variables['stall_no'] ?? variables['stall'];
+      if (val !== undefined && val !== null) return String(val);
+    }
+
+    // Booking ID / Number aliases
+    if (['booking_id', 'booking_number', 'booking_no', 'ticket_id', 'order_id'].includes(lowerToken)) {
+      const val =
+        variables['booking_id'] ??
+        variables['booking_number'] ??
+        variables['booking_no'] ??
+        variables['ticket_id'] ??
+        variables['order_id'];
+      if (val !== undefined && val !== null) return String(val);
+    }
+
+    // Pass / Booking Link aliases
+    if (['pass_link', 'booking_link', 'ticket_link', 'pass_url', 'url'].includes(lowerToken)) {
+      const val =
+        variables['pass_link'] ??
+        variables['booking_link'] ??
+        variables['ticket_link'] ??
+        variables['pass_url'] ??
+        variables['url'];
+      if (val !== undefined && val !== null) return String(val);
+    }
+
+    // Referral URL aliases
+    if (['referral_url', 'referral_link', 'ref_url', 'share_url'].includes(lowerToken)) {
+      const val =
+        variables['referral_url'] ??
+        variables['referral_link'] ??
+        variables['ref_url'] ??
+        variables['share_url'];
+      if (val !== undefined && val !== null) return String(val);
+    }
+
+    // Referral Code aliases
+    if (['ref_code', 'referral_code'].includes(lowerToken)) {
+      const val = variables['ref_code'] ?? variables['referral_code'];
+      if (val !== undefined && val !== null) return String(val);
+    }
+
+    // Phone / Mobile aliases
+    if (['mobile', 'phone', 'mobile_number', 'contact'].includes(lowerToken)) {
+      const val =
+        variables['mobile'] ??
+        variables['phone'] ??
+        variables['mobile_number'] ??
+        variables['contact'];
+      if (val !== undefined && val !== null) return String(val);
+    }
+
+    // Dashboard / Login URL
+    if (['dashboard_url', 'login_url', 'portal_url'].includes(lowerToken)) {
+      const val = variables['dashboard_url'] ?? variables['login_url'] ?? variables['portal_url'];
+      if (val !== undefined && val !== null) return String(val);
+    }
+
+    // Brand or Name
+    if (['brand_or_name'].includes(lowerToken)) {
+      const val =
+        variables['brand_or_name'] ??
+        variables['brand_name'] ??
+        variables['name'] ??
+        variables['booker_name'];
+      if (val !== undefined && val !== null) return String(val).toUpperCase();
+      return 'EXHIBITOR';
+    }
+
+    // Team Members
+    if (['team_members'].includes(lowerToken)) {
+      const val = variables['team_members'] ?? variables['name'] ?? variables['booker_name'];
+      if (val !== undefined && val !== null) return String(val);
+      return 'Exhibitor Team';
+    }
+
+    // Passes Text
+    if (['passes_text', 'passes', 'total_passes', 'pass_count'].includes(lowerToken)) {
+      const val = variables['passes_text'] ?? variables['passes'];
+      if (val !== undefined && val !== null) return String(val);
+      return '1 Entry Pass';
+    }
+
+    // Voucher usability
+    if (['voucher_usability', 'usability'].includes(lowerToken)) {
+      const val = variables['voucher_usability'] ?? variables['usability'];
+      if (val !== undefined && val !== null) return String(val);
+      return 'Valid across all 35 Food & Commercial Stalls';
+    }
+
+    // Voucher Amount
+    if (['voucher_amount', 'voucher', 'voucher_balance'].includes(lowerToken)) {
+      const val = variables['voucher_amount'] ?? variables['voucher'] ?? variables['voucher_balance'];
+      if (val !== undefined && val !== null) return String(val);
+      return '0';
+    }
+
+    // Price Line & Voucher Line
+    if (['price_line'].includes(lowerToken)) {
+      return variables['price_line'] !== undefined ? String(variables['price_line']) : '';
+    }
+    if (['voucher_line'].includes(lowerToken)) {
+      return variables['voucher_line'] !== undefined ? String(variables['voucher_line']) : '';
+    }
+
+    // Event Date, Venue, Time, Helpline Defaults
+    if (['event_date'].includes(lowerToken)) {
+      return variables['event_date'] || '13 October 2026';
+    }
+    if (['venue'].includes(lowerToken)) {
+      return variables['venue'] || 'Maharaja Agrasen Bhavan, Saharanpur';
+    }
+    if (['helpline'].includes(lowerToken)) {
+      return variables['helpline'] || '+91 6399063455';
+    }
+    if (['setup_time'].includes(lowerToken)) {
+      return variables['setup_time'] || '4:00 PM';
+    }
+    if (['event_hours'].includes(lowerToken)) {
+      return variables['event_hours'] || '6:00 PM to 12:00 AM';
+    }
+
+    // 4. Preserve token if explicitly requested (e.g. for preview testing)
+    if (options?.preserveUnmatchedTokens) {
+      return match;
+    }
+
+    // 5. Defensive fallback: replace unmapped variable with empty string so raw {{tokens}} never leak into SMS
+    return '';
   });
+
+  // Clean up empty parentheses left behind by empty optional tokens, e.g. "Stall Number: E ()" -> "Stall Number: E"
+  return rendered.replace(/\s*\(\s*\)/g, '').replace(/[ \t]{2,}/g, ' ');
 }

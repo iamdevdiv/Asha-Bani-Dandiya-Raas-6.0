@@ -41,11 +41,13 @@ import {
   IconTrash,
   IconExternalLink,
   IconCheck,
+  IconMessage,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { ExhibitorPassCard } from '@/components/ExhibitorPassCard';
 import { openWhatsAppChat } from '@/lib/whatsapp';
 import { renderMessageTemplate, DEFAULT_TEMPLATES } from '@/lib/message-templates-core';
+import { INITIAL_STALLS } from '@/lib/stall-data';
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -59,6 +61,7 @@ export default function AdminBookingsPage() {
 
   // Confirm Stall Payment State
   const [confirmingStallId, setConfirmingStallId] = useState<string | null>(null);
+  const [resendingSmsId, setResendingSmsId] = useState<string | null>(null);
 
   // Delete Order Confirmation State
   const [deleteOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
@@ -71,13 +74,21 @@ export default function AdminBookingsPage() {
     const template = stallWaTemplate || DEFAULT_TEMPLATES.template_stall_wa.defaultText;
     const displayName = (b.brandName || b.bookerName || 'Exhibitor').toUpperCase();
 
+    const normalizedStall = (b.stallNumber || '').trim().toUpperCase();
+    const stallDef = INITIAL_STALLS.find((s) => s.stallNumber.toUpperCase() === normalizedStall);
+    const sectionLabel = b.stallSection || b.stall?.sectionLabel || b.stall?.section || stallDef?.sectionLabel || (b.stallType === 'food' ? 'Food Stall' : 'Commercial Canopy');
+    const rawPrice = b.amount ?? b.price ?? b.amountPaid ?? stallDef?.defaultPrice ?? 0;
+    const formattedPrice = typeof rawPrice === 'number' ? rawPrice.toLocaleString('en-IN') : String(rawPrice);
+
     const msg = renderMessageTemplate(template, {
       brand_or_name: displayName,
       name: b.bookerName || 'Exhibitor',
       brand_name: b.brandName || b.bookerName || 'Exhibitor',
       stall_number: b.stallNumber || '',
-      stall_section: b.stall?.section || 'Commercial',
-      price: b.amountPaid ? Number(b.amountPaid).toLocaleString('en-IN') : '5,000',
+      stall_section: sectionLabel,
+      stall_type: sectionLabel,
+      price: formattedPrice,
+      amount: formattedPrice,
       booking_id: b.bookingNumber || '',
       event_date: 'Tuesday, 13 October 2026',
       venue: 'Maharaja Agrasen Bhavan, Aggarwal Dharamshala, Saharanpur',
@@ -85,6 +96,7 @@ export default function AdminBookingsPage() {
       event_hours: '6:00 PM to 12:00 AM',
       team_members: b.teamMembers || b.bookerName || 'Exhibitor Team',
       pass_link: passUrl,
+      booking_link: passUrl,
       helpline: '+91 6399063455',
     });
 
@@ -126,6 +138,34 @@ export default function AdminBookingsPage() {
       });
     } finally {
       setConfirmingStallId(null);
+    }
+  };
+
+  const handleResendSms = async (b: any) => {
+    setResendingSmsId(b.id);
+    try {
+      const res = await fetch('/api/admin/bookings/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.id, forceResendSms: true, sendSms: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to dispatch SMS');
+      }
+      notifications.show({
+        title: 'SMS Sent Successfully',
+        message: `Updated confirmation SMS dispatched to +91 ${b.mobile}.`,
+        color: 'green',
+      });
+    } catch (err: any) {
+      notifications.show({
+        title: 'SMS Dispatch Failed',
+        message: err.message || 'Could not dispatch SMS.',
+        color: 'red',
+      });
+    } finally {
+      setResendingSmsId(null);
     }
   };
 
@@ -427,6 +467,16 @@ export default function AdminBookingsPage() {
                             <IconBrandWhatsapp size={16} />
                           </ActionIcon>
                         </Tooltip>
+                        <Tooltip label="Resend Confirmation SMS">
+                          <ActionIcon
+                            variant="light"
+                            color="blue"
+                            loading={resendingSmsId === b.id}
+                            onClick={() => handleResendSms(b)}
+                          >
+                            <IconMessage size={16} />
+                          </ActionIcon>
+                        </Tooltip>
                         {b.paymentStatus !== 'success' && (
                           <Tooltip label="Mark Payment Confirmed & Issue Stall Pass">
                             <ActionIcon
@@ -616,6 +666,19 @@ export default function AdminBookingsPage() {
                   onClick={() => sendWhatsAppMessage(selectedBooking)}
                 >
                   Send Confirmation &amp; Pass on WhatsApp
+                </Button>
+
+                {/* Resend Confirmation SMS Action */}
+                <Button
+                  color="blue"
+                  variant="light"
+                  size="md"
+                  fullWidth
+                  leftSection={<IconMessage size={20} />}
+                  loading={resendingSmsId === selectedBooking.id}
+                  onClick={() => handleResendSms(selectedBooking)}
+                >
+                  Resend Confirmation SMS (TextBee)
                 </Button>
               </Stack>
             </SimpleGrid>

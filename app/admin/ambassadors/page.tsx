@@ -105,13 +105,18 @@ export default function AdminAmbassadorsPage() {
 
     return renderMessageTemplate(template, {
       name: amb.name || 'Ambassador',
+      ambassador_name: amb.name || 'Ambassador',
       mobile: amb.mobile || '',
+      phone: amb.mobile || '',
       password: pwd || '[Password to be set by admin]',
       login_url: loginUrl,
+      dashboard_url: loginUrl,
       ref_code: refCode,
+      referral_code: refCode,
       referral_url: referralUrl,
       event_date: '13 October 2026',
       venue: 'Maharaja Agrasen Bhavan, Saharanpur',
+      helpline: '+91 6399063455',
     });
   };
 
