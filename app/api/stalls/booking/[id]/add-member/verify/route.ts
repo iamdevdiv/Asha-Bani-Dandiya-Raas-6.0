@@ -57,11 +57,12 @@ export async function POST(
     });
 
     // Send SMS dispatch on successful addition if newly confirmed
-    if (result.isNewlyConfirmed && result.booking && result.stallMember) {
+    if (result.isNewlyConfirmed && result.booking) {
       sendStallMemberAddedSms({
         booking: result.booking,
-        memberName: result.stallMember.memberName,
-        amount: result.stallMember.amount,
+        memberNames: result.memberNames,
+        memberName: result.memberNames?.join(', '),
+        amount: result.totalAmount,
       }).catch((smsErr) => {
         console.error('[SMS Dispatch Error] Stall member addition:', smsErr);
       });
@@ -73,8 +74,9 @@ export async function POST(
       success: true,
       booking: result.booking,
       stallMember: result.stallMember,
+      stallMembers: result.stallMembers,
       additionalMembers,
-      message: `${result.stallMember.memberName} has been added to your official exhibitor team!`,
+      message: `${result.memberNames?.join(', ')} has been added to your official exhibitor team!`,
     });
   } catch (error: any) {
     console.error('Error in POST /api/stalls/booking/[id]/add-member/verify:', error);

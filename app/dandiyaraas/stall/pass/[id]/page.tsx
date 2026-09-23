@@ -19,6 +19,7 @@ import {
   Modal,
   TextInput,
   Divider,
+  ActionIcon,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -33,6 +34,8 @@ import {
   IconUserPlus,
   IconUserCheck,
   IconCreditCard,
+  IconTrash,
+  IconPlus,
 } from '@tabler/icons-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -48,8 +51,8 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
 
   // Add Member Modal & Form State
   const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
-  const [newMemberName, setNewMemberName] = useState('');
-  const [nameError, setNameError] = useState('');
+  const [memberNames, setMemberNames] = useState<string[]>(['']);
+  const [memberErrors, setMemberErrors] = useState<{ [index: number]: string }>({});
   const [submittingMember, setSubmittingMember] = useState(false);
 
   useEffect(() => {
@@ -84,22 +87,58 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
         .filter(Boolean)
     : (booking?.bookerName ? [booking.bookerName] : []);
 
+  const handleMemberNameChange = (index: number, val: string) => {
+    setMemberNames((prev) => {
+      const next = [...prev];
+      next[index] = val;
+      return next;
+    });
+    if (memberErrors[index]) {
+      setMemberErrors((prev) => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+    }
+  };
+
+  const handleAddMemberField = () => {
+    setMemberNames((prev) => [...prev, '']);
+  };
+
+  const handleRemoveMemberField = (index: number) => {
+    if (memberNames.length <= 1) return;
+    setMemberNames((prev) => prev.filter((_, i) => i !== index));
+    setMemberErrors((prev) => {
+      const next: { [i: number]: string } = {};
+      return next;
+    });
+  };
+
   const handleAddMemberPayment = async () => {
-    const cleanName = newMemberName.trim();
-    if (!cleanName || cleanName.length < 2) {
-      setNameError('Please enter a valid full name (minimum 2 characters).');
+    const cleanNames = memberNames.map((n) => n.trim());
+    const newErrors: { [index: number]: string } = {};
+
+    cleanNames.forEach((name, idx) => {
+      if (!name || name.length < 2) {
+        newErrors[idx] = 'Please enter a valid full name (minimum 2 characters).';
+      }
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setMemberErrors(newErrors);
       return;
     }
 
     setSubmittingMember(true);
-    setNameError('');
+    setMemberErrors({});
 
     try {
-      // 1. Create Razorpay order for additional member pass
+      // 1. Create Razorpay order for additional member pass(es)
       const orderRes = await fetch(`/api/stalls/booking/${id}/add-member/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ memberName: cleanName }),
+        body: JSON.stringify({ memberNames: cleanNames }),
       });
 
       const orderData = await orderRes.json();
@@ -107,16 +146,19 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
         throw new Error(orderData.message || 'Failed to create payment order.');
       }
 
+      const count = orderData.memberCount || cleanNames.length;
+      const passTitle = count > 1 ? `${count} Additional Passes` : `Additional Pass for ${cleanNames[0]}`;
+
       // 2. Open Razorpay Checkout modal
       const options = {
         key: orderData.keyId,
         amount: orderData.amount * 100,
         currency: orderData.currency || 'INR',
         name: 'Asha Bani Dandiya Raas 6.0',
-        description: `Additional Pass for ${orderData.memberName} (Stall ${booking.stallNumber})`,
+        description: `${passTitle} (Stall ${booking.stallNumber})`,
         order_id: orderData.orderId,
         prefill: {
-          name: cleanName,
+          name: cleanNames.join(', '),
           contact: booking.mobile,
           email: booking.email,
         },
@@ -139,8 +181,8 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
             const verifyData = await verifyRes.json();
             if (verifyData.success) {
               notifications.show({
-                title: 'Team Member Added!',
-                message: `${orderData.memberName} has been added to your stall team. SMS confirmation dispatched!`,
+                title: 'Team Members Added!',
+                message: `${cleanNames.join(', ')} added to your stall team. SMS confirmation dispatched!`,
                 color: 'green',
               });
               setBooking(verifyData.booking);
@@ -148,7 +190,8 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
                 setAdditionalMembers(verifyData.additionalMembers);
               }
               setAddMemberModalOpen(false);
-              setNewMemberName('');
+              setMemberNames(['']);
+              setMemberErrors({});
             } else {
               throw new Error(verifyData.message || 'Payment verification failed.');
             }
@@ -202,8 +245,8 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
         const verifyData = await verifyRes.json();
         if (verifyData.success) {
           notifications.show({
-            title: 'Team Member Added (Test Mode)!',
-            message: `${orderData.memberName} has been added to your stall team.`,
+            title: 'Team Members Added (Test Mode)!',
+            message: `${cleanNames.join(', ')} added to your stall team.`,
             color: 'green',
           });
           setBooking(verifyData.booking);
@@ -211,7 +254,8 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
             setAdditionalMembers(verifyData.additionalMembers);
           }
           setAddMemberModalOpen(false);
-          setNewMemberName('');
+          setMemberNames(['']);
+          setMemberErrors({});
         }
         setSubmittingMember(false);
       } else {
@@ -353,7 +397,8 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
                 {/* Add Member Button */}
                 <Button
                   onClick={() => {
-                    setNameError('');
+                    setMemberErrors({});
+                    if (memberNames.length === 0) setMemberNames(['']);
                     setAddMemberModalOpen(true);
                   }}
                   className="btn-auspicious-gold"
@@ -361,11 +406,8 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
                   size="md"
                   leftSection={<IconUserPlus size={18} />}
                 >
-                  + Add Team Member (₹{currentPhase?.adultPrice || 499})
+                  + Add Team Members (₹{currentPhase?.adultPrice || 499}/pass)
                 </Button>
-                <Text size="xs" c="gray.4" ta="center" mt={6} style={{ fontSize: '0.74rem' }}>
-                  Extra members receive official gate entry passes and are verified automatically on QR scan.
-                </Text>
               </Paper>
 
               {/* Logistics & Timing Card */}
@@ -508,16 +550,17 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
           onClose={() => {
             if (!submittingMember) {
               setAddMemberModalOpen(false);
-              setNewMemberName('');
-              setNameError('');
+              setMemberNames(['']);
+              setMemberErrors({});
             }
           }}
           title={
             <Text fw={800} c="white" style={{ fontFamily: "'Cinzel', serif", fontSize: '1.2rem' }}>
-              Add Team Member • Stall {booking.stallNumber}
+              Add Team Members • Stall {booking.stallNumber}
             </Text>
           }
           centered
+          size="lg"
           styles={{
             content: {
               backgroundColor: '#1b0407',
@@ -549,40 +592,97 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
                 <Text size="sm" fw={700} c="white">{booking.brandName || booking.bookerName}</Text>
               </Group>
               <Group justify="space-between">
-                <Text size="xs" c="gray.3">CURRENT PHASE TICKET PRICE:</Text>
+                <Text size="xs" c="gray.3">TICKET PRICE (ACTIVE PHASE):</Text>
                 <Text size="sm" fw={800} c="yellow.2">
-                  ₹{currentPhase?.adultPrice || 499} ({currentPhase?.name || 'Active Phase'})
+                  ₹{currentPhase?.adultPrice || 499} per pass ({currentPhase?.name || 'Active Phase'})
                 </Text>
               </Group>
             </Paper>
 
-            <TextInput
-              label={<Text size="sm" fw={700} c="royalGold.3">Member Full Name</Text>}
-              placeholder="e.g. Rahul Verma"
-              value={newMemberName}
-              onChange={(e) => {
-                setNewMemberName(e.currentTarget.value);
-                if (nameError) setNameError('');
-              }}
-              error={nameError}
-              required
-              size="md"
-              styles={{
-                input: {
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                  color: '#fff',
-                  borderColor: 'rgba(234, 179, 8, 0.4)',
-                },
-              }}
-            />
+            <Stack gap="xs">
+              <Group justify="space-between" align="center">
+                <Text size="xs" fw={700} c="royalGold.3" style={{ letterSpacing: '0.05em' }}>
+                  TEAM MEMBER NAMES ({memberNames.length} {memberNames.length === 1 ? 'PASS' : 'PASSES'})
+                </Text>
+                <Button
+                  variant="subtle"
+                  color="yellow"
+                  size="xs"
+                  leftSection={<IconPlus size={14} />}
+                  onClick={handleAddMemberField}
+                >
+                  Add Another Member
+                </Button>
+              </Group>
 
-            <Paper p="xs" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.04)' }}>
-              <Text size="xs" c="gray.3" style={{ lineHeight: 1.5 }}>
-                • Amount payable: <strong>₹{currentPhase?.adultPrice || 499}</strong> via Razorpay.
+              {memberNames.map((name, idx) => (
+                <Group key={idx} align="flex-start" gap="xs" wrap="nowrap">
+                  <Box style={{ flex: 1 }}>
+                    <TextInput
+                      label={memberNames.length > 1 ? `Member ${idx + 1} Full Name` : 'Member Full Name'}
+                      withAsterisk
+                      placeholder="Enter full name"
+                      value={name}
+                      onChange={(e) => handleMemberNameChange(idx, e.currentTarget.value)}
+                      error={memberErrors[idx]}
+                      size="md"
+                      styles={{
+                        label: {
+                          color: '#facc15',
+                          fontWeight: 700,
+                          fontSize: '0.875rem',
+                          marginBottom: 4,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                        },
+                        required: {
+                          color: '#ef4444',
+                        },
+                        input: {
+                          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                          color: '#fff',
+                          borderColor: memberErrors[idx] ? '#ef4444' : 'rgba(234, 179, 8, 0.4)',
+                        },
+                      }}
+                    />
+                  </Box>
+                  {memberNames.length > 1 && (
+                    <ActionIcon
+                      color="red"
+                      variant="light"
+                      size="lg"
+                      mt={26}
+                      onClick={() => handleRemoveMemberField(idx)}
+                      title="Remove this member"
+                      style={{ height: 42, width: 42 }}
+                    >
+                      <IconTrash size={18} />
+                    </ActionIcon>
+                  )}
+                </Group>
+              ))}
+            </Stack>
+
+            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
+              <Group justify="space-between" align="center">
+                <Box>
+                  <Text size="xs" c="gray.3">
+                    {memberNames.length} {memberNames.length === 1 ? 'Pass' : 'Passes'} × ₹{currentPhase?.adultPrice || 499}
+                  </Text>
+                  <Text size="sm" fw={800} c="white">
+                    Total Amount:
+                  </Text>
+                </Box>
+                <Title order={3} c="yellow.3">
+                  ₹{memberNames.length * (currentPhase?.adultPrice || 499)}
+                </Title>
+              </Group>
+              <Divider my="xs" color="rgba(255, 255, 255, 0.08)" />
+              <Text size="xs" c="gray.4" style={{ lineHeight: 1.5 }}>
+                • Added members will be linked directly to your official stall allotment.
                 <br />
-                • The new member will receive official gate access linked to your stall pass.
-                <br />
-                • A confirmation SMS will be sent automatically to <strong>+91 {booking.mobile}</strong>.
+                • A confirmation SMS will be sent automatically to <strong>+91 {booking.mobile}</strong> upon successful payment.
               </Text>
             </Paper>
 
@@ -594,7 +694,7 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
               leftSection={<IconCreditCard size={18} />}
               fullWidth
             >
-              Pay ₹{currentPhase?.adultPrice || 499} &amp; Add Member
+              Pay ₹{memberNames.length * (currentPhase?.adultPrice || 499)} &amp; Add {memberNames.length} {memberNames.length === 1 ? 'Member' : 'Members'}
             </Button>
           </Stack>
         </Modal>

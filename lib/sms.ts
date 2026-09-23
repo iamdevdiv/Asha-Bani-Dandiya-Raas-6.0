@@ -305,10 +305,13 @@ export async function sendStallMemberAddedSms(params: {
     bookingNumber: string;
     teamMembers?: string;
   };
-  memberName: string;
+  memberName?: string;
+  memberNames?: string[];
   amount: number | string;
 }) {
-  const { booking, memberName, amount } = params;
+  const { booking, amount } = params;
+  const rawNames = params.memberNames || (params.memberName ? [params.memberName] : []);
+  const displayNames = rawNames.filter(Boolean).join(', ');
   console.log('[TextBee SMS DEBUG] Triggering Stall Member Added SMS for booking:', booking.bookingNumber, 'Mobile:', booking.mobile);
 
   if (!booking.mobile) {
@@ -330,15 +333,16 @@ export async function sendStallMemberAddedSms(params: {
   const message = renderMessageTemplate(templateStr, {
     name: booking.bookerName.trim(),
     booker_name: booking.bookerName.trim(),
-    member_name: memberName.trim(),
-    memberName: memberName.trim(),
+    member_name: displayNames,
+    memberName: displayNames,
+    member_names: displayNames,
     brand_or_name: (booking.brandName || booking.bookerName).trim().toUpperCase(),
     brand_name: booking.brandName || booking.bookerName,
     stall_number: booking.stallNumber,
     stall_no: booking.stallNumber,
     price: formattedPrice,
     amount: formattedPrice,
-    team_members: booking.teamMembers || memberName,
+    team_members: booking.teamMembers || displayNames,
     booking_id: booking.bookingNumber,
     booking_number: booking.bookingNumber,
     event_date: eventDate,

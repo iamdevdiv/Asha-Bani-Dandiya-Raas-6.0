@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBookingById, getCurrentActivePhase, createStallMemberOrder } from '@/lib/db';
+import { getBookingById, getCurrentActivePhase, createStallMemberOrders } from '@/lib/db';
 import { createRazorpayOrder } from '@/lib/razorpay';
 
 export const dynamic = 'force-dynamic';
@@ -11,11 +11,18 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { memberName } = body;
 
-    if (!memberName || typeof memberName !== 'string' || memberName.trim().length < 2) {
+    const rawNames = Array.isArray(body.memberNames)
+      ? body.memberNames
+      : (body.memberName ? [body.memberName] : []);
+
+    const cleanNames = rawNames
+      .map((n: any) => (typeof n === 'string' ? n.trim() : ''))
+      .filter((n: string) => n.length >= 2);
+
+    if (cleanNames.length === 0) {
       return NextResponse.json(
-        { success: false, message: 'Please provide a valid full name for the team member.' },
+        { success: false, message: 'Please provide at least one valid full name for the team member.' },
         { status: 400 }
       );
     }
@@ -31,7 +38,7 @@ export async function POST(
     // Retrieve active phase for ticket pricing
     const currentPhase = await getCurrentActivePhase();
     const adultPrice = currentPhase?.adultPrice || 499;
-    const cleanMemberName = memberName.trim();
+    const totalAmount = adultPrice * cleanNames.length;
 
     // Generate unique receipt
     const cleanStallNo = (booking.stallNumber || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -39,26 +46,27 @@ export async function POST(
 
     // Create Razorpay Order
     const order = await createRazorpayOrder({
-      amountInInr: adultPrice,
+      amountInInr: totalAmount,
       receipt,
       notes: {
         type: 'stall_add_member',
         bookingId: booking.id,
         bookingNumber: booking.bookingNumber,
         stallNumber: booking.stallNumber,
-        memberName: cleanMemberName,
+        memberCount: String(cleanNames.length),
+        memberNames: cleanNames.join(', '),
         phaseName: currentPhase?.name || 'Active Phase',
         bookerMobile: booking.mobile,
       },
     });
 
-    // Create pending member order record
-    const memberOrder = await createStallMemberOrder({
+    // Create pending member order records
+    const memberOrders = await createStallMemberOrders({
       bookingId: booking.id,
       bookingNumber: booking.bookingNumber,
       stallNumber: booking.stallNumber,
-      memberName: cleanMemberName,
-      amount: adultPrice,
+      memberNames: cleanNames,
+      pricePerMember: adultPrice,
       phaseId: currentPhase?.id,
       phaseName: currentPhase?.name,
       razorpayOrderId: order.orderId,
@@ -66,13 +74,16 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      memberOrderId: memberOrder.id,
+      memberOrderIds: memberOrders.map((m) => m.id),
+      memberOrderId: memberOrders[0]?.id,
       orderId: order.orderId,
-      amount: adultPrice,
+      amount: totalAmount,
+      pricePerMember: adultPrice,
+      memberCount: cleanNames.length,
+      memberNames: cleanNames,
       currency: 'INR',
       keyId: order.keyId,
       isMock: order.isMock,
-      memberName: cleanMemberName,
       phaseName: currentPhase?.name || 'Active Phase',
     });
   } catch (error: any) {
@@ -83,3 +94,4 @@ export async function POST(
     );
   }
 }
+

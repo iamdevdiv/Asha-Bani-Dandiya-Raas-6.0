@@ -91,11 +91,12 @@ export async function POST(req: NextRequest) {
           razorpaySignature: signature || 'WEBHOOK_VERIFIED',
         });
 
-        if (result.isNewlyConfirmed && result.booking && result.stallMember) {
+        if (result.isNewlyConfirmed && result.booking) {
           sendStallMemberAddedSms({
             booking: result.booking,
-            memberName: result.stallMember.memberName,
-            amount: result.stallMember.amount,
+            memberNames: result.memberNames,
+            memberName: result.memberNames?.join(', '),
+            amount: result.totalAmount,
           }).catch((smsErr) => {
             console.error('[Razorpay Webhook SMS Error] Stall member addition:', smsErr);
           });
@@ -107,7 +108,8 @@ export async function POST(req: NextRequest) {
           type: 'stall_member',
           status: 'confirmed',
           stallNumber: result.booking.stallNumber,
-          memberName: result.stallMember.memberName,
+          memberNames: result.memberNames,
+          memberName: result.memberNames?.join(', '),
         });
       }
 
