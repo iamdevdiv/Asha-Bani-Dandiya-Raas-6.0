@@ -184,6 +184,22 @@ interface FallbackStore {
     grantsFreeTicket: boolean;
     isActive: boolean;
   }>;
+  stallMembers?: Array<{
+    id: string;
+    bookingId: string;
+    bookingNumber: string;
+    stallNumber: string;
+    memberName: string;
+    amount: number;
+    phaseId?: string | null;
+    phaseName?: string | null;
+    razorpayOrderId?: string | null;
+    razorpayPaymentId?: string | null;
+    razorpaySignature?: string | null;
+    paymentStatus: string;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   admin: {
     email: string;
     passwordHash: string;
@@ -233,6 +249,7 @@ function getInitialStore(): FallbackStore {
     voucherTransactions: [],
     ambassadors: [],
     ambassadorTiers: [...INITIAL_AMBASSADOR_TIERS],
+    stallMembers: [],
     settings: { ...DEFAULT_SETTINGS },
     admin: {
       email: defaultAdminEmail,
@@ -252,6 +269,7 @@ export function loadFallbackStore(forceReload = false): FallbackStore {
     if (!inMemoryStore.inquiries) inMemoryStore.inquiries = [];
     if (!inMemoryStore.users) inMemoryStore.users = [];
     if (!inMemoryStore.coupons) inMemoryStore.coupons = [...INITIAL_COUPONS];
+    if (!inMemoryStore.stallMembers) inMemoryStore.stallMembers = [];
     return inMemoryStore;
   }
   try {
@@ -586,16 +604,34 @@ export async function createBooking(data: {
 }
 
 export async function getBookingById(id: string) {
+  if (!id) return null;
+  const cleanId = id.trim();
   const hasPrisma = await checkPrisma();
   if (hasPrisma) {
     try {
-      return await prisma.booking.findUnique({ where: { id } });
+      return await prisma.booking.findFirst({
+        where: {
+          OR: [
+            { id: cleanId },
+            { bookingNumber: cleanId },
+            { bookingNumber: { equals: cleanId, mode: 'insensitive' } },
+          ],
+        },
+      });
     } catch (e) {
       console.warn('Prisma error in getBookingById', e);
     }
   }
   const store = loadFallbackStore();
-  return store.bookings.find((b) => b.id === id) || null;
+  const lower = cleanId.toLowerCase();
+  return (
+    store.bookings.find(
+      (b) =>
+        b.id === cleanId ||
+        b.bookingNumber === cleanId ||
+        b.bookingNumber.toLowerCase() === lower
+    ) || null
+  );
 }
 
 export async function getBookingByNumber(bookingNumber: string) {
@@ -743,6 +779,237 @@ export async function updateBookingPayment(
     return store.bookings[index];
   }
   return null;
+}
+
+// -----------------------------------------------------------------------------
+// STALL TEAM MEMBERS (ADDITIONAL PASS PURCHASES)
+// -----------------------------------------------------------------------------
+
+export async function createStallMemberOrder(data: {
+  bookingId: string;
+  bookingNumber: string;
+  stallNumber: string;
+  memberName: string;
+  amount: number;
+  phaseId?: string;
+  phaseName?: string;
+  razorpayOrderId?: string;
+}) {
+  const hasPrisma = await checkPrisma();
+  const now = new Date();
+  const cleanMemberName = data.memberName.trim();
+
+  if (hasPrisma) {
+    try {
+      return await (prisma as any).stallMember.create({
+        data: {
+          bookingId: data.bookingId,
+          bookingNumber: data.bookingNumber,
+          stallNumber: data.stallNumber,
+          memberName: cleanMemberName,
+          amount: data.amount,
+          phaseId: data.phaseId || null,
+          phaseName: data.phaseName || null,
+          razorpayOrderId: data.razorpayOrderId || null,
+          paymentStatus: 'pending',
+        },
+      });
+    } catch (e) {
+      console.warn('Prisma error in createStallMemberOrder', e);
+    }
+  }
+
+  const store = loadFallbackStore();
+  if (!store.stallMembers) store.stallMembers = [];
+  const newMember = {
+    id: `sm_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    bookingId: data.bookingId,
+    bookingNumber: data.bookingNumber,
+    stallNumber: data.stallNumber,
+    memberName: cleanMemberName,
+    amount: data.amount,
+    phaseId: data.phaseId || null,
+    phaseName: data.phaseName || null,
+    razorpayOrderId: data.razorpayOrderId || null,
+    razorpayPaymentId: null,
+    razorpaySignature: null,
+    paymentStatus: 'pending',
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  };
+  store.stallMembers.push(newMember);
+  saveFallbackStore(store);
+  return newMember;
+}
+
+export async function getStallMemberByOrderId(orderId: string) {
+  if (!orderId) return null;
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      return await (prisma as any).stallMember.findFirst({
+        where: { razorpayOrderId: orderId },
+      });
+    } catch (e) {
+      console.warn('Prisma error in getStallMemberByOrderId', e);
+    }
+  }
+  const store = loadFallbackStore();
+  return store.stallMembers?.find((m) => m.razorpayOrderId === orderId) || null;
+}
+
+export async function getStallMembersByBookingId(bookingId: string) {
+  if (!bookingId) return [];
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      return await (prisma as any).stallMember.findMany({
+        where: {
+          OR: [{ bookingId }, { bookingNumber: bookingId }],
+          paymentStatus: 'success',
+        },
+        orderBy: { createdAt: 'asc' },
+      });
+    } catch (e) {
+      console.warn('Prisma error in getStallMembersByBookingId', e);
+    }
+  }
+  const store = loadFallbackStore();
+  return (
+    store.stallMembers?.filter(
+      (m) =>
+        (m.bookingId === bookingId || m.bookingNumber === bookingId) &&
+        m.paymentStatus === 'success'
+    ) || []
+  );
+}
+
+export async function completeStallMemberPayment(params: {
+  memberOrderId?: string;
+  orderId?: string;
+  razorpayPaymentId: string;
+  razorpaySignature?: string;
+}) {
+  const hasPrisma = await checkPrisma();
+  const now = new Date();
+
+  // Find member order
+  let memberOrder: any = null;
+  if (hasPrisma) {
+    try {
+      if (params.memberOrderId) {
+        memberOrder = await (prisma as any).stallMember.findUnique({
+          where: { id: params.memberOrderId },
+        });
+      }
+      if (!memberOrder && params.orderId) {
+        memberOrder = await (prisma as any).stallMember.findFirst({
+          where: { razorpayOrderId: params.orderId },
+        });
+      }
+    } catch (e) {
+      console.warn('Prisma error locating stallMember in completeStallMemberPayment', e);
+    }
+  }
+
+  if (!memberOrder) {
+    const store = loadFallbackStore();
+    memberOrder = store.stallMembers?.find(
+      (m) =>
+        (params.memberOrderId && m.id === params.memberOrderId) ||
+        (params.orderId && m.razorpayOrderId === params.orderId)
+    );
+  }
+
+  if (!memberOrder) {
+    throw new Error('Stall member order not found.');
+  }
+
+  const isAlreadySuccess = memberOrder.paymentStatus === 'success';
+
+  // Find associated booking
+  const booking = await getBookingById(memberOrder.bookingId);
+  if (!booking) {
+    throw new Error('Associated stall booking not found.');
+  }
+
+  let updatedBooking = booking;
+  let updatedMemberOrder = memberOrder;
+
+  if (!isAlreadySuccess) {
+    // 1. Calculate updated team members string
+    const existingList = (booking.teamMembers || booking.bookerName || '')
+      .split(/[,&]|\band\b/i)
+      .map((m: string) => m.trim())
+      .filter(Boolean);
+
+    const newMemberName = memberOrder.memberName.trim();
+    if (!existingList.some((m: string) => m.toLowerCase() === newMemberName.toLowerCase())) {
+      existingList.push(newMemberName);
+    }
+    const updatedTeamMembers = existingList.join(', ');
+
+    // 2. Update member order record
+    if (hasPrisma) {
+      try {
+        updatedMemberOrder = await (prisma as any).stallMember.update({
+          where: { id: memberOrder.id },
+          data: {
+            paymentStatus: 'success',
+            razorpayPaymentId: params.razorpayPaymentId,
+            razorpaySignature: params.razorpaySignature || 'CONFIRMED',
+            updatedAt: now,
+          },
+        });
+
+        // 3. Update booking in DB
+        updatedBooking = await prisma.booking.update({
+          where: { id: booking.id },
+          data: {
+            teamMembers: updatedTeamMembers,
+          },
+        });
+      } catch (e) {
+        console.warn('Prisma error updating completeStallMemberPayment', e);
+      }
+    }
+
+    const store = loadFallbackStore();
+    if (store.stallMembers) {
+      const idx = store.stallMembers.findIndex((m) => m.id === memberOrder.id);
+      if (idx !== -1) {
+        store.stallMembers[idx] = {
+          ...store.stallMembers[idx],
+          paymentStatus: 'success',
+          razorpayPaymentId: params.razorpayPaymentId,
+          razorpaySignature: params.razorpaySignature || 'CONFIRMED',
+          updatedAt: now.toISOString(),
+        };
+        updatedMemberOrder = store.stallMembers[idx];
+      }
+    }
+
+    const bIdx = store.bookings.findIndex((b) => b.id === booking.id);
+    if (bIdx !== -1) {
+      store.bookings[bIdx].teamMembers = updatedTeamMembers;
+      updatedBooking = store.bookings[bIdx];
+    }
+    saveFallbackStore(store);
+
+    return {
+      success: true,
+      booking: updatedBooking,
+      stallMember: updatedMemberOrder,
+      isNewlyConfirmed: true,
+    };
+  }
+
+  return {
+    success: true,
+    booking: updatedBooking,
+    stallMember: updatedMemberOrder,
+    isNewlyConfirmed: false,
+  };
 }
 
 export async function getCarouselImages() {

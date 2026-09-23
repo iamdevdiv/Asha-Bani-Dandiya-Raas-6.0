@@ -210,4 +210,21 @@ model AmbassadorTier {
   updatedAt           DateTime @updatedAt
 }
 
+model StallMember {
+  id                String    @id @default(cuid())
+  bookingId         String
+  bookingNumber     String
+  stallNumber       String
+  memberName        String
+  amount            Int
+  phaseId           String?
+  phaseName         String?
+  razorpayOrderId   String?
+  razorpayPaymentId String?
+  razorpaySignature String?
+  paymentStatus     String    @default("pending") // pending, success, failed
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
 

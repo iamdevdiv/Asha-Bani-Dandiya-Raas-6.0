@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBookingById } from '@/lib/db';
+import { getBookingById, getStallMembersByBookingId, getCurrentActivePhase } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,29 @@ export async function GET(
       return NextResponse.json({ success: false, message: 'Booking not found.' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, booking });
+    const [additionalMembers, currentPhase] = await Promise.all([
+      getStallMembersByBookingId(booking.id),
+      getCurrentActivePhase(),
+    ]);
+
+    return NextResponse.json({
+      success: true,
+      booking,
+      additionalMembers,
+      currentPhase: currentPhase
+        ? {
+            id: currentPhase.id,
+            name: currentPhase.name,
+            adultPrice: currentPhase.adultPrice || 499,
+            phaseNumber: currentPhase.phaseNumber || 1,
+          }
+        : {
+            id: 'phase_1',
+            name: 'Phase 1 - Early Bird',
+            adultPrice: 499,
+            phaseNumber: 1,
+          },
+    });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, message: error.message || 'Failed to fetch booking details.' },
@@ -23,3 +45,4 @@ export async function GET(
     );
   }
 }
+

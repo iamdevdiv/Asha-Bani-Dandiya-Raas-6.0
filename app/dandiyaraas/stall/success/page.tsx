@@ -230,7 +230,16 @@ function SuccessContent() {
       </Box>
 
       {/* Navigation Buttons */}
-      <Group justify="center" gap="md" mt="xl">
+      <Group justify="center" gap="md" mt="xl" wrap="wrap">
+        <Button
+          component={Link}
+          href={`/dandiyaraas/stall/pass/${booking.id}`}
+          variant="filled"
+          className="btn-auspicious-gold"
+          leftSection={<IconCircleCheck size={18} />}
+        >
+          Manage Team &amp; View Pass
+        </Button>
         <Button
           component={Link}
           href="/dandiyaraas"

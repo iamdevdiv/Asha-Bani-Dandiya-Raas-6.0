@@ -540,7 +540,16 @@ export default function VerifierScanPage() {
                               </Group>
                               <Group justify="space-between">
                                 <Text size="xs" c="gray.3">ALLOTTED PASSES:</Text>
-                                <Text size="xs" fw={700} c="green.3">2 Team Members</Text>
+                                <Text size="xs" fw={700} c="green.3">
+                                  {(() => {
+                                    const list = (scanResult.booking?.teamMembers || '')
+                                      .split(/[,&]|\band\b/i)
+                                      .map((m: string) => m.trim())
+                                      .filter(Boolean);
+                                    const count = list.length || 2;
+                                    return `${count} Team Member${count === 1 ? '' : 's'}`;
+                                  })()}
+                                </Text>
                               </Group>
                               <Group justify="space-between">
                                 <Text size="xs" c="gray.3">TEAM MEMBERS:</Text>
@@ -672,7 +681,20 @@ export default function VerifierScanPage() {
                             </Group>
                             <Group justify="space-between">
                               <Text size="xs" c="gray.3">ALLOTTED PASSES:</Text>
-                              <Text size="xs" fw={700} c="green.3">2 Team Members</Text>
+                              <Text size="xs" fw={700} c="green.3">
+                                {(() => {
+                                  const list = (scanResult.booking?.teamMembers || '')
+                                    .split(/[,&]|\band\b/i)
+                                    .map((m: string) => m.trim())
+                                    .filter(Boolean);
+                                  const count = list.length || 2;
+                                  return `${count} Team Member${count === 1 ? '' : 's'}`;
+                                })()}
+                              </Text>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.3">TEAM MEMBERS:</Text>
+                              <Text size="xs" c="white">{scanResult.booking?.teamMembers || scanResult.booking?.bookerName}</Text>
                             </Group>
                             <Divider my={4} color="rgba(255,255,255,0.1)" />
                             <Group justify="space-between">

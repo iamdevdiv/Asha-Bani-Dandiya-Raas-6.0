@@ -293,6 +293,70 @@ export async function sendStallBookingSms(booking: {
 }
 
 /**
+ * Send stall owner confirmation SMS when a new team member is added
+ */
+export async function sendStallMemberAddedSms(params: {
+  booking: {
+    id: string;
+    bookerName: string;
+    brandName?: string;
+    stallNumber: string;
+    mobile: string;
+    bookingNumber: string;
+    teamMembers?: string;
+  };
+  memberName: string;
+  amount: number | string;
+}) {
+  const { booking, memberName, amount } = params;
+  console.log('[TextBee SMS DEBUG] Triggering Stall Member Added SMS for booking:', booking.bookingNumber, 'Mobile:', booking.mobile);
+
+  if (!booking.mobile) {
+    console.warn('[TextBee SMS DEBUG] ❌ No mobile number found for stall booking:', booking.bookingNumber);
+    return;
+  }
+
+  const baseUrl = getEnvValue('NEXT_PUBLIC_BASE_URL') || 'https://ashabani.com';
+  const stallPassUrl = `${baseUrl}/dandiyaraas/stall/pass/${booking.id}`;
+  const formattedPrice = typeof amount === 'number' ? amount.toLocaleString('en-IN') : String(amount);
+
+  const settings = await getSettings();
+  const templates = await getMessageTemplates();
+  const templateStr = templates.template_stall_member_sms || DEFAULT_TEMPLATES.template_stall_member_sms?.defaultText || '';
+
+  const eventDate = settings.event_date || '13 October 2026';
+  const venue = `${settings.venue_name || 'Maharaja Agrasen Bhavan'}, ${settings.venue_address || 'Aggarwal Dharamshala, Saharanpur'}`;
+
+  const message = renderMessageTemplate(templateStr, {
+    name: booking.bookerName.trim(),
+    booker_name: booking.bookerName.trim(),
+    member_name: memberName.trim(),
+    memberName: memberName.trim(),
+    brand_or_name: (booking.brandName || booking.bookerName).trim().toUpperCase(),
+    brand_name: booking.brandName || booking.bookerName,
+    stall_number: booking.stallNumber,
+    stall_no: booking.stallNumber,
+    price: formattedPrice,
+    amount: formattedPrice,
+    team_members: booking.teamMembers || memberName,
+    booking_id: booking.bookingNumber,
+    booking_number: booking.bookingNumber,
+    event_date: eventDate,
+    venue,
+    pass_link: stallPassUrl,
+    booking_link: stallPassUrl,
+    helpline: '+91 6399063455',
+  });
+
+  const res = await sendTextBeeSms({
+    recipients: [booking.mobile],
+    message,
+  });
+
+  return res;
+}
+
+/**
  * Send ambassador milestone & tier unlocked confirmation SMS with pass details
  */
 export async function sendAmbassadorTierUnlockedSms(params: {

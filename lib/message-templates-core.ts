@@ -96,6 +96,45 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
     },
   },
 
+  template_stall_member_sms: {
+    key: 'template_stall_member_sms',
+    title: 'Stall Team Member Added Confirmation SMS',
+    category: 'sms',
+    channel: 'SMS',
+    description: 'Dispatched via TextBee to the stall booker when an additional team member pass is purchased.',
+    defaultText:
+      `Namaste {{name}}!\n\n` +
+      `{{member_name}} has been successfully added to your exhibitor team for Stall {{stall_number}}!\n\n` +
+      `Booking ID: {{booking_id}}\n` +
+      `Amount Paid: Rs. {{price}}\n` +
+      `Updated Team: {{team_members}}\n` +
+      `Date: {{event_date}}\n` +
+      `Venue: {{venue}}\n\n` +
+      `Download Your Updated Pass:\n{{pass_link}}`,
+    availableTokens: [
+      { token: '{{name}}', label: 'Booker Full Name', example: 'Ankit Sharma' },
+      { token: '{{member_name}}', label: 'Added Member Name', example: 'Vikas Sharma' },
+      { token: '{{stall_number}}', label: 'Stall Number', example: 'Stall 4' },
+      { token: '{{booking_id}}', label: 'Booking Number', example: 'STALL-2026-004' },
+      { token: '{{price}}', label: 'Amount Paid for Pass', example: '499' },
+      { token: '{{team_members}}', label: 'All Updated Team Members', example: 'Ankit Sharma, Priya Sharma, Vikas Sharma' },
+      { token: '{{event_date}}', label: 'Event Date', example: '13 October 2026' },
+      { token: '{{venue}}', label: 'Venue Address', example: 'Maharaja Agrasen Bhavan, Saharanpur' },
+      { token: '{{pass_link}}', label: 'Exhibitor Pass URL', example: 'https://ashabani.com/dandiyaraas/stall/pass/sample' },
+    ],
+    samplePreviewData: {
+      name: 'Ankit Sharma',
+      member_name: 'Vikas Sharma',
+      stall_number: 'Stall 4',
+      booking_id: 'STALL-2026-004',
+      price: '499',
+      team_members: 'Ankit Sharma, Priya Sharma, Vikas Sharma',
+      event_date: '13 October 2026',
+      venue: 'Maharaja Agrasen Bhavan, Saharanpur',
+      pass_link: 'https://ashabani.com/dandiyaraas/stall/pass/sample',
+    },
+  },
+
   template_ambassador_common_sms: {
     key: 'template_ambassador_common_sms',
     title: 'Ambassador Milestone Unlocked SMS (Unified)',

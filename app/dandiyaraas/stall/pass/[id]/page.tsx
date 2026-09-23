@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
+import Script from 'next/script';
 import {
   Container,
   Box,
@@ -15,7 +16,11 @@ import {
   Loader,
   ThemeIcon,
   SimpleGrid,
+  Modal,
+  TextInput,
+  Divider,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
   IconCircleCheck,
   IconPhoneCall,
@@ -24,6 +29,10 @@ import {
   IconMapPin,
   IconCalendarEvent,
   IconClock,
+  IconUsers,
+  IconUserPlus,
+  IconUserCheck,
+  IconCreditCard,
 } from '@tabler/icons-react';
 import { Navbar } from '@/components/Navbar';
 import { Footer } from '@/components/Footer';
@@ -33,7 +42,15 @@ import { StallVoucherLiveFeed } from '@/components/StallVoucherLiveFeed';
 export default function StallPassPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [booking, setBooking] = useState<any>(null);
+  const [additionalMembers, setAdditionalMembers] = useState<any[]>([]);
+  const [currentPhase, setCurrentPhase] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Add Member Modal & Form State
+  const [addMemberModalOpen, setAddMemberModalOpen] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [submittingMember, setSubmittingMember] = useState(false);
 
   useEffect(() => {
     if (!id) {
@@ -47,6 +64,8 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
         const data = await res.json();
         if (data.success) {
           setBooking(data.booking);
+          if (data.additionalMembers) setAdditionalMembers(data.additionalMembers);
+          if (data.currentPhase) setCurrentPhase(data.currentPhase);
         }
       } catch (err) {
         console.error('Error fetching stall pass:', err);
@@ -58,8 +77,160 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
     fetchBooking();
   }, [id]);
 
+  const teamList = booking?.teamMembers
+    ? booking.teamMembers
+        .split(/[,&]|\band\b/i)
+        .map((m: string) => m.trim())
+        .filter(Boolean)
+    : (booking?.bookerName ? [booking.bookerName] : []);
+
+  const handleAddMemberPayment = async () => {
+    const cleanName = newMemberName.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setNameError('Please enter a valid full name (minimum 2 characters).');
+      return;
+    }
+
+    setSubmittingMember(true);
+    setNameError('');
+
+    try {
+      // 1. Create Razorpay order for additional member pass
+      const orderRes = await fetch(`/api/stalls/booking/${id}/add-member/create-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ memberName: cleanName }),
+      });
+
+      const orderData = await orderRes.json();
+      if (!orderData.success) {
+        throw new Error(orderData.message || 'Failed to create payment order.');
+      }
+
+      // 2. Open Razorpay Checkout modal
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount * 100,
+        currency: orderData.currency || 'INR',
+        name: 'Asha Bani Dandiya Raas 6.0',
+        description: `Additional Pass for ${orderData.memberName} (Stall ${booking.stallNumber})`,
+        order_id: orderData.orderId,
+        prefill: {
+          name: cleanName,
+          contact: booking.mobile,
+          email: booking.email,
+        },
+        theme: {
+          color: '#991b1b',
+        },
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch(`/api/stalls/booking/${id}/add-member/verify`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                memberOrderId: orderData.memberOrderId,
+                razorpayOrderId: response.razorpay_order_id || orderData.orderId,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            });
+
+            const verifyData = await verifyRes.json();
+            if (verifyData.success) {
+              notifications.show({
+                title: 'Team Member Added!',
+                message: `${orderData.memberName} has been added to your stall team. SMS confirmation dispatched!`,
+                color: 'green',
+              });
+              setBooking(verifyData.booking);
+              if (verifyData.additionalMembers) {
+                setAdditionalMembers(verifyData.additionalMembers);
+              }
+              setAddMemberModalOpen(false);
+              setNewMemberName('');
+            } else {
+              throw new Error(verifyData.message || 'Payment verification failed.');
+            }
+          } catch (err: any) {
+            notifications.show({
+              title: 'Verification Failed',
+              message: err.message || 'Could not verify payment. Please contact organizers.',
+              color: 'red',
+            });
+          } finally {
+            setSubmittingMember(false);
+          }
+        },
+        modal: {
+          confirm_close: true,
+          ondismiss: function () {
+            notifications.show({
+              title: 'Payment Cancelled',
+              message: 'Payment window was closed before completion.',
+              color: 'yellow',
+            });
+            setSubmittingMember(false);
+          },
+        },
+      };
+
+      if (typeof window !== 'undefined' && (window as any).Razorpay) {
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (resp: any) {
+          notifications.show({
+            title: 'Payment Failed',
+            message: resp.error?.description || 'Payment was unsuccessful. Please try again.',
+            color: 'red',
+          });
+          setSubmittingMember(false);
+        });
+        rzp.open();
+      } else if (orderData.isMock) {
+        // Fallback simulation for mock mode in development
+        const verifyRes = await fetch(`/api/stalls/booking/${id}/add-member/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            memberOrderId: orderData.memberOrderId,
+            razorpayOrderId: orderData.orderId,
+            razorpayPaymentId: `mock_pay_${Date.now()}`,
+            razorpaySignature: 'mock_signature',
+          }),
+        });
+
+        const verifyData = await verifyRes.json();
+        if (verifyData.success) {
+          notifications.show({
+            title: 'Team Member Added (Test Mode)!',
+            message: `${orderData.memberName} has been added to your stall team.`,
+            color: 'green',
+          });
+          setBooking(verifyData.booking);
+          if (verifyData.additionalMembers) {
+            setAdditionalMembers(verifyData.additionalMembers);
+          }
+          setAddMemberModalOpen(false);
+          setNewMemberName('');
+        }
+        setSubmittingMember(false);
+      } else {
+        throw new Error('Payment gateway is loading. Please try again in a few moments.');
+      }
+    } catch (err: any) {
+      console.error('Member addition checkout error:', err);
+      notifications.show({
+        title: 'Order Error',
+        message: err.message || 'Failed to start member checkout. Please try again.',
+        color: 'red',
+      });
+      setSubmittingMember(false);
+    }
+  };
+
   return (
     <Box className="festive-background">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       <Navbar />
       {loading ? (
         <Container size="md" px={{ base: 'md', sm: 'xl' }} py={100} style={{ textAlign: 'center' }}>
@@ -110,8 +281,93 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
               <ExhibitorPassCard booking={booking} showDownloadButton={true} />
             </Box>
 
-            {/* Right Column: Venue, Setup Logistics & Helpline Assistance */}
+            {/* Right Column: Team Management, Venue & Logistics */}
             <Stack gap="md">
+              {/* Team Members & Additional Passes Management Card */}
+              <Paper
+                p={{ base: 'md', sm: 'xl' }}
+                radius="xl"
+                style={{
+                  backgroundColor: 'rgba(36, 8, 14, 0.85)',
+                  border: '1.5px solid rgba(234, 179, 8, 0.45)',
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.5)',
+                }}
+              >
+                <Group justify="space-between" align="center" mb="md" wrap="wrap" gap="xs">
+                  <Group gap="xs">
+                    <ThemeIcon size={36} radius="md" color="yellow" variant="light">
+                      <IconUsers size={22} color="#facc15" />
+                    </ThemeIcon>
+                    <Box>
+                      <Title order={3} size="h4" c="white" style={{ fontFamily: "'Cinzel', serif" }}>
+                        Exhibitor Team &amp; Passes
+                      </Title>
+                      <Text size="xs" c="gray.3">
+                        Gate passes for your stall staff and assistants
+                      </Text>
+                    </Box>
+                  </Group>
+
+                  {currentPhase && (
+                    <Badge color="yellow" variant="outline" size="sm">
+                      {currentPhase.name}: ₹{currentPhase.adultPrice}/pass
+                    </Badge>
+                  )}
+                </Group>
+
+                {/* Team Members List */}
+                <Stack gap="xs" mb="md">
+                  <Text size="xs" fw={700} c="royalGold.3" style={{ letterSpacing: '0.05em' }}>
+                    REGISTERED ATTENDEES ({teamList.length} PASSES ACTIVE)
+                  </Text>
+                  {teamList.map((member: string, idx: number) => {
+                    const isExtra = idx >= 2;
+                    return (
+                      <Paper
+                        key={idx}
+                        p="xs"
+                        radius="md"
+                        style={{
+                          backgroundColor: isExtra ? 'rgba(234, 179, 8, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+                          border: isExtra ? '1px solid rgba(234, 179, 8, 0.35)' : '1px solid rgba(255, 255, 255, 0.08)',
+                        }}
+                      >
+                        <Group justify="space-between" align="center" wrap="nowrap">
+                          <Group gap="xs" wrap="nowrap">
+                            <ThemeIcon size={24} radius="50%" color={isExtra ? 'yellow' : 'green'} variant="light">
+                              <IconUserCheck size={14} />
+                            </ThemeIcon>
+                            <Text size="sm" fw={600} c="white" style={{ wordBreak: 'break-word' }}>
+                              {idx + 1}. {member}
+                            </Text>
+                          </Group>
+                          <Badge size="xs" color={isExtra ? 'yellow' : 'green'} variant="light">
+                            {isExtra ? 'Additional Paid Pass' : 'Included Allotment'}
+                          </Badge>
+                        </Group>
+                      </Paper>
+                    );
+                  })}
+                </Stack>
+
+                {/* Add Member Button */}
+                <Button
+                  onClick={() => {
+                    setNameError('');
+                    setAddMemberModalOpen(true);
+                  }}
+                  className="btn-auspicious-gold"
+                  fullWidth
+                  size="md"
+                  leftSection={<IconUserPlus size={18} />}
+                >
+                  + Add Team Member (₹{currentPhase?.adultPrice || 499})
+                </Button>
+                <Text size="xs" c="gray.4" ta="center" mt={6} style={{ fontSize: '0.74rem' }}>
+                  Extra members receive official gate entry passes and are verified automatically on QR scan.
+                </Text>
+              </Paper>
+
               {/* Logistics & Timing Card */}
               <Paper
                 p={{ base: 'md', sm: 'xl' }}
@@ -168,10 +424,10 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
                 </Title>
                 <Stack gap="xs">
                   <Text size="xs" c="gray.2" style={{ lineHeight: 1.6 }}>
-                    • <strong>Entry Passes:</strong> Strictly 2 official exhibitor passes are included with this allotment.
+                    • <strong>Entry Passes:</strong> 2 official exhibitor passes are included with this allotment. Additional team members can be added anytime above at the active ticket phase price.
                   </Text>
                   <Text size="xs" c="gray.2" style={{ lineHeight: 1.6 }}>
-                    • <strong>Verification at Gate:</strong> Keep your digital QR pass ready on your mobile or printout. Gate verifiers will scan this QR at entry.
+                    • <strong>Verification at Gate:</strong> Keep your digital QR pass ready on your mobile or printout. Gate verifiers will scan this QR at entry and all registered members will be verified.
                   </Text>
                   <Text size="xs" c="gray.2" style={{ lineHeight: 1.6 }}>
                     • <strong>Non-Transferable:</strong> Each pass is digitally serialized and can be scanned for verification once at the entry gate.
@@ -244,7 +500,108 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
           </Group>
         </Container>
       )}
+
+      {/* Add New Team Member Modal */}
+      {booking && (
+        <Modal
+          opened={addMemberModalOpen}
+          onClose={() => {
+            if (!submittingMember) {
+              setAddMemberModalOpen(false);
+              setNewMemberName('');
+              setNameError('');
+            }
+          }}
+          title={
+            <Text fw={800} c="white" style={{ fontFamily: "'Cinzel', serif", fontSize: '1.2rem' }}>
+              Add Team Member • Stall {booking.stallNumber}
+            </Text>
+          }
+          centered
+          styles={{
+            content: {
+              backgroundColor: '#1b0407',
+              border: '2px solid rgba(234, 179, 8, 0.4)',
+              borderRadius: '20px',
+              color: '#fff',
+            },
+            header: {
+              backgroundColor: '#1b0407',
+              borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
+            },
+          }}
+        >
+          <Stack gap="md">
+            <Paper
+              p="sm"
+              radius="md"
+              style={{
+                backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                border: '1px solid rgba(234, 179, 8, 0.25)',
+              }}
+            >
+              <Group justify="space-between">
+                <Text size="xs" c="gray.3">STALL NUMBER:</Text>
+                <Text size="sm" fw={800} c="yellow.3">Stall {booking.stallNumber}</Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="xs" c="gray.3">BRAND / BUSINESS:</Text>
+                <Text size="sm" fw={700} c="white">{booking.brandName || booking.bookerName}</Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="xs" c="gray.3">CURRENT PHASE TICKET PRICE:</Text>
+                <Text size="sm" fw={800} c="yellow.2">
+                  ₹{currentPhase?.adultPrice || 499} ({currentPhase?.name || 'Active Phase'})
+                </Text>
+              </Group>
+            </Paper>
+
+            <TextInput
+              label={<Text size="sm" fw={700} c="royalGold.3">Member Full Name</Text>}
+              placeholder="e.g. Rahul Verma"
+              value={newMemberName}
+              onChange={(e) => {
+                setNewMemberName(e.currentTarget.value);
+                if (nameError) setNameError('');
+              }}
+              error={nameError}
+              required
+              size="md"
+              styles={{
+                input: {
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  color: '#fff',
+                  borderColor: 'rgba(234, 179, 8, 0.4)',
+                },
+              }}
+            />
+
+            <Paper p="xs" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.04)' }}>
+              <Text size="xs" c="gray.3" style={{ lineHeight: 1.5 }}>
+                • Amount payable: <strong>₹{currentPhase?.adultPrice || 499}</strong> via Razorpay.
+                <br />
+                • The new member will receive official gate access linked to your stall pass.
+                <br />
+                • A confirmation SMS will be sent automatically to <strong>+91 {booking.mobile}</strong>.
+              </Text>
+            </Paper>
+
+            <Button
+              onClick={handleAddMemberPayment}
+              loading={submittingMember}
+              size="md"
+              className="btn-auspicious-gold"
+              leftSection={<IconCreditCard size={18} />}
+              fullWidth
+            >
+              Pay ₹{currentPhase?.adultPrice || 499} &amp; Add Member
+            </Button>
+          </Stack>
+        </Modal>
+      )}
+
       <Footer />
     </Box>
   );
 }
+

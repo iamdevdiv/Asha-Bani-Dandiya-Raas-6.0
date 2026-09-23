@@ -221,19 +221,18 @@ export function ExhibitorPassCard({ booking, showDownloadButton = true }: Exhibi
               </Box>
             </SimpleGrid>
 
-            {/* Team Members Section (2 Members) */}
+            {/* Team Members Section */}
             <Box mt="xs" pt="xs" style={{ borderTop: '1px solid rgba(234, 179, 8, 0.15)' }}>
-              <Text size="xs" c="royalGold.4" fw={700} mb={3} style={{ letterSpacing: '0.05em' }}>
-                ALLOTTED TEAM MEMBERS (2 PASSES)
+              <Text size="xs" c="royalGold.4" fw={700} mb={4} style={{ letterSpacing: '0.05em' }}>
+                ALLOTTED TEAM MEMBERS ({teamList.length} {teamList.length === 1 ? 'PASS' : 'PASSES'})
               </Text>
-              <Group justify="space-between" wrap="nowrap">
-                <Text size="xs" c="gray.2" fw={600}>
-                  1. {member1}
-                </Text>
-                <Text size="xs" c="gray.2" fw={600}>
-                  2. {member2}
-                </Text>
-              </Group>
+              <SimpleGrid cols={teamList.length > 2 ? 2 : (teamList.length === 1 ? 1 : 2)} spacing={6}>
+                {teamList.map((member, idx) => (
+                  <Text key={idx} size="xs" c="gray.2" fw={600} style={{ wordBreak: 'break-word', lineHeight: 1.35 }}>
+                    {idx + 1}. {member}
+                  </Text>
+                ))}
+              </SimpleGrid>
             </Box>
           </Box>
 

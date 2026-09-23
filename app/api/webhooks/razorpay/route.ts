@@ -10,11 +10,13 @@ import {
   markStallBooked,
   getSettings,
   claimStallBookingForConfirmation,
+  getStallMemberByOrderId,
+  completeStallMemberPayment,
 } from '@/lib/db';
 import { verifyRazorpayWebhookSignature } from '@/lib/razorpay';
 import { generateStallQrCode } from '@/lib/qr-service';
 import { generateBookingConfirmationPackage } from '@/lib/docx-pdf-service';
-import { sendTicketBookingSms, sendStallBookingSms } from '@/lib/sms';
+import { sendTicketBookingSms, sendStallBookingSms, sendStallMemberAddedSms } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
@@ -66,6 +68,48 @@ export async function POST(req: NextRequest) {
       }
 
       console.log(`[Razorpay Webhook] Processing event for orderId="${orderId}", receipt="${receipt}", paymentId="${paymentId}"`);
+
+      // -----------------------------------------------------------------------
+      // 0. Check Stall Additional Team Member Purchases
+      // -----------------------------------------------------------------------
+      const isMemberOrder =
+        orderEntity?.notes?.type === 'stall_add_member' ||
+        receipt.startsWith('ABDR-MBR-') ||
+        receipt.startsWith('ABDR-MEMBER-');
+
+      let stallMemberOrder: any = null;
+      if (orderId) {
+        stallMemberOrder = await getStallMemberByOrderId(orderId);
+      }
+
+      if (isMemberOrder || stallMemberOrder) {
+        console.log(`[Razorpay Webhook] Processing Stall Team Member addition for orderId="${orderId}"`);
+        const result = await completeStallMemberPayment({
+          memberOrderId: stallMemberOrder?.id,
+          orderId,
+          razorpayPaymentId: paymentId,
+          razorpaySignature: signature || 'WEBHOOK_VERIFIED',
+        });
+
+        if (result.isNewlyConfirmed && result.booking && result.stallMember) {
+          sendStallMemberAddedSms({
+            booking: result.booking,
+            memberName: result.stallMember.memberName,
+            amount: result.stallMember.amount,
+          }).catch((smsErr) => {
+            console.error('[Razorpay Webhook SMS Error] Stall member addition:', smsErr);
+          });
+        }
+
+        console.log(`[Razorpay Webhook] ✅ Successfully confirmed StallMember addition for Stall ${result.booking.stallNumber} via Webhook!`);
+        return NextResponse.json({
+          success: true,
+          type: 'stall_member',
+          status: 'confirmed',
+          stallNumber: result.booking.stallNumber,
+          memberName: result.stallMember.memberName,
+        });
+      }
 
       // -----------------------------------------------------------------------
       // 1. Check Customer Ticket Bookings
