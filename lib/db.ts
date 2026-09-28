@@ -1007,7 +1007,21 @@ export async function completeStallMemberPayment(params: {
     }
     const updatedTeamMembers = existingList.join(', ');
 
-    // 2. Update all member order records in DB / store
+    // 1. Update Booking.teamMembers in Prisma (Primary)
+    if (hasPrisma) {
+      try {
+        updatedBooking = await prisma.booking.update({
+          where: { id: booking.id },
+          data: {
+            teamMembers: updatedTeamMembers,
+          },
+        });
+      } catch (e) {
+        console.error('Prisma error updating Booking.teamMembers in completeStallMemberPayment:', e);
+      }
+    }
+
+    // 2. Update all member order records in DB
     if (hasPrisma) {
       try {
         for (const m of pendingOrders) {
@@ -1022,15 +1036,8 @@ export async function completeStallMemberPayment(params: {
           });
           updatedOrders.push(up);
         }
-
-        updatedBooking = await prisma.booking.update({
-          where: { id: booking.id },
-          data: {
-            teamMembers: updatedTeamMembers,
-          },
-        });
       } catch (e) {
-        console.warn('Prisma error updating completeStallMemberPayment', e);
+        console.warn('Prisma error updating stallMember records in completeStallMemberPayment:', e);
       }
     }
 
@@ -1059,6 +1066,14 @@ export async function completeStallMemberPayment(params: {
       updatedBooking = store.bookings[bIdx];
     }
     saveFallbackStore(store);
+
+    if (!updatedBooking || updatedBooking.teamMembers !== updatedTeamMembers) {
+      updatedBooking = {
+        ...booking,
+        ...updatedBooking,
+        teamMembers: updatedTeamMembers,
+      };
+    }
 
     return {
       success: true,
