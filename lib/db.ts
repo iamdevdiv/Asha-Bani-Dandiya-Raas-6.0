@@ -332,16 +332,85 @@ export async function getStalls() {
           });
         }
       }
-      const stalls = await prisma.stall.findMany({
-        orderBy: { stallNumber: 'asc' },
+      const [stalls, bookings, stallMembers] = await Promise.all([
+        prisma.stall.findMany({
+          orderBy: { stallNumber: 'asc' },
+        }),
+        prisma.booking.findMany({
+          where: { paymentStatus: 'success' },
+          select: {
+            id: true,
+            bookingNumber: true,
+            stallNumber: true,
+            bookerName: true,
+            brandName: true,
+            teamMembers: true,
+          },
+        }),
+        (prisma as any).stallMember
+          ? (prisma as any).stallMember.findMany({
+              where: { paymentStatus: 'success' },
+              select: {
+                bookingId: true,
+                bookingNumber: true,
+                stallNumber: true,
+                memberName: true,
+                amount: true,
+              },
+            }).catch(() => [])
+          : [],
+      ]);
+
+      const bookingsByStallNo: { [key: string]: any } = {};
+      for (const b of bookings) {
+        const key = (b.stallNumber || '').trim().toUpperCase();
+        if (key) bookingsByStallNo[key] = b;
+      }
+
+      const extraMembersByStallNo: { [key: string]: any[] } = {};
+      for (const sm of stallMembers || []) {
+        const key = (sm.stallNumber || '').trim().toUpperCase();
+        if (key) {
+          if (!extraMembersByStallNo[key]) extraMembersByStallNo[key] = [];
+          extraMembersByStallNo[key].push(sm);
+        }
+      }
+
+      return stalls.map((s) => {
+        const key = (s.stallNumber || '').trim().toUpperCase();
+        const b = bookingsByStallNo[key];
+        const extras = extraMembersByStallNo[key] || [];
+        const extraMembersAmount = extras.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+        const teamMembers = b?.teamMembers || s.bookedByName || null;
+
+        return {
+          ...s,
+          teamMembers,
+          extraMembers: extras,
+          extraMembersCount: extras.length,
+          extraMembersAmount,
+        };
       });
-      return stalls;
     } catch (e) {
       console.warn('Prisma error in getStalls, fallback to local store', e);
     }
   }
   const store = loadFallbackStore();
-  return store.stalls;
+  const allStallMembers = store.stallMembers?.filter((m) => m.paymentStatus === 'success') || [];
+  return store.stalls.map((s) => {
+    const key = (s.stallNumber || '').trim().toUpperCase();
+    const b = store.bookings.find((bk) => (bk.stallNumber || '').trim().toUpperCase() === key && bk.paymentStatus === 'success');
+    const extras = allStallMembers.filter((m) => (m.stallNumber || '').trim().toUpperCase() === key);
+    const extraMembersAmount = extras.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+    const teamMembers = b?.teamMembers || s.bookedByName || null;
+    return {
+      ...s,
+      teamMembers,
+      extraMembers: extras,
+      extraMembersCount: extras.length,
+      extraMembersAmount,
+    };
+  });
 }
 
 export async function getStallByNumber(stallNumber: string) {
@@ -665,15 +734,58 @@ export async function getAllBookings() {
   const hasPrisma = await checkPrisma();
   if (hasPrisma) {
     try {
-      return await prisma.booking.findMany({
-        orderBy: { createdAt: 'desc' },
+      const [bookings, stallMembers] = await Promise.all([
+        prisma.booking.findMany({
+          orderBy: { createdAt: 'desc' },
+        }),
+        (prisma as any).stallMember
+          ? (prisma as any).stallMember.findMany({
+              where: { paymentStatus: 'success' },
+              orderBy: { createdAt: 'asc' },
+            }).catch(() => [])
+          : [],
+      ]);
+
+      const membersByBookingKey: { [key: string]: any[] } = {};
+      for (const sm of stallMembers || []) {
+        if (sm.bookingId) {
+          if (!membersByBookingKey[sm.bookingId]) membersByBookingKey[sm.bookingId] = [];
+          membersByBookingKey[sm.bookingId].push(sm);
+        }
+        if (sm.bookingNumber && sm.bookingNumber !== sm.bookingId) {
+          if (!membersByBookingKey[sm.bookingNumber]) membersByBookingKey[sm.bookingNumber] = [];
+          membersByBookingKey[sm.bookingNumber].push(sm);
+        }
+      }
+
+      return bookings.map((b) => {
+        const extraMembers = membersByBookingKey[b.id] || membersByBookingKey[b.bookingNumber] || [];
+        const extraMembersAmount = extraMembers.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+        return {
+          ...b,
+          extraMembers,
+          extraMembersCount: extraMembers.length,
+          extraMembersAmount,
+          totalAmount: (Number(b.amount) || 0) + extraMembersAmount,
+        };
       });
     } catch (e) {
       console.warn('Prisma error in getAllBookings', e);
     }
   }
   const store = loadFallbackStore();
-  return [...store.bookings].reverse();
+  const allStallMembers = store.stallMembers?.filter((m) => m.paymentStatus === 'success') || [];
+  return [...store.bookings].reverse().map((b) => {
+    const extraMembers = allStallMembers.filter((m) => m.bookingId === b.id || m.bookingNumber === b.bookingNumber);
+    const extraMembersAmount = extraMembers.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
+    return {
+      ...b,
+      extraMembers,
+      extraMembersCount: extraMembers.length,
+      extraMembersAmount,
+      totalAmount: (Number(b.amount) || 0) + extraMembersAmount,
+    };
+  });
 }
 
 /**
@@ -988,7 +1100,7 @@ export async function completeStallMemberPayment(params: {
     throw new Error('Associated stall booking not found.');
   }
 
-  let updatedBooking = booking;
+  let updatedBooking: any = booking;
   const updatedOrders: any[] = [];
   const memberNames: string[] = memberOrders.map((m) => m.memberName.trim());
   const totalAmount = memberOrders.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
@@ -1067,12 +1179,8 @@ export async function completeStallMemberPayment(params: {
     }
     saveFallbackStore(store);
 
-    if (!updatedBooking || updatedBooking.teamMembers !== updatedTeamMembers) {
-      updatedBooking = {
-        ...booking,
-        ...updatedBooking,
-        teamMembers: updatedTeamMembers,
-      };
+    if (updatedBooking) {
+      updatedBooking.teamMembers = updatedTeamMembers;
     }
 
     return {

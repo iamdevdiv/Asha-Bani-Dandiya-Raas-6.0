@@ -407,8 +407,13 @@ export default function AdminBookingsPage() {
                     </Table.Td>
                     <Table.Td style={{ whiteSpace: 'nowrap' }}>
                       <Text size="sm" fw={800} c="white">
-                        ₹{b.amount?.toLocaleString('en-IN')}
+                        ₹{(b.totalAmount || b.amount)?.toLocaleString('en-IN')}
                       </Text>
+                      {b.extraMembersCount > 0 && (
+                        <Text size="xs" c="yellow.3" style={{ fontSize: '0.72rem' }}>
+                          +{b.extraMembersCount} extra member{b.extraMembersCount === 1 ? '' : 's'} (₹{b.extraMembersAmount?.toLocaleString('en-IN')})
+                        </Text>
+                      )}
                     </Table.Td>
                     <Table.Td style={{ whiteSpace: 'nowrap' }}>
                       <Badge
@@ -602,6 +607,20 @@ export default function AdminBookingsPage() {
                     <Group justify="space-between">
                       <Text size="xs" c="dimmed">Allotted Team Members:</Text>
                       <Text size="xs" fw={600} c="yellow.2">{selectedBooking.teamMembers}</Text>
+                    </Group>
+                    {selectedBooking.extraMembersCount > 0 && (
+                      <Group justify="space-between">
+                        <Text size="xs" c="dimmed">Extra Members Added:</Text>
+                        <Text size="xs" fw={700} c="yellow.3">
+                          {selectedBooking.extraMembersCount} extra member{selectedBooking.extraMembersCount === 1 ? '' : 's'} (+₹{selectedBooking.extraMembersAmount?.toLocaleString('en-IN')})
+                        </Text>
+                      </Group>
+                    )}
+                    <Group justify="space-between">
+                      <Text size="xs" c="dimmed">Total Amount:</Text>
+                      <Text size="sm" fw={800} c="white">
+                        ₹{(selectedBooking.totalAmount || selectedBooking.amount)?.toLocaleString('en-IN')}
+                      </Text>
                     </Group>
                     <Group justify="space-between">
                       <Text size="xs" c="dimmed">Payment ID:</Text>

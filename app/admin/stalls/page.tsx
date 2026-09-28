@@ -200,7 +200,7 @@ export default function AdminStallsPage() {
   const availableStalls = totalStalls - bookedStalls;
   const totalRevenue = stalls
     .filter((s) => s.isBooked)
-    .reduce((acc, s) => acc + (s.price || 0), 0);
+    .reduce((acc, s) => acc + (s.price || 0) + (s.extraMembersAmount || 0), 0);
 
   return (
     <Container size="xl" p={0}>
@@ -436,6 +436,44 @@ export default function AdminStallsPage() {
                       <Text size="xs" c="dimmed" mt={4}>
                         Booked on: {new Date(selectedStall.bookedAt).toLocaleString('en-IN')}
                       </Text>
+                    )}
+
+                    {/* All Registered Team Members */}
+                    {selectedStall.teamMembers && (
+                      <Box
+                        p="xs"
+                        mt="xs"
+                        style={{
+                          backgroundColor: 'rgba(234, 179, 8, 0.08)',
+                          borderRadius: 8,
+                          border: '1px solid rgba(234, 179, 8, 0.25)',
+                        }}
+                      >
+                        <Text size="xs" fw={700} c="royalGold.3" mb={6} style={{ letterSpacing: '0.04em' }}>
+                          ALL REGISTERED TEAM MEMBERS
+                        </Text>
+                        <Stack gap={4}>
+                          {selectedStall.teamMembers
+                            .split(/[,&]|\band\b/i)
+                            .map((m: string) => m.trim())
+                            .filter(Boolean)
+                            .map((member: string, idx: number) => {
+                              const isExtra = idx >= 2;
+                              return (
+                                <Group key={idx} justify="space-between" wrap="nowrap">
+                                  <Text size="xs" c="white" fw={600}>
+                                    {idx + 1}. {member}
+                                  </Text>
+                                  {isExtra && (
+                                    <Badge size="xs" color="yellow" variant="light">
+                                      Extra Member
+                                    </Badge>
+                                  )}
+                                </Group>
+                              );
+                            })}
+                        </Stack>
+                      </Box>
                     )}
                   </Stack>
                 </Box>

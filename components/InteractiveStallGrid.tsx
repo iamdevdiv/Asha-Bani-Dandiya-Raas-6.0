@@ -33,6 +33,10 @@ export interface StallItem {
   bookedByEmail?: string | null;
   bookedAt?: string | null;
   bookingId?: string | null;
+  teamMembers?: string | null;
+  extraMembers?: any[];
+  extraMembersCount?: number;
+  extraMembersAmount?: number;
 }
 
 interface InteractiveStallGridProps {
