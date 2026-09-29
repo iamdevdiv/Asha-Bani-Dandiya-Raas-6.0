@@ -311,7 +311,7 @@ export default function CustomerHomePage() {
                       </Text>
 
                       <Text size="sm" c="gray.3" ta="center">
-                        ₹{currentPhase?.adultPrice || 499} / Adult • ₹{currentPhase?.childPrice || 199} / Child (Under 55&quot;)
+                        ₹{currentPhase?.adultPrice || 499} / Lady • ₹{currentPhase?.childPrice || 199} / Child (Under 55&quot;)
                       </Text>
 
                       <Group gap={6} justify="center" wrap="wrap">
@@ -566,7 +566,7 @@ export default function CustomerHomePage() {
                     <Stack gap={8}>
                       <Group justify="space-between" align="baseline">
                         <Text size="sm" c="gray.3">
-                          Adult Pass (1 Attendee):
+                          Lady Pass (1 Attendee):
                         </Text>
                         <Text size="xl" fw={900} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
                           ₹{p.adultPrice}
@@ -620,7 +620,7 @@ export default function CustomerHomePage() {
                             <IconSparkles size={14} color="#facc15" />
                           </ThemeIcon>
                           <Text size="xs" fw={600} c="yellow.1" style={{ flex: 1 }}>
-                            <b>Free Dandiya Sticks</b> for each adult &amp; accompanying children
+                            <b>Free Dandiya Sticks</b> for each lady &amp; accompanying children
                           </Text>
                         </Group>
                       </Stack>
@@ -659,18 +659,18 @@ export default function CustomerHomePage() {
 
           {/* Child Height Advisory */}
           <Paper
-            p="md"
+            py={{ base: 'md', sm: 12 }}
+            px="md"
             radius="lg"
             mt="xl"
             style={{
               backgroundColor: 'rgba(234, 179, 8, 0.08)',
               border: '1px solid rgba(234, 179, 8, 0.25)',
-              textAlign: 'center',
             }}
           >
-            <Group justify="center" gap="xs" wrap="nowrap" align="flex-start">
-              <IconSparkles size={18} color="#facc15" className="icon-align-text" />
-              <Text size="xs" c="gray.3" style={{ flex: 1, textAlign: 'left' }}>
+            <Group className="child-policy-banner" justify="center" gap="xs" wrap="nowrap">
+              <IconSparkles size={18} color="#facc15" className="child-policy-icon" />
+              <Text size="xs" c="gray.3" style={{ flex: 1, textAlign: 'left', lineHeight: 1.45 }}>
                 <b>Child Policy:</b> Children strictly under <b>55 inches (4&apos;7&quot;)</b> in height qualify for child passes. Physical height measurement will be verified at the gate.
               </Text>
             </Group>
@@ -961,7 +961,7 @@ export default function CustomerHomePage() {
                   Free Dandiya Sticks
                 </Title>
                 <Text size="sm" c="gray.3" style={{ lineHeight: 1.6 }}>
-                  Free dandiya sticks will be given to each adult and accompanying children if any.
+                  Free dandiya sticks will be given to each lady and accompanying children if any.
                 </Text>
               </Box>
 

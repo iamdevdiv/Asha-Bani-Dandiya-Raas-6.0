@@ -456,8 +456,12 @@ export default function VerifierScanPage() {
                                 </Group>
                               )}
                               <Group justify="space-between">
-                                <Text size="xs" c="gray.3">ADULT PASSES:</Text>
-                                <Text size="xs" fw={700} c="green.3">1 Adult Pass</Text>
+                                <Text size="xs" c="gray.3">LADY PASSES:</Text>
+                                <Text size="xs" fw={700} c="green.3">
+                                  {scanResult.booking?.adultCount && scanResult.booking.adultCount > 1
+                                    ? `${scanResult.booking.adultCount} Lady Passes`
+                                    : '1 Lady Pass'}
+                                </Text>
                               </Group>
                               {scanResult.booking?.childrenCount > 0 && (
                                 <>
@@ -631,7 +635,7 @@ export default function VerifierScanPage() {
                             <Group justify="space-between">
                               <Text size="xs" c="gray.3">PASS TYPE:</Text>
                               <Text size="xs" c="white">
-                                1 Adult{scanResult.booking?.childrenCount > 0 ? ` + ${scanResult.booking.childrenCount} Child${scanResult.booking.childrenCount > 1 ? 'ren' : ''}` : ''} • {scanResult.booking?.phaseName || 'Entry Pass'}
+                                {(scanResult.booking?.adultCount && scanResult.booking.adultCount > 1) ? `${scanResult.booking.adultCount} Ladies` : '1 Lady'}{scanResult.booking?.childrenCount > 0 ? ` + ${scanResult.booking.childrenCount} Child${scanResult.booking.childrenCount > 1 ? 'ren' : ''}` : ''} • {scanResult.booking?.phaseName || 'Entry Pass'}
                               </Text>
                             </Group>
                             {scanResult.booking?.childrenCount > 0 && scanResult.booking?.childrenNames && (

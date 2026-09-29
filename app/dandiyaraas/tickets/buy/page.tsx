@@ -482,7 +482,7 @@ export default function TicketPurchasePage() {
               <Group gap="md">
                 <Box ta="right">
                   <Text size="xs" c="gray.4">
-                    Adult Entry Pass
+                    Lady Entry Pass
                   </Text>
                   <Text size="lg" fw={800} c="royalGold.3">
                     ₹{adultPrice}
@@ -787,7 +787,7 @@ export default function TicketPurchasePage() {
                 <Stack gap="xs">
                   <Group justify="space-between">
                     <Text size="sm" c="gray.4">
-                      Adult Pass (1 Attendee):
+                      Lady Pass (1 Attendee):
                     </Text>
                     <Text size="sm" fw={600} c="white">
                       ₹{adultPrice}

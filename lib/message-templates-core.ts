@@ -34,7 +34,7 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
     availableTokens: [
       { token: '{{name}}', label: 'Customer Full Name', example: 'Pooja Bajaj' },
       { token: '{{booking_id}}', label: 'Booking Number', example: 'TK-2026-5821' },
-      { token: '{{passes_text}}', label: 'Passes Count', example: '1 Adult + 1 Children' },
+      { token: '{{passes_text}}', label: 'Passes Count', example: '1 Lady + 1 Children' },
       { token: '{{price_line}}', label: 'Amount Paid Line', example: 'Amount Paid: Rs. 499\n' },
       { token: '{{voucher_line}}', label: 'Voucher Status Line', example: 'Included Voucher: Rs. 100\n' },
       { token: '{{voucher_amount}}', label: 'Voucher Amount Only', example: '100' },
@@ -46,7 +46,7 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
     samplePreviewData: {
       name: 'Pooja Bajaj',
       booking_id: 'TK-2026-5821',
-      passes_text: '1 Adult + 1 Children',
+      passes_text: '1 Lady + 1 Children',
       price_line: 'Amount Paid: Rs. 499\n',
       voucher_line: 'Included Voucher: Rs. 100\n',
       voucher_amount: '100',
@@ -382,7 +382,7 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
     availableTokens: [
       { token: '{{name}}', label: 'Customer Name', example: 'Pooja Bajaj' },
       { token: '{{booking_id}}', label: 'Booking ID', example: 'TK-2026-5821' },
-      { token: '{{passes_text}}', label: 'Passes Count', example: '1 Adult + 1 Children' },
+      { token: '{{passes_text}}', label: 'Passes Count', example: '1 Lady + 1 Children' },
       { token: '{{voucher_amount}}', label: 'Voucher Amount', example: '100' },
       { token: '{{voucher_usability}}', label: 'Voucher Usability', example: 'Valid across all 35 Stalls' },
       { token: '{{event_date}}', label: 'Event Date', example: '13 October 2026' },
@@ -393,7 +393,7 @@ export const DEFAULT_TEMPLATES: Record<string, MessageTemplateDef> = {
     samplePreviewData: {
       name: 'Pooja Bajaj',
       booking_id: 'TK-2026-5821',
-      passes_text: '1 Adult + 1 Children',
+      passes_text: '1 Lady + 1 Children',
       voucher_amount: '100',
       voucher_usability: 'Valid across all 35 Stalls',
       event_date: 'Tuesday, 13 October 2026',

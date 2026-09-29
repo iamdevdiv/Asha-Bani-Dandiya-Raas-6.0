@@ -426,3 +426,28 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #ca8a04;
 }
+
+/* Child Policy Advisory Banner - Clean vertical centering on desktop, preserve top-alignment on mobile */
+.child-policy-banner {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.child-policy-banner .child-policy-icon {
+  margin-top: 0.18em !important;
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .child-policy-banner {
+    align-items: center !important;
+  }
+  .child-policy-banner .child-policy-icon {
+    margin-top: 0 !important;
+    align-self: center !important;
+  }
+  .child-policy-banner > * {
+    align-self: center !important;
+  }
+}

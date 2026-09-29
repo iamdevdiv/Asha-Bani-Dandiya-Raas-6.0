@@ -226,7 +226,7 @@ export default function AmbassadorApplyPage() {
                 </Stack>
               ) : (
                 <Text size="xs" c="gray.4" mt={4}>
-                  Earn a <b>Free Official Adult Entry Pass</b> for yourself
+                  Earn a <b>Free Official Lady Entry Pass</b> for yourself
                   {tier1.voucherAmount > 0 ? (
                     <>
                       {' '}+ <b>₹{tier1.voucherAmount} Free Stall Voucher</b> to spend at {getUsabilityText(tier1.voucherApplicableTo)}
@@ -257,7 +257,7 @@ export default function AmbassadorApplyPage() {
                     </>
                   ) : (
                     <>
-                      Earn a <b>Free Official Adult Entry Pass</b> upon reaching {tier2.referralsRequired} referrals!
+                      Earn a <b>Free Official Lady Entry Pass</b> upon reaching {tier2.referralsRequired} referrals!
                     </>
                   )}
                 </Text>

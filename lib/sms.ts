@@ -174,7 +174,8 @@ export async function sendTicketBookingSms(booking: {
 
   const eventDate = settings.event_date || '13 October 2026 (6:00 PM onwards)';
   const venue = `${settings.venue_name || 'Maharaja Agrasen Bhavan'}, ${settings.venue_address || 'Saharanpur'}`;
-  const passesText = `1 Adult${childrenText}`;
+  const adultCount = booking.adultCount ?? 1;
+  const passesText = `${adultCount === 1 ? '1 Lady' : `${adultCount} Ladies`}${childrenText}`;
   const usability = getVoucherUsabilityLabel(booking.voucherApplicableTo || settings.ticket_voucher_applicable_to);
 
   const message = renderMessageTemplate(templateStr, {

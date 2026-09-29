@@ -360,7 +360,7 @@ export default function AmbassadorDashboardPage() {
                           {tier1.grantsFreeTicket ? <> + <b>1 Free Entry Pass</b></> : null}
                         </>
                       ) : (
-                        <>{tier1.grantsFreeTicket ? <b>1 Free Official Adult Entry Pass</b> : <b>Tier 1 Unlocked</b>}</>
+                        <>{tier1.grantsFreeTicket ? <b>1 Free Official Lady Entry Pass</b> : <b>Tier 1 Unlocked</b>}</>
                       )}
                     </Text>
                   </Group>

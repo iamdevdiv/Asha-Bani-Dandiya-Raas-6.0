@@ -226,10 +226,10 @@ export function CustomerPassCard({
 
               <Box>
                 <Text size="xs" c="royalGold.4" fw={700} style={{ letterSpacing: '0.05em' }}>
-                  ADULT PASS
+                  LADY PASS
                 </Text>
                 <Text size="xs" c="gray.2" fw={600}>
-                  1 Attendee
+                  {(booking.adultCount || 1) === 1 ? '1 Attendee' : `${booking.adultCount} Attendees`}
                 </Text>
               </Box>
 
