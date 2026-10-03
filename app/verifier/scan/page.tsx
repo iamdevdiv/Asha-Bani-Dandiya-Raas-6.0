@@ -481,8 +481,8 @@ export default function VerifierScanPage() {
                                       </Text>
                                     </Group>
                                   )}
-                                  <Alert color="yellow" p="xs" title="Gate Height Verification Required">
-                                    Children must measure strictly <b>below 55 inches</b> (under 4ft 7in) in height.
+                                  <Alert color="yellow" p="xs" title="Gate Child Age Verification Required">
+                                    Children must be strictly <b>under 10 years old</b>. Verify accompanying children&apos;s <b>Aadhaar card</b> at entry.
                                   </Alert>
                                 </>
                               )}

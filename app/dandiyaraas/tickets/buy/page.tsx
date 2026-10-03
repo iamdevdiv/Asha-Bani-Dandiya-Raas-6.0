@@ -490,7 +490,7 @@ export default function TicketPurchasePage() {
                 </Box>
                 <Box ta="right">
                   <Text size="xs" c="gray.4">
-                    Child Pass
+                    Child Pass (Under 10 Yrs)
                   </Text>
                   <Text size="lg" fw={800} c="royalGold.3">
                     ₹{childPrice}
@@ -594,7 +594,7 @@ export default function TicketPurchasePage() {
                   )}
                 </Group>
 
-                {/* Child Height Rule Notice */}
+                {/* Child Policy Rule Notice */}
                 <Alert
                   icon={<IconInfoCircle size={18} />}
                   color="yellow"
@@ -603,7 +603,7 @@ export default function TicketPurchasePage() {
                   mb="md"
                 >
                   <Text size="xs" fw={600} c="yellow.2">
-                    Height Verification Notice: Children must be strictly <b>below {childHeightLimit} inches (4&apos;7&quot;)</b> in height to qualify for child passes. Height measurement is verified at the entry gate.
+                    Child Policy Notice: Children must be strictly <b>under 10 years old</b> to qualify for child passes. Accompanying children&apos;s <b>Aadhaar card</b> will be checked during entry for age verification.
                   </Text>
                 </Alert>
 

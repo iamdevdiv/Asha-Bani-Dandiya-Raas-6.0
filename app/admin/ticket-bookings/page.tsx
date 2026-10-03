@@ -1897,10 +1897,10 @@ export default function AdminTicketBookingsPage() {
               <Group justify="space-between" mb="xs">
                 <Box>
                   <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.05em' }}>
-                    2. ACCOMPANYING CHILDREN (&lt;55&quot;)
+                    2. ACCOMPANYING CHILDREN (&lt;10 YRS)
                   </Text>
                   <Text size="11px" c="gray.4">
-                    Each pass includes 1 adult. You can add accompanying children under 55 inches height.
+                    Each pass includes 1 adult. Accompanying children must be under 10 years old (Aadhaar checked at entry).
                   </Text>
                 </Box>
                 <Button

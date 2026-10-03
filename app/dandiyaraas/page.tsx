@@ -311,7 +311,7 @@ export default function CustomerHomePage() {
                       </Text>
 
                       <Text size="sm" c="gray.3" ta="center">
-                        ₹{currentPhase?.adultPrice || 499} / Lady • ₹{currentPhase?.childPrice || 199} / Child (Under 55&quot;)
+                        ₹{currentPhase?.adultPrice || 499} / Lady • ₹{currentPhase?.childPrice || 199} / Child (Under 10 Yrs)
                       </Text>
 
                       <Group gap={6} justify="center" wrap="wrap">
@@ -579,7 +579,7 @@ export default function CustomerHomePage() {
                             Child Pass:
                           </Text>
                           <Text size="10px" c="gray.5">
-                            Under 55&quot; Height (Verified at Entry)
+                            Under 10 Years (Aadhaar Verified at Entry)
                           </Text>
                         </Box>
                         <Text size="md" fw={700} c="white">

@@ -16,6 +16,8 @@ import {
   isCommercialStall,
 } from './stall-data';
 import { sendAmbassadorTierUnlockedSms } from './sms';
+import { generateStallQrCode } from './qr-service';
+import { generateBookingConfirmationPackage } from './docx-pdf-service';
 
 // Global Prisma instance
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
@@ -345,6 +347,7 @@ export async function getStalls() {
             bookerName: true,
             brandName: true,
             teamMembers: true,
+            qrCodeDataUrl: true,
           },
         }),
         (prisma as any).stallMember
@@ -385,7 +388,10 @@ export async function getStalls() {
 
         return {
           ...s,
+          bookingId: s.bookingId || b?.id || null,
+          bookingNumber: b?.bookingNumber || null,
           teamMembers,
+          qrCodeDataUrl: b?.qrCodeDataUrl || null,
           extraMembers: extras,
           extraMembersCount: extras.length,
           extraMembersAmount,
@@ -405,7 +411,10 @@ export async function getStalls() {
     const teamMembers = b?.teamMembers || s.bookedByName || null;
     return {
       ...s,
+      bookingId: s.bookingId || b?.id || null,
+      bookingNumber: b?.bookingNumber || null,
       teamMembers,
+      qrCodeDataUrl: b?.qrCodeDataUrl || null,
       extraMembers: extras,
       extraMembersCount: extras.length,
       extraMembersAmount,
@@ -4461,3 +4470,380 @@ export async function getAmbassadorReferredBookings(ambassadorIdOrRef: string) {
     .filter((b) => b.referredByAmbassadorId === amb.id || b.referredByAmbassadorId === amb.refCode)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
+
+// -----------------------------------------------------------------------------
+// ADMIN DIRECT STALL BOOKING & MANAGEMENT
+// -----------------------------------------------------------------------------
+
+export async function createAdminIssuedStallBooking(data: {
+  stallNumber: string;
+  bookerName: string;
+  brandName: string;
+  mobile: string;
+  email?: string;
+  stallType?: string;
+  amount?: number;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  teamMembers?: string[] | string;
+  generateBookingLink?: boolean;
+}) {
+  const stall = await getStallByNumber(data.stallNumber);
+  if (!stall) {
+    throw new Error(`Stall ${data.stallNumber} does not exist in the layout.`);
+  }
+
+  // If already booked, check if there's an active booking
+  if (stall.isBooked && stall.bookingId) {
+    const existing = await getBookingById(stall.bookingId);
+    if (existing && existing.paymentStatus !== 'failed' && existing.paymentStatus !== 'cancelled') {
+      throw new Error(`Stall ${data.stallNumber} is already reserved by ${stall.bookedByName || stall.bookedByBrand || 'another exhibitor'}.`);
+    }
+  }
+
+  const cleanMobile = (data.mobile || '').replace(/\D/g, '');
+  if (cleanMobile.length < 10) {
+    throw new Error('Valid 10-digit mobile number is required.');
+  }
+
+  // Format team members list
+  let formattedTeamMembers = '';
+  if (Array.isArray(data.teamMembers)) {
+    formattedTeamMembers = data.teamMembers
+      .map((m) => (typeof m === 'string' ? m.trim() : ''))
+      .filter((m) => m.length > 0)
+      .join(', ');
+  } else if (typeof data.teamMembers === 'string' && data.teamMembers.trim()) {
+    formattedTeamMembers = data.teamMembers.trim();
+  }
+  if (!formattedTeamMembers) {
+    formattedTeamMembers = data.bookerName.trim();
+  }
+
+  const stallType = data.stallType?.trim() || (stall.section === 'food' ? 'Food Stall' : 'Commercial Canopy');
+  const amount = data.amount !== undefined ? Math.max(0, Number(data.amount)) : (stall.price || 3500);
+  const paymentStatus = data.paymentStatus || 'success';
+  const paymentMethod = data.paymentMethod || 'Manual';
+
+  const bookingNumber = await generateUniqueBookingNumber(`ABDR-STALL-${stall.stallNumber.toUpperCase()}-`);
+
+  let qrCodeDataUrl: string | null = null;
+  let confirmationDocUrl: string | null = null;
+
+  // Booking link generation is OPTIONAL (turned off by default)
+  const shouldGenerateLink = Boolean(data.generateBookingLink);
+
+  if (shouldGenerateLink) {
+    const settings = await getSettings();
+    const eventDate = settings.event_date || '13 October 2026';
+    const venue = `${settings.venue_name || 'Maharaja Agrasen Bhavan'}, ${settings.venue_address || 'Saharanpur'}`;
+
+    try {
+      qrCodeDataUrl = await generateStallQrCode({
+        bookingNumber,
+        stallNumber: stall.stallNumber,
+        bookerName: data.bookerName.trim(),
+        brandName: data.brandName.trim(),
+        stallType,
+        eventDate,
+        venue,
+      });
+
+      const docxPackage = await generateBookingConfirmationPackage({
+        stallNumber: stall.stallNumber,
+        bookerName: data.bookerName.trim(),
+        brandName: data.brandName.trim(),
+        bookingNumber,
+        eventDate,
+        venue,
+        qrDataUrl: qrCodeDataUrl,
+      });
+      confirmationDocUrl = docxPackage.image1080DataUrl || null;
+    } catch (docErr) {
+      console.warn('[createAdminIssuedStallBooking] QR / doc package generation notice:', docErr);
+    }
+  }
+
+  const razorpayOrderId = shouldGenerateLink ? 'ADMIN_DIRECT_ISSUED' : 'ADMIN_OFFLINE_BOOKED';
+  const razorpayPaymentId = `ADMIN_${paymentMethod.toUpperCase().replace(/\s+/g, '_')}_${Date.now()}`;
+  const razorpaySignature = 'ADMIN_MANUALLY_ISSUED';
+
+  const hasPrisma = await checkPrisma();
+  let createdBooking: any = null;
+
+  if (hasPrisma) {
+    try {
+      createdBooking = await prisma.booking.create({
+        data: {
+          bookingNumber,
+          stallNumber: stall.stallNumber,
+          amount,
+          bookerName: data.bookerName.trim(),
+          brandName: data.brandName.trim(),
+          email: data.email?.trim().toLowerCase() || '',
+          mobile: cleanMobile,
+          stallType,
+          teamMembers: formattedTeamMembers,
+          paymentStatus,
+          razorpayOrderId,
+          razorpayPaymentId,
+          razorpaySignature,
+          qrCodeDataUrl,
+          confirmationDocUrl,
+          isCheckedIn: false,
+        },
+      });
+
+      // Update Stall record
+      await prisma.stall.update({
+        where: { stallNumber: stall.stallNumber },
+        data: {
+          isBooked: true,
+          bookingId: createdBooking.id,
+          bookedByName: data.bookerName.trim(),
+          bookedByBrand: data.brandName.trim(),
+          bookedByMobile: cleanMobile,
+          bookedByEmail: data.email?.trim().toLowerCase() || null,
+          bookedAt: new Date(),
+        },
+      });
+    } catch (e) {
+      console.warn('Prisma error in createAdminIssuedStallBooking', e);
+    }
+  }
+
+  if (!createdBooking) {
+    const store = loadFallbackStore();
+    if (!store.bookings) store.bookings = [];
+
+    createdBooking = {
+      id: `booking_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      bookingNumber,
+      stallNumber: stall.stallNumber,
+      amount,
+      bookerName: data.bookerName.trim(),
+      brandName: data.brandName.trim(),
+      email: data.email?.trim().toLowerCase() || '',
+      mobile: cleanMobile,
+      stallType,
+      teamMembers: formattedTeamMembers,
+      paymentStatus,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      qrCodeDataUrl,
+      confirmationDocUrl,
+      isCheckedIn: false,
+      checkedInAt: null,
+      checkedInBy: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    store.bookings.push(createdBooking);
+
+    const sIdx = store.stalls.findIndex((s) => s.stallNumber.toUpperCase() === stall.stallNumber.toUpperCase());
+    if (sIdx !== -1) {
+      store.stalls[sIdx] = {
+        ...store.stalls[sIdx],
+        isBooked: true,
+        bookingId: createdBooking.id,
+        bookedByName: data.bookerName.trim(),
+        bookedByBrand: data.brandName.trim(),
+        bookedByMobile: cleanMobile,
+        bookedByEmail: data.email?.trim().toLowerCase() || null,
+        bookedAt: new Date().toISOString(),
+      };
+    }
+    saveFallbackStore(store);
+  }
+
+  return createdBooking;
+}
+
+export async function updateAdminStallBooking(
+  bookingId: string,
+  data: {
+    bookerName?: string;
+    brandName?: string;
+    mobile?: string;
+    email?: string;
+    stallNumber?: string;
+    stallType?: string;
+    amount?: number;
+    paymentStatus?: string;
+    paymentMethod?: string;
+    teamMembers?: string[] | string;
+    generateBookingLink?: boolean;
+    forceRegenerateLink?: boolean;
+  }
+) {
+  const booking = await getBookingById(bookingId);
+  if (!booking) {
+    throw new Error('Stall booking not found.');
+  }
+
+  const cleanMobile = data.mobile !== undefined ? data.mobile.replace(/\D/g, '') : booking.mobile;
+
+  let formattedTeamMembers = booking.teamMembers;
+  if (data.teamMembers !== undefined) {
+    if (Array.isArray(data.teamMembers)) {
+      formattedTeamMembers = data.teamMembers
+        .map((m) => (typeof m === 'string' ? m.trim() : ''))
+        .filter((m) => m.length > 0)
+        .join(', ');
+    } else if (typeof data.teamMembers === 'string') {
+      formattedTeamMembers = data.teamMembers.trim();
+    }
+    if (!formattedTeamMembers && data.bookerName) {
+      formattedTeamMembers = data.bookerName.trim();
+    }
+  }
+
+  const targetStallNumber = (data.stallNumber || booking.stallNumber).trim().toUpperCase();
+  const isStallChanged = targetStallNumber !== booking.stallNumber.toUpperCase();
+
+  let qrCodeDataUrl = booking.qrCodeDataUrl;
+  let confirmationDocUrl = booking.confirmationDocUrl;
+
+  const shouldGenerate = Boolean(data.generateBookingLink) && !qrCodeDataUrl;
+  const shouldRegenerate = Boolean(data.forceRegenerateLink);
+
+  if (shouldGenerate || shouldRegenerate) {
+    const settings = await getSettings();
+    const eventDate = settings.event_date || '13 October 2026';
+    const venue = `${settings.venue_name || 'Maharaja Agrasen Bhavan'}, ${settings.venue_address || 'Saharanpur'}`;
+
+    try {
+      qrCodeDataUrl = await generateStallQrCode({
+        bookingNumber: booking.bookingNumber,
+        stallNumber: targetStallNumber,
+        bookerName: (data.bookerName || booking.bookerName).trim(),
+        brandName: (data.brandName || booking.brandName).trim(),
+        stallType: data.stallType || booking.stallType,
+        eventDate,
+        venue,
+      });
+
+      const docxPackage = await generateBookingConfirmationPackage({
+        stallNumber: targetStallNumber,
+        bookerName: (data.bookerName || booking.bookerName).trim(),
+        brandName: (data.brandName || booking.brandName).trim(),
+        bookingNumber: booking.bookingNumber,
+        eventDate,
+        venue,
+        qrDataUrl: qrCodeDataUrl,
+      });
+      confirmationDocUrl = docxPackage.image1080DataUrl || confirmationDocUrl;
+    } catch (e) {
+      console.warn('[updateAdminStallBooking] Confirmation package doc generation notice:', e);
+    }
+  }
+
+  const updatedPayload: any = {
+    bookerName: data.bookerName !== undefined ? data.bookerName.trim() : booking.bookerName,
+    brandName: data.brandName !== undefined ? data.brandName.trim() : booking.brandName,
+    mobile: cleanMobile,
+    email: data.email !== undefined ? data.email.trim().toLowerCase() : booking.email,
+    stallType: data.stallType !== undefined ? data.stallType.trim() : booking.stallType,
+    amount: data.amount !== undefined ? Math.max(0, Number(data.amount)) : booking.amount,
+    paymentStatus: data.paymentStatus !== undefined ? data.paymentStatus : booking.paymentStatus,
+    teamMembers: formattedTeamMembers,
+    stallNumber: targetStallNumber,
+    qrCodeDataUrl,
+    confirmationDocUrl,
+  };
+
+  if (data.paymentMethod) {
+    updatedPayload.razorpayPaymentId = `ADMIN_${data.paymentMethod.toUpperCase().replace(/\s+/g, '_')}_${Date.now()}`;
+  }
+
+  const hasPrisma = await checkPrisma();
+  let updatedBooking: any = null;
+
+  if (hasPrisma) {
+    try {
+      if (isStallChanged) {
+        // Free old stall
+        await prisma.stall.updateMany({
+          where: { stallNumber: booking.stallNumber },
+          data: {
+            isBooked: false,
+            bookingId: null,
+            bookedByName: null,
+            bookedByBrand: null,
+            bookedByMobile: null,
+            bookedByEmail: null,
+            bookedAt: null,
+          },
+        });
+      }
+
+      // Update current target stall
+      await prisma.stall.updateMany({
+        where: { stallNumber: targetStallNumber },
+        data: {
+          isBooked: true,
+          bookingId: booking.id,
+          bookedByName: updatedPayload.bookerName,
+          bookedByBrand: updatedPayload.brandName,
+          bookedByMobile: updatedPayload.mobile,
+          bookedByEmail: updatedPayload.email || null,
+        },
+      });
+
+      updatedBooking = await prisma.booking.update({
+        where: { id: booking.id },
+        data: updatedPayload,
+      });
+    } catch (e) {
+      console.warn('Prisma error in updateAdminStallBooking', e);
+    }
+  }
+
+  if (!updatedBooking) {
+    const store = loadFallbackStore();
+    const bIdx = store.bookings.findIndex((b) => b.id === booking.id);
+    if (bIdx !== -1) {
+      store.bookings[bIdx] = {
+        ...store.bookings[bIdx],
+        ...updatedPayload,
+        updatedAt: new Date().toISOString(),
+      };
+      updatedBooking = store.bookings[bIdx];
+    }
+
+    if (isStallChanged) {
+      const oldStall = store.stalls.find((s) => s.stallNumber.toUpperCase() === booking.stallNumber.toUpperCase());
+      if (oldStall) {
+        oldStall.isBooked = false;
+        oldStall.bookingId = null;
+        oldStall.bookedByName = null;
+        oldStall.bookedByBrand = null;
+        oldStall.bookedByMobile = null;
+        oldStall.bookedByEmail = null;
+        oldStall.bookedAt = null;
+      }
+    }
+
+    const newStall = store.stalls.find((s) => s.stallNumber.toUpperCase() === targetStallNumber);
+    if (newStall) {
+      newStall.isBooked = true;
+      newStall.bookingId = booking.id;
+      newStall.bookedByName = updatedPayload.bookerName;
+      newStall.bookedByBrand = updatedPayload.brandName;
+      newStall.bookedByMobile = updatedPayload.mobile;
+      newStall.bookedByEmail = updatedPayload.email || null;
+    }
+    saveFallbackStore(store);
+  }
+
+  return updatedBooking;
+}
+
+export async function generateStallBookingLinkAndPass(bookingId: string) {
+  return updateAdminStallBooking(bookingId, {
+    generateBookingLink: true,
+    forceRegenerateLink: true,
+  });
+}
+

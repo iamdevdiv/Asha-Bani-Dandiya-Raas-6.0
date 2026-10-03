@@ -260,9 +260,25 @@ export function ExhibitorPassCard({ booking, showDownloadButton = true }: Exhibi
               </Text>
             </Box>
           ) : (
-            <Text size="xs" c="gray.4">
-              Generating pass QR...
-            </Text>
+            <Box
+              p={12}
+              my={4}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                border: '1px dashed rgba(234, 179, 8, 0.35)',
+                borderRadius: 14,
+                textAlign: 'center',
+                width: '100%',
+                maxWidth: 240,
+              }}
+            >
+              <Text size="xs" fw={700} c="yellow.3">
+                OFFLINE ALLOTMENT
+              </Text>
+              <Text size="11px" c="gray.4" mt={2}>
+                Digital QR pass not issued for this allotment. Physical badge provided at venue.
+              </Text>
+            </Box>
           )}
 
           {/* Schedule & Venue Box */}

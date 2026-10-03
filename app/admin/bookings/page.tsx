@@ -14,12 +14,17 @@ import {
   Table,
   Badge,
   TextInput,
+  NumberInput,
   Select,
+  Switch,
   Modal,
   Loader,
   SimpleGrid,
   ActionIcon,
   Tooltip,
+  Alert,
+  Divider,
+  ThemeIcon,
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { DatePickerInput } from '@mantine/dates';
@@ -42,6 +47,14 @@ import {
   IconExternalLink,
   IconCheck,
   IconMessage,
+  IconEdit,
+  IconPlus,
+  IconCopy,
+  IconInfoCircle,
+  IconLink,
+  IconSparkles,
+  IconUsers,
+  IconAlertCircle,
 } from '@tabler/icons-react';
 import dayjs from 'dayjs';
 import { ExhibitorPassCard } from '@/components/ExhibitorPassCard';
@@ -51,6 +64,7 @@ import { INITIAL_STALLS } from '@/lib/stall-data';
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
+  const [stallsList, setStallsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string | null>('all');
@@ -68,6 +82,76 @@ export default function AdminBookingsPage() {
   const [bookingToDelete, setBookingToDelete] = useState<any | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [stallWaTemplate, setStallWaTemplate] = useState<string>('');
+
+  // ---------------------------------------------------------------------------
+  // DIRECT STALL BOOKING ISSUANCE STATE
+  // ---------------------------------------------------------------------------
+  const [createModalOpened, setCreateModalOpened] = useState(false);
+  const [creatingStallBooking, setCreatingStallBooking] = useState(false);
+  const [newStallNumber, setNewStallNumber] = useState<string>('');
+  const [newBookerName, setNewBookerName] = useState<string>('');
+  const [newBrandName, setNewBrandName] = useState<string>('');
+  const [newMobile, setNewMobile] = useState<string>('');
+  const [newEmail, setNewEmail] = useState<string>('');
+  const [newStallType, setNewStallType] = useState<string>('');
+  const [newAmount, setNewAmount] = useState<number | string>(3500);
+  const [newPaymentMethod, setNewPaymentMethod] = useState<string>('Cash');
+  const [newPaymentStatus, setNewPaymentStatus] = useState<string>('success');
+  const [newTeamMembers, setNewTeamMembers] = useState<string[]>(['', '']);
+  const [newGenerateBookingLink, setNewGenerateBookingLink] = useState<boolean>(false); // TURNED OFF BY DEFAULT
+  const [newSendSms, setNewSendSms] = useState<boolean>(false);
+
+  // Created Booking Success Modal State
+  const [successModalOpened, setSuccessModalOpened] = useState(false);
+  const [issuedBookingResult, setIssuedBookingResult] = useState<any | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // EDIT STALL BOOKING DETAILS STATE
+  // ---------------------------------------------------------------------------
+  const [editModalOpened, setEditModalOpened] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [generatingLinkForId, setGeneratingLinkForId] = useState<string | null>(null);
+  const [editBookingId, setEditBookingId] = useState<string>('');
+  const [editBookingNumber, setEditBookingNumber] = useState<string>('');
+  const [editStallNumber, setEditStallNumber] = useState<string>('');
+  const [editBookerName, setEditBookerName] = useState<string>('');
+  const [editBrandName, setEditBrandName] = useState<string>('');
+  const [editMobile, setEditMobile] = useState<string>('');
+  const [editEmail, setEditEmail] = useState<string>('');
+  const [editStallType, setEditStallType] = useState<string>('');
+  const [editAmount, setEditAmount] = useState<number | string>(3500);
+  const [editPaymentStatus, setEditPaymentStatus] = useState<string>('success');
+  const [editPaymentMethod, setEditPaymentMethod] = useState<string>('Manual');
+  const [editTeamMembers, setEditTeamMembers] = useState<string[]>([]);
+  const [editQrCodeDataUrl, setEditQrCodeDataUrl] = useState<string | null>(null);
+
+  const fetchBookings = async () => {
+    setLoading(true);
+    try {
+      const [bookingsRes, stallsRes] = await Promise.all([
+        fetch('/api/admin/bookings'),
+        fetch('/api/admin/stalls'),
+      ]);
+
+      const data = await bookingsRes.json();
+      if (data.success) {
+        setBookings(data.bookings);
+      }
+
+      const stallsData = await stallsRes.json();
+      if (stallsData.success) {
+        setStallsList(stallsData.stalls);
+      }
+    } catch (err) {
+      console.error('Failed to load bookings or stalls:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
   const sendWhatsAppMessage = (b: any) => {
     const passUrl = typeof window !== 'undefined' ? `${window.location.origin}/dandiyaraas/stall/success?bookingId=${b.id}` : '';
@@ -95,7 +179,7 @@ export default function AdminBookingsPage() {
       setup_time: '4:00 PM',
       event_hours: '6:00 PM to 12:00 AM',
       team_members: b.teamMembers || b.bookerName || 'Exhibitor Team',
-      pass_link: passUrl,
+      pass_link: b.qrCodeDataUrl ? passUrl : '(Offline Allotment - Collect badge at counter)',
       booking_link: passUrl,
       helpline: '+91 6399063455',
     });
@@ -151,16 +235,16 @@ export default function AdminBookingsPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to dispatch SMS');
+        throw new Error(data.message || 'Failed to send SMS');
       }
       notifications.show({
-        title: 'SMS Sent Successfully',
-        message: `Updated confirmation SMS dispatched to +91 ${b.mobile}.`,
+        title: 'SMS Dispatched',
+        message: `Booking confirmation SMS has been resent to +91 ${b.mobile}.`,
         color: 'green',
       });
     } catch (err: any) {
       notifications.show({
-        title: 'SMS Dispatch Failed',
+        title: 'SMS Failed',
         message: err.message || 'Could not dispatch SMS.',
         color: 'red',
       });
@@ -178,73 +262,320 @@ export default function AdminBookingsPage() {
     if (!bookingToDelete) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/bookings/${bookingToDelete.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/admin/bookings/${bookingToDelete.id}`, {
+        method: 'DELETE',
+      });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to delete stall booking');
+        throw new Error(data.message || 'Failed to delete booking');
+      }
+      notifications.show({
+        title: 'Booking Deleted',
+        message: `Stall #${bookingToDelete.stallNumber} booking was permanently removed and stall is now available.`,
+        color: 'green',
+      });
+      closeDelete();
+      fetchBookings();
+      if (selectedBooking?.id === bookingToDelete.id) {
+        close();
+      }
+    } catch (err: any) {
+      notifications.show({
+        title: 'Deletion Failed',
+        message: err.message || 'Could not delete booking.',
+        color: 'red',
+      });
+    } finally {
+      setDeleting(false);
+      setBookingToDelete(null);
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // DIRECT STALL BOOKING ISSUANCE HANDLERS
+  // ---------------------------------------------------------------------------
+  const handleOpenCreateModal = () => {
+    // Pick the first available stall as default if available
+    const available = stallsList.find((s) => !s.isBooked);
+    const defaultStall = available ? available.stallNumber : (stallsList[0]?.stallNumber || '1');
+    const defaultStallObj = stallsList.find((s) => s.stallNumber === defaultStall);
+
+    setNewStallNumber(defaultStall);
+    setNewBookerName('');
+    setNewBrandName('');
+    setNewMobile('');
+    setNewEmail('');
+    setNewStallType(
+      defaultStallObj?.section === 'food' || !isNaN(Number(defaultStall))
+        ? 'Food Stall'
+        : 'Commercial Canopy'
+    );
+    setNewAmount(defaultStallObj?.price || 3500);
+    setNewPaymentMethod('Cash');
+    setNewPaymentStatus('success');
+    setNewTeamMembers(['', '']);
+    setNewGenerateBookingLink(false); // DEFAULT: OFF
+    setNewSendSms(false);
+    setCreateModalOpened(true);
+  };
+
+  const handleSelectStallForNewBooking = (stallNo: string) => {
+    setNewStallNumber(stallNo);
+    const s = stallsList.find((st) => st.stallNumber.toUpperCase() === stallNo.toUpperCase());
+    if (s) {
+      setNewAmount(s.price || 3500);
+      setNewStallType(
+        s.section === 'food' || !isNaN(Number(s.stallNumber))
+          ? 'Food Stall'
+          : 'Commercial Canopy'
+      );
+    }
+  };
+
+  const handleNewTeamMemberChange = (index: number, value: string) => {
+    const updated = [...newTeamMembers];
+    updated[index] = value;
+    setNewTeamMembers(updated);
+  };
+
+  const handleAddNewTeamMember = () => {
+    setNewTeamMembers([...newTeamMembers, '']);
+  };
+
+  const handleRemoveNewTeamMember = (index: number) => {
+    if (newTeamMembers.length <= 1) return;
+    setNewTeamMembers(newTeamMembers.filter((_, i) => i !== index));
+  };
+
+  const handleCreateStallBookingSubmit = async () => {
+    if (!newStallNumber) {
+      notifications.show({ title: 'Validation Error', message: 'Please select a stall number.', color: 'red' });
+      return;
+    }
+    if (!newBookerName.trim()) {
+      notifications.show({ title: 'Validation Error', message: 'Please enter booker full name.', color: 'red' });
+      return;
+    }
+    if (!newBrandName.trim()) {
+      notifications.show({ title: 'Validation Error', message: 'Please enter brand or business name.', color: 'red' });
+      return;
+    }
+    const cleanMobile = newMobile.replace(/\D/g, '');
+    if (cleanMobile.length < 10) {
+      notifications.show({ title: 'Validation Error', message: 'Please enter a valid 10-digit mobile number.', color: 'red' });
+      return;
+    }
+
+    setCreatingStallBooking(true);
+    try {
+      const res = await fetch('/api/admin/bookings/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stallNumber: newStallNumber,
+          bookerName: newBookerName.trim(),
+          brandName: newBrandName.trim(),
+          mobile: cleanMobile,
+          email: newEmail.trim() || undefined,
+          stallType: newStallType.trim() || 'Commercial Canopy',
+          amount: Number(newAmount),
+          paymentStatus: newPaymentStatus,
+          paymentMethod: newPaymentMethod,
+          teamMembers: newTeamMembers.map((m) => m.trim()).filter(Boolean),
+          generateBookingLink: newGenerateBookingLink, // OPTIONAL (turned off by default)
+          sendSms: newSendSms,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to issue stall booking');
       }
 
       notifications.show({
-        title: 'Booking Deleted',
-        message: `Stall booking ${bookingToDelete.bookingNumber} deleted and Stall ${bookingToDelete.stallNumber} is now available!`,
+        title: 'Stall Booking Issued!',
+        message: data.message || `Stall #${newStallNumber} reserved successfully.`,
         color: 'green',
       });
 
-      closeDelete();
-      setBookingToDelete(null);
+      setCreateModalOpened(false);
+      setIssuedBookingResult(data.booking);
+      setSuccessModalOpened(true);
       fetchBookings();
     } catch (err: any) {
-      notifications.show({ title: 'Delete Failed', message: err.message, color: 'red' });
+      notifications.show({
+        title: 'Issuance Failed',
+        message: err.message || 'Could not issue stall booking.',
+        color: 'red',
+      });
     } finally {
-      setDeleting(false);
+      setCreatingStallBooking(false);
     }
   };
 
-  const fetchBookings = async () => {
-    setLoading(true);
+  // ---------------------------------------------------------------------------
+  // EDIT STALL BOOKING & TEAM MEMBERS HANDLERS
+  // ---------------------------------------------------------------------------
+  const handleOpenEditModal = (b: any) => {
+    setEditBookingId(b.id);
+    setEditBookingNumber(b.bookingNumber || '');
+    setEditStallNumber(b.stallNumber || '');
+    setEditBookerName(b.bookerName || '');
+    setEditBrandName(b.brandName || '');
+    setEditMobile(b.mobile || '');
+    setEditEmail(b.email || '');
+    setEditStallType(b.stallType || 'Commercial Canopy');
+    setEditAmount(b.amount || 3500);
+    setEditPaymentStatus(b.paymentStatus || 'success');
+    setEditPaymentMethod(b.razorpayPaymentId?.startsWith('ADMIN_') ? 'Manual Admin' : 'Online / Other');
+    setEditQrCodeDataUrl(b.qrCodeDataUrl || null);
+
+    // Parse existing team members
+    const membersList = (b.teamMembers || b.bookerName || '')
+      .split(/[,&]|\band\b/i)
+      .map((m: string) => m.trim())
+      .filter(Boolean);
+
+    setEditTeamMembers(membersList.length > 0 ? membersList : [b.bookerName || 'Exhibitor 1', 'Exhibitor 2']);
+    setEditModalOpened(true);
+  };
+
+  const handleEditTeamMemberChange = (index: number, val: string) => {
+    const updated = [...editTeamMembers];
+    updated[index] = val;
+    setEditTeamMembers(updated);
+  };
+
+  const handleAddEditTeamMember = () => {
+    setEditTeamMembers([...editTeamMembers, '']);
+  };
+
+  const handleRemoveEditTeamMember = (index: number) => {
+    if (editTeamMembers.length <= 1) return;
+    setEditTeamMembers(editTeamMembers.filter((_, i) => i !== index));
+  };
+
+  const handleSaveEditBooking = async (generateLinkNow = false) => {
+    if (!editBookingId) return;
+    setSavingEdit(true);
+
     try {
-      const res = await fetch('/api/admin/bookings');
+      const res = await fetch(`/api/admin/bookings/${editBookingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookerName: editBookerName.trim(),
+          brandName: editBrandName.trim(),
+          mobile: editMobile.trim(),
+          email: editEmail.trim(),
+          stallNumber: editStallNumber.trim(),
+          stallType: editStallType.trim(),
+          amount: Number(editAmount),
+          paymentStatus: editPaymentStatus,
+          paymentMethod: editPaymentMethod,
+          teamMembers: editTeamMembers.map((m) => m.trim()).filter(Boolean),
+          generateBookingLink: generateLinkNow || Boolean(editQrCodeDataUrl),
+          forceRegenerateLink: generateLinkNow,
+        }),
+      });
+
       const data = await res.json();
-      if (data.success) {
-        setBookings(data.bookings);
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to update stall booking');
       }
-    } catch (err) {
-      console.error('Failed to fetch bookings:', err);
+
+      notifications.show({
+        title: 'Stall Booking Saved',
+        message: data.message || `Stall #${editStallNumber} details updated successfully.`,
+        color: 'green',
+      });
+
+      setEditModalOpened(false);
+      fetchBookings();
+
+      if (selectedBooking && selectedBooking.id === editBookingId) {
+        setSelectedBooking(data.booking);
+      }
+    } catch (err: any) {
+      notifications.show({
+        title: 'Save Failed',
+        message: err.message || 'Could not save stall changes.',
+        color: 'red',
+      });
     } finally {
-      setLoading(false);
+      setSavingEdit(false);
     }
   };
 
-  useEffect(() => {
-    fetchBookings();
-    fetch('/api/admin/message-templates')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res?.success && res?.templates?.template_stall_wa) {
-          setStallWaTemplate(res.templates.template_stall_wa);
-        }
-      })
-      .catch((err) => console.error('Error fetching templates:', err));
-  }, []);
+  const handleGenerateLinkForBooking = async (bookingId: string) => {
+    setGeneratingLinkForId(bookingId);
+    try {
+      const res = await fetch(`/api/admin/bookings/${bookingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          generateBookingLink: true,
+          forceRegenerateLink: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to generate pass link');
+      }
 
+      notifications.show({
+        title: 'Digital Pass Link Generated!',
+        message: `Live pass URL and QR code generated for Stall #${data.booking.stallNumber}.`,
+        color: 'green',
+      });
+
+      if (editModalOpened && editBookingId === bookingId) {
+        setEditQrCodeDataUrl(data.booking.qrCodeDataUrl);
+      }
+
+      fetchBookings();
+
+      if (selectedBooking && selectedBooking.id === bookingId) {
+        setSelectedBooking(data.booking);
+      }
+    } catch (err: any) {
+      notifications.show({
+        title: 'Link Generation Failed',
+        message: err.message || 'Could not generate booking link.',
+        color: 'red',
+      });
+    } finally {
+      setGeneratingLinkForId(null);
+    }
+  };
+
+  const copyToClipboard = (text: string, title = 'Copied to Clipboard') => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      notifications.show({
+        title,
+        message: text,
+        color: 'teal',
+      });
+    }
+  };
+
+  // Filter bookings
   const filteredBookings = bookings.filter((b) => {
-    const query = search.toLowerCase();
+    const q = search.toLowerCase();
     const matchesQuery =
-      b.bookingNumber?.toLowerCase().includes(query) ||
-      b.stallNumber?.toLowerCase().includes(query) ||
-      b.brandName?.toLowerCase().includes(query) ||
-      b.bookerName?.toLowerCase().includes(query) ||
-      b.mobile?.toLowerCase().includes(query) ||
-      b.email?.toLowerCase().includes(query);
+      !search ||
+      b.brandName?.toLowerCase().includes(q) ||
+      b.bookerName?.toLowerCase().includes(q) ||
+      b.mobile?.includes(q) ||
+      b.bookingNumber?.toLowerCase().includes(q) ||
+      b.stallNumber?.toLowerCase().includes(q);
 
-    const matchesStatus =
-      filterStatus === 'all' || !filterStatus || b.paymentStatus === filterStatus;
+    const matchesStatus = filterStatus === 'all' || b.paymentStatus === filterStatus;
 
-    const matchesEntry =
-      filterEntryStatus === 'all' ||
-      !filterEntryStatus ||
-      (filterEntryStatus === 'entered' && b.isCheckedIn) ||
-      (filterEntryStatus === 'unentered' && !b.isCheckedIn);
+    let matchesEntry = true;
+    if (filterEntryStatus === 'entered') matchesEntry = b.isCheckedIn;
+    if (filterEntryStatus === 'unentered') matchesEntry = !b.isCheckedIn;
 
     let matchesDate = true;
     if (filterDate && b.createdAt) {
@@ -268,19 +599,30 @@ export default function AdminBookingsPage() {
             Stall Bookings &amp; Transactions
           </Title>
           <Text size="sm" c="gray.4">
-            Complete registry of exhibitor registrations, payment transaction IDs, and digital passes.
+            Manage exhibitor reservations, issue direct stall bookings, modify member names, and view digital passes.
           </Text>
         </Box>
 
-        <Button
-          onClick={fetchBookings}
-          variant="light"
-          color="royalGold"
-          leftSection={<IconRefresh size={16} />}
-          style={{ flexShrink: 0 }}
-        >
-          Refresh Data
-        </Button>
+        <Group gap="sm" wrap="wrap">
+          <Button
+            onClick={handleOpenCreateModal}
+            className="btn-auspicious-gold"
+            leftSection={<IconBuildingStore size={18} />}
+            style={{ flexShrink: 0 }}
+          >
+            Issue Stall Booking
+          </Button>
+
+          <Button
+            onClick={fetchBookings}
+            variant="light"
+            color="royalGold"
+            leftSection={<IconRefresh size={16} />}
+            style={{ flexShrink: 0 }}
+          >
+            Refresh Data
+          </Button>
+        </Group>
       </Group>
 
       {/* Filter Toolbar */}
@@ -348,181 +690,941 @@ export default function AdminBookingsPage() {
       >
         {loading ? (
           <Stack align="center" py={60}>
-            <Loader color="royalGold" size="md" />
-            <Text size="sm" c="gray.4">
-              Loading bookings data...
+            <Loader color="royalGold" size="lg" />
+            <Text c="gray.4" size="sm">
+              Loading stall booking records...
             </Text>
           </Stack>
         ) : filteredBookings.length === 0 ? (
           <Stack align="center" py={50}>
-            <IconReceipt size={48} color="#854d0e" />
-            <Text fw={600} c="gray.4">
-              No stall bookings found matching your search.
+            <ThemeIcon size={52} radius="50%" color="yellow" variant="light">
+              <IconBuildingStore size={28} color="#facc15" />
+            </ThemeIcon>
+            <Text c="gray.4" size="md" fw={600}>
+              No stall bookings found
             </Text>
+            <Text c="gray.6" size="xs">
+              Directly issue a stall booking above or change your search query.
+            </Text>
+            <Button
+              mt="xs"
+              onClick={handleOpenCreateModal}
+              className="btn-auspicious-gold"
+              leftSection={<IconPlus size={16} />}
+            >
+              Issue Stall Booking Now
+            </Button>
           </Stack>
         ) : (
-          <Table.ScrollContainer minWidth={950}>
-            <Table verticalSpacing="sm" highlightOnHover style={{ minWidth: 950 }}>
+          <Table.ScrollContainer minWidth={900}>
+            <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
-                <Table.Tr style={{ borderBottom: '1px solid rgba(234, 179, 8, 0.2)' }}>
-                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Booking Ref</Table.Th>
-                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Stall</Table.Th>
-                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Brand / Business</Table.Th>
-                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Booker Contact</Table.Th>
-                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Amount</Table.Th>
-                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Payment</Table.Th>
-                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Entry Status</Table.Th>
-                  <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Date &amp; Time</Table.Th>
-                  <Table.Th style={{ color: '#facc15', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</Table.Th>
+                <Table.Tr style={{ borderBottom: '1px solid rgba(234, 179, 8, 0.3)' }}>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem' }}>REF #</Table.Th>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem' }}>STALL</Table.Th>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem' }}>BRAND &amp; BOOKER</Table.Th>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem' }}>TEAM / PASSES</Table.Th>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem' }}>AMOUNT</Table.Th>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem' }}>DIGITAL PASS</Table.Th>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem' }}>PAYMENT</Table.Th>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem' }}>GATE ENTRY</Table.Th>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem' }}>DATE</Table.Th>
+                  <Table.Th style={{ color: '#facc15', fontSize: '0.8rem', textAlign: 'right' }}>ACTIONS</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {filteredBookings.map((b) => (
-                  <Table.Tr key={b.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                      <Text size="xs" fw={700} c="yellow.3">
-                        {b.bookingNumber}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                      <Badge color="yellow" variant="filled" size="sm" className="badge-gold-filled" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                        Stall {b.stallNumber}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" fw={700} c="white">
-                        {b.brandName}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {b.stallType}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" c="gray.2">
-                        {b.bookerName}
-                      </Text>
-                      <Text size="xs" c="dimmed">
-                        {b.mobile} • {b.email}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                      <Text size="sm" fw={800} c="white">
-                        ₹{(b.totalAmount || b.amount)?.toLocaleString('en-IN')}
-                      </Text>
-                      {b.extraMembersCount > 0 && (
-                        <Text size="xs" c="yellow.3" style={{ fontSize: '0.72rem' }}>
-                          +{b.extraMembersCount} extra member{b.extraMembersCount === 1 ? '' : 's'} (₹{b.extraMembersAmount?.toLocaleString('en-IN')})
+                {filteredBookings.map((b) => {
+                  const hasLink = Boolean(b.qrCodeDataUrl);
+                  const passUrl = typeof window !== 'undefined' ? `${window.location.origin}/dandiyaraas/stall/pass/${b.id}` : '';
+
+                  return (
+                    <Table.Tr key={b.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="xs" fw={700} c="royalGold.3">
+                          {b.bookingNumber}
                         </Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                      <Badge
-                        color={
-                          b.paymentStatus === 'success'
-                            ? 'green'
-                            : b.paymentStatus === 'pending'
-                            ? 'yellow'
-                            : 'red'
-                        }
-                        size="sm"
-                        style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
-                      >
-                        {b.paymentStatus.toUpperCase()}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                      {b.isCheckedIn ? (
-                        <Badge color="green" variant="light" size="sm" leftSection={<IconScan size={12} />} style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-                          CHECKED IN
+                      </Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        <Badge color="yellow" variant="light" size="md">
+                          Stall {b.stallNumber}
                         </Badge>
-                      ) : (
-                        <Badge color="gray" variant="light" size="sm" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-                          PENDING
-                        </Badge>
-                      )}
-                    </Table.Td>
-                    <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                      <Text size="xs" c="gray.4">
-                        {b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : 'N/A'}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      <Group gap="xs" justify="flex-end" wrap="nowrap">
-                        <Tooltip label="Open Live Stall Pass (New Tab)">
-                          <ActionIcon
-                            component="a"
-                            href={`/dandiyaraas/stall/pass/${b.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="xs" fw={700} c="white">
+                          {b.brandName}
+                        </Text>
+                        <Text size="11px" c="gray.4">
+                          {b.bookerName} • +91 {b.mobile}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ maxWidth: 200 }}>
+                        <Text size="xs" c="gray.2" lineClamp={1} title={b.teamMembers}>
+                          {b.teamMembers || b.bookerName}
+                        </Text>
+                        {b.extraMembersCount > 0 && (
+                          <Badge size="xs" color="yellow" variant="outline">
+                            +{b.extraMembersCount} Extra
+                          </Badge>
+                        )}
+                      </Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="xs" fw={700} c="white">
+                          ₹{(b.totalAmount || b.amount)?.toLocaleString('en-IN')}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        {hasLink ? (
+                          <Badge
                             color="cyan"
                             variant="light"
                             size="sm"
-                            radius="md"
+                            leftSection={<IconLink size={12} />}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => copyToClipboard(passUrl, 'Pass Link Copied')}
+                            title="Click to copy pass URL"
                           >
-                            <IconExternalLink size={15} />
-                          </ActionIcon>
-                        </Tooltip>
-
-                        <Tooltip label="Send Pass on WhatsApp">
-                          <ActionIcon
-                            variant="light"
-                            color="green"
-                            onClick={() => sendWhatsAppMessage(b)}
-                          >
-                            <IconBrandWhatsapp size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        <Tooltip label="Resend Confirmation SMS">
-                          <ActionIcon
-                            variant="light"
-                            color="blue"
-                            loading={resendingSmsId === b.id}
-                            onClick={() => handleResendSms(b)}
-                          >
-                            <IconMessage size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                        {b.paymentStatus !== 'success' && (
-                          <Tooltip label="Mark Payment Confirmed & Issue Stall Pass">
-                            <ActionIcon
-                              variant="filled"
-                              color="green"
-                              loading={confirmingStallId === b.id}
-                              onClick={() => handleConfirmStallPayment(b)}
+                            PASS ACTIVE
+                          </Badge>
+                        ) : (
+                          <Tooltip label="Booking link was not generated (Offline allotment). Click to generate now.">
+                            <Badge
+                              color="gray"
+                              variant="outline"
+                              size="sm"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => handleGenerateLinkForBooking(b.id)}
                             >
-                              <IconCheck size={16} />
-                            </ActionIcon>
+                              OFFLINE (NO LINK)
+                            </Badge>
                           </Tooltip>
                         )}
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="royalGold"
-                          onClick={() => handleViewBooking(b)}
-                          leftSection={<IconEye size={14} />}
+                      </Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        <Badge
+                          color={
+                            b.paymentStatus === 'success'
+                              ? 'green'
+                              : b.paymentStatus === 'pending'
+                              ? 'yellow'
+                              : 'red'
+                          }
+                          size="sm"
+                          style={{ flexShrink: 0, whiteSpace: 'nowrap' }}
                         >
-                          Inspect
-                        </Button>
-                        <Tooltip label="Delete Booking & Free Stall">
-                          <ActionIcon
+                          {b.paymentStatus.toUpperCase()}
+                        </Badge>
+                      </Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        {b.isCheckedIn ? (
+                          <Badge color="green" variant="light" size="sm" leftSection={<IconScan size={12} />}>
+                            CHECKED IN
+                          </Badge>
+                        ) : (
+                          <Badge color="gray" variant="light" size="sm">
+                            PENDING
+                          </Badge>
+                        )}
+                      </Table.Td>
+                      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                        <Text size="xs" c="gray.4">
+                          {b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN') : 'N/A'}
+                        </Text>
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <Group gap="xs" justify="flex-end" wrap="nowrap">
+                          {/* Edit Details Action Button */}
+                          <Tooltip label="Edit Stall Booking & Member Details">
+                            <ActionIcon
+                              variant="light"
+                              color="yellow"
+                              size="sm"
+                              radius="md"
+                              onClick={() => handleOpenEditModal(b)}
+                            >
+                              <IconEdit size={15} />
+                            </ActionIcon>
+                          </Tooltip>
+
+                          {/* Open Pass in New Tab if generated */}
+                          {hasLink ? (
+                            <Tooltip label="Open Live Stall Pass (New Tab)">
+                              <ActionIcon
+                                component="a"
+                                href={`/dandiyaraas/stall/pass/${b.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                color="cyan"
+                                variant="light"
+                                size="sm"
+                                radius="md"
+                              >
+                                <IconExternalLink size={15} />
+                              </ActionIcon>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip label="Generate Digital Pass & QR Link">
+                              <ActionIcon
+                                color="cyan"
+                                variant="outline"
+                                size="sm"
+                                radius="md"
+                                loading={generatingLinkForId === b.id}
+                                onClick={() => handleGenerateLinkForBooking(b.id)}
+                              >
+                                <IconLink size={15} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+
+                          <Tooltip label="Send Details on WhatsApp">
+                            <ActionIcon
+                              variant="light"
+                              color="green"
+                              size="sm"
+                              radius="md"
+                              onClick={() => sendWhatsAppMessage(b)}
+                            >
+                              <IconBrandWhatsapp size={15} />
+                            </ActionIcon>
+                          </Tooltip>
+
+                          {hasLink && (
+                            <Tooltip label="Resend Confirmation SMS">
+                              <ActionIcon
+                                variant="light"
+                                color="blue"
+                                size="sm"
+                                radius="md"
+                                loading={resendingSmsId === b.id}
+                                onClick={() => handleResendSms(b)}
+                              >
+                                <IconMessage size={15} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+
+                          {b.paymentStatus !== 'success' && (
+                            <Tooltip label="Mark Payment Confirmed & Issue Stall Pass">
+                              <ActionIcon
+                                variant="filled"
+                                color="green"
+                                size="sm"
+                                radius="md"
+                                loading={confirmingStallId === b.id}
+                                onClick={() => handleConfirmStallPayment(b)}
+                              >
+                                <IconCheck size={15} />
+                              </ActionIcon>
+                            </Tooltip>
+                          )}
+
+                          <Button
+                            size="xs"
                             variant="light"
-                            color="red"
-                            onClick={() => handlePromptDelete(b)}
+                            color="royalGold"
+                            onClick={() => handleViewBooking(b)}
+                            leftSection={<IconEye size={13} />}
                           >
-                            <IconTrash size={16} />
-                          </ActionIcon>
-                        </Tooltip>
-                      </Group>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
+                            Inspect
+                          </Button>
+
+                          <Tooltip label="Delete Booking & Free Stall">
+                            <ActionIcon
+                              variant="light"
+                              color="red"
+                              size="sm"
+                              radius="md"
+                              onClick={() => handlePromptDelete(b)}
+                            >
+                              <IconTrash size={15} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
         )}
       </Paper>
 
-      {/* Booking Details & Pass Modal */}
+      {/* =======================================================================
+          MODAL: DIRECT STALL BOOKING ISSUANCE (ADMIN DIRECT ISSUE)
+          ======================================================================= */}
+      <Modal
+        opened={createModalOpened}
+        onClose={() => !creatingStallBooking && setCreateModalOpened(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="yellow" variant="light" size="md" radius="md">
+              <IconBuildingStore size={18} />
+            </ThemeIcon>
+            <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+              Issue Direct Stall Booking
+            </Text>
+          </Group>
+        }
+        size="lg"
+        centered
+        radius="xl"
+        styles={{
+          content: { backgroundColor: '#140305', border: '1px solid rgba(234, 179, 8, 0.35)' },
+          header: { backgroundColor: '#140305', borderBottom: '1px solid rgba(234, 179, 8, 0.2)' },
+        }}
+      >
+        <Stack gap="md" pt="xs">
+          <Alert
+            icon={<IconInfoCircle size={18} />}
+            color="yellow"
+            variant="light"
+            radius="md"
+            styles={{
+              root: { backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)' },
+              message: { color: '#e2e8f0', fontSize: '0.85rem' },
+            }}
+          >
+            Directly register and confirm a stall allotment. You can specify all details including brand name, contact person, payment mode, and team member passes. Digital booking link generation is <strong>optional (turned off by default)</strong>.
+          </Alert>
+
+          {/* Section 1: Stall & Contact Details */}
+          <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+            <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+              1. STALL SELECTION &amp; EXHIBITOR INFO
+            </Text>
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              <Select
+                label="Select Stall Booth"
+                placeholder="Choose stall"
+                required
+                data={stallsList.map((s) => ({
+                  value: s.stallNumber,
+                  label: `Stall ${s.stallNumber} - ₹${s.price?.toLocaleString('en-IN')} (${
+                    s.isBooked ? 'Already Reserved' : 'Available'
+                  })`,
+                  disabled: s.isBooked,
+                }))}
+                value={newStallNumber}
+                onChange={(val) => val && handleSelectStallForNewBooking(val)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="Brand / Business Name"
+                placeholder="e.g. Royal Sweets & Snacks"
+                required
+                value={newBrandName}
+                onChange={(e) => setNewBrandName(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="Contact Person Full Name"
+                placeholder="e.g. Rajesh Kumar"
+                required
+                value={newBookerName}
+                onChange={(e) => setNewBookerName(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="10-Digit Mobile Number"
+                placeholder="e.g. 9876543210"
+                required
+                maxLength={10}
+                leftSection={<Text size="xs" c="gray.4">+91</Text>}
+                value={newMobile}
+                onChange={(e) => setNewMobile(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="Email Address (Optional)"
+                placeholder="e.g. contact@business.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="Stall Category / Products"
+                placeholder="e.g. Food Stall, Garments, Jewellery"
+                value={newStallType}
+                onChange={(e) => setNewStallType(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+            </SimpleGrid>
+          </Paper>
+
+          {/* Section 2: Pricing & Payment Method */}
+          <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+            <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+              2. PRICING &amp; PAYMENT DETAILS
+            </Text>
+
+            <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+              <NumberInput
+                label="Allotment Amount (₹)"
+                description="Editable for special rate or ₹0 (sponsor)"
+                min={0}
+                value={newAmount}
+                onChange={setNewAmount}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <Select
+                label="Payment Method"
+                data={[
+                  { value: 'Cash', label: 'Cash Payment' },
+                  { value: 'UPI', label: 'UPI / QR Transfer' },
+                  { value: 'Bank Transfer', label: 'NEFT / RTGS / Bank Transfer' },
+                  { value: 'Complimentary / Sponsor', label: 'Complimentary / Sponsor (₹0)' },
+                  { value: 'Cheque', label: 'Cheque' },
+                  { value: 'Online', label: 'Pre-paid Online' },
+                ]}
+                value={newPaymentMethod}
+                onChange={(v) => setNewPaymentMethod(v || 'Cash')}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <Select
+                label="Payment Status"
+                data={[
+                  { value: 'success', label: 'Paid & Confirmed' },
+                  { value: 'pending', label: 'Pending Payment' },
+                ]}
+                value={newPaymentStatus}
+                onChange={(v) => setNewPaymentStatus(v || 'success')}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+            </SimpleGrid>
+          </Paper>
+
+          {/* Section 3: Exhibitor Passes & Team Members */}
+          <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+            <Group justify="space-between" mb="xs">
+              <Box>
+                <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.05em' }}>
+                  3. EXHIBITOR TEAM MEMBER PASSES
+                </Text>
+                <Text size="11px" c="gray.4">
+                  2 official exhibitor passes are included with this allotment. You can add or modify member names attending the stall.
+                </Text>
+              </Box>
+              <Button
+                size="xs"
+                variant="light"
+                color="yellow"
+                leftSection={<IconPlus size={14} />}
+                onClick={handleAddNewTeamMember}
+              >
+                Add Member
+              </Button>
+            </Group>
+
+            <Stack gap="xs" mt="xs">
+              {newTeamMembers.map((member, idx) => (
+                <Group key={idx} gap="xs" wrap="nowrap">
+                  <TextInput
+                    placeholder={`Team Member #${idx + 1} Full Name (e.g. Ramesh Sharma)`}
+                    value={member}
+                    onChange={(e) => handleNewTeamMemberChange(idx, e.currentTarget.value)}
+                    style={{ flex: 1 }}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                    }}
+                  />
+                  {newTeamMembers.length > 1 && (
+                    <Tooltip label="Remove Member">
+                      <ActionIcon color="red" variant="subtle" onClick={() => handleRemoveNewTeamMember(idx)}>
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </Group>
+              ))}
+            </Stack>
+          </Paper>
+
+          {/* Section 4: Optional Booking Link & Digital Pass Generation */}
+          <Paper
+            p="sm"
+            radius="md"
+            style={{
+              backgroundColor: 'rgba(234, 179, 8, 0.05)',
+              border: '1px dashed rgba(234, 179, 8, 0.35)',
+            }}
+          >
+            <Stack gap="xs">
+              <Group justify="space-between" align="center">
+                <Box style={{ flex: 1 }}>
+                  <Text size="xs" fw={700} c="yellow.3">
+                    Generate Public Booking Link &amp; Digital QR Pass
+                  </Text>
+                  <Text size="11px" c="gray.4">
+                    Optional (turned <strong>OFF by default</strong>). If left OFF, this stall is booked offline without creating a digital pass URL. Turn ON to generate a live QR pass, link, and exhibitor card.
+                  </Text>
+                </Box>
+                <Switch
+                  checked={newGenerateBookingLink}
+                  onChange={(e) => setNewGenerateBookingLink(e.currentTarget.checked)}
+                  color="yellow"
+                  size="md"
+                />
+              </Group>
+
+              {newGenerateBookingLink && (
+                <>
+                  <Divider my={4} color="rgba(234, 179, 8, 0.2)" />
+                  <Group justify="space-between" align="center">
+                    <Box style={{ flex: 1 }}>
+                      <Text size="xs" fw={600} c="white">
+                        Dispatch Confirmation SMS to Exhibitor
+                      </Text>
+                      <Text size="11px" c="gray.4">
+                        Send automated SMS via TextBee to +91 {newMobile || 'exhibitor'} with pass details.
+                      </Text>
+                    </Box>
+                    <Switch
+                      checked={newSendSms}
+                      onChange={(e) => setNewSendSms(e.currentTarget.checked)}
+                      color="green"
+                      size="sm"
+                    />
+                  </Group>
+                </>
+              )}
+            </Stack>
+          </Paper>
+
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button variant="default" onClick={() => setCreateModalOpened(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="btn-auspicious-gold"
+              loading={creatingStallBooking}
+              onClick={handleCreateStallBookingSubmit}
+              leftSection={<IconBuildingStore size={18} />}
+            >
+              Issue Stall Booking
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* =======================================================================
+          MODAL: ISSUANCE SUCCESS CONFIRMATION
+          ======================================================================= */}
+      <Modal
+        opened={successModalOpened}
+        onClose={() => setSuccessModalOpened(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="green" variant="light" size="md" radius="md">
+              <IconCheck size={18} />
+            </ThemeIcon>
+            <Text fw={700} c="green.4" style={{ fontFamily: "'Cinzel', serif" }}>
+              Stall Booking Confirmed!
+            </Text>
+          </Group>
+        }
+        size="md"
+        centered
+        radius="lg"
+        styles={{
+          content: { backgroundColor: '#140305', border: '1px solid rgba(74, 222, 128, 0.4)' },
+          header: { backgroundColor: '#140305', borderBottom: '1px solid rgba(74, 222, 128, 0.2)' },
+        }}
+      >
+        {issuedBookingResult && (
+          <Stack gap="md" pt="xs">
+            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.04)' }}>
+              <SimpleGrid cols={2} spacing="xs">
+                <Box>
+                  <Text size="xs" c="dimmed">Booking Number:</Text>
+                  <Text size="sm" fw={800} c="royalGold.3">{issuedBookingResult.bookingNumber}</Text>
+                </Box>
+                <Box>
+                  <Text size="xs" c="dimmed">Allotted Stall:</Text>
+                  <Text size="sm" fw={800} c="white">Stall #{issuedBookingResult.stallNumber}</Text>
+                </Box>
+                <Box>
+                  <Text size="xs" c="dimmed">Brand Name:</Text>
+                  <Text size="sm" fw={700} c="white">{issuedBookingResult.brandName}</Text>
+                </Box>
+                <Box>
+                  <Text size="xs" c="dimmed">Contact Person:</Text>
+                  <Text size="xs" c="gray.3">{issuedBookingResult.bookerName} (+91 {issuedBookingResult.mobile})</Text>
+                </Box>
+              </SimpleGrid>
+            </Paper>
+
+            {issuedBookingResult.qrCodeDataUrl ? (
+              <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(6, 44, 20, 0.6)', border: '1px solid #22c55e' }}>
+                <Text size="xs" fw={700} c="#4ade80" mb={4}>
+                  ✓ Digital Pass &amp; Booking Link Active
+                </Text>
+                <Text size="xs" c="gray.3" mb="xs">
+                  Pass Link: {typeof window !== 'undefined' ? `${window.location.origin}/dandiyaraas/stall/pass/${issuedBookingResult.id}` : ''}
+                </Text>
+                <Group gap="xs" wrap="wrap">
+                  <Button
+                    size="xs"
+                    color="green"
+                    variant="light"
+                    leftSection={<IconCopy size={14} />}
+                    onClick={() =>
+                      copyToClipboard(
+                        `${window.location.origin}/dandiyaraas/stall/pass/${issuedBookingResult.id}`,
+                        'Digital Pass Link Copied'
+                      )
+                    }
+                  >
+                    Copy Pass URL
+                  </Button>
+                  <Button
+                    size="xs"
+                    color="cyan"
+                    variant="light"
+                    component="a"
+                    href={`/dandiyaraas/stall/pass/${issuedBookingResult.id}`}
+                    target="_blank"
+                    leftSection={<IconExternalLink size={14} />}
+                  >
+                    Open Live Pass
+                  </Button>
+                </Group>
+              </Paper>
+            ) : (
+              <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px dashed rgba(234, 179, 8, 0.35)' }}>
+                <Text size="xs" fw={700} c="yellow.3" mb={2}>
+                  Offline Allotment Recorded (No Pass Link Generated)
+                </Text>
+                <Text size="xs" c="gray.4">
+                  The stall is reserved in the system. As requested, no digital pass URL was created. You can generate one anytime from the booking table or by clicking &quot;Edit Details&quot;.
+                </Text>
+              </Paper>
+            )}
+
+            <Button
+              className="btn-auspicious-gold"
+              fullWidth
+              onClick={() => setSuccessModalOpened(false)}
+            >
+              Done
+            </Button>
+          </Stack>
+        )}
+      </Modal>
+
+      {/* =======================================================================
+          MODAL: EDIT STALL BOOKING & TEAM MEMBER DETAILS
+          ======================================================================= */}
+      <Modal
+        opened={editModalOpened}
+        onClose={() => !savingEdit && setEditModalOpened(false)}
+        title={
+          <Group gap="xs">
+            <ThemeIcon color="yellow" variant="light" size="md" radius="md">
+              <IconEdit size={18} />
+            </ThemeIcon>
+            <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+              Edit Stall Booking: {editBookingNumber}
+            </Text>
+          </Group>
+        }
+        size="lg"
+        centered
+        radius="xl"
+        styles={{
+          content: { backgroundColor: '#140305', border: '1px solid rgba(234, 179, 8, 0.35)' },
+          header: { backgroundColor: '#140305', borderBottom: '1px solid rgba(234, 179, 8, 0.2)' },
+        }}
+      >
+        <Stack gap="md" pt="xs">
+          {/* Section 1: Booker & Brand Info */}
+          <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+            <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+              1. EXHIBITOR &amp; STALL INFO
+            </Text>
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              <TextInput
+                label="Allotted Stall Number"
+                placeholder="e.g. 1, 5, A, K"
+                required
+                value={editStallNumber}
+                onChange={(e) => setEditStallNumber(e.currentTarget.value.toUpperCase())}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="Brand / Business Name"
+                placeholder="Business name"
+                required
+                value={editBrandName}
+                onChange={(e) => setEditBrandName(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="Contact Person Name"
+                placeholder="Contact person"
+                required
+                value={editBookerName}
+                onChange={(e) => setEditBookerName(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="10-Digit Mobile Number"
+                placeholder="Mobile number"
+                required
+                maxLength={10}
+                leftSection={<Text size="xs" c="gray.4">+91</Text>}
+                value={editMobile}
+                onChange={(e) => setEditMobile(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="Email Address"
+                placeholder="Email address"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="Category / Products"
+                placeholder="Category"
+                value={editStallType}
+                onChange={(e) => setEditStallType(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+            </SimpleGrid>
+          </Paper>
+
+          {/* Section 2: Pricing & Payment */}
+          <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+            <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+              2. FINANCIAL &amp; PAYMENT STATUS
+            </Text>
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              <NumberInput
+                label="Total Amount (₹)"
+                min={0}
+                value={editAmount}
+                onChange={setEditAmount}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <Select
+                label="Payment Status"
+                data={[
+                  { value: 'success', label: 'Paid & Confirmed (Success)' },
+                  { value: 'pending', label: 'Pending Payment' },
+                  { value: 'failed', label: 'Failed' },
+                ]}
+                value={editPaymentStatus}
+                onChange={(v) => setEditPaymentStatus(v || 'success')}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+            </SimpleGrid>
+          </Paper>
+
+          {/* Section 3: Allotted Team Member Names */}
+          <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+            <Group justify="space-between" mb="xs">
+              <Box>
+                <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.05em' }}>
+                  3. ALLOTTED TEAM MEMBERS ({editTeamMembers.length} ACTIVE)
+                </Text>
+                <Text size="11px" c="gray.4">
+                  Names of all authorized attendees for this booth. Modify existing or add new team passes.
+                </Text>
+              </Box>
+              <Button
+                size="xs"
+                variant="light"
+                color="yellow"
+                leftSection={<IconPlus size={14} />}
+                onClick={handleAddEditTeamMember}
+              >
+                Add Member
+              </Button>
+            </Group>
+
+            <Stack gap="xs" mt="xs">
+              {editTeamMembers.map((member, idx) => (
+                <Group key={idx} gap="xs" wrap="nowrap">
+                  <TextInput
+                    placeholder={`Team Member #${idx + 1} Full Name`}
+                    value={member}
+                    onChange={(e) => handleEditTeamMemberChange(idx, e.currentTarget.value)}
+                    style={{ flex: 1 }}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                    }}
+                  />
+                  {editTeamMembers.length > 1 && (
+                    <Tooltip label="Remove Member">
+                      <ActionIcon color="red" variant="subtle" onClick={() => handleRemoveEditTeamMember(idx)}>
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  )}
+                </Group>
+              ))}
+            </Stack>
+          </Paper>
+
+          {/* Section 4: Digital Booking Link Management */}
+          <Paper
+            p="sm"
+            radius="md"
+            style={{
+              backgroundColor: editQrCodeDataUrl ? 'rgba(6, 44, 20, 0.5)' : 'rgba(234, 179, 8, 0.06)',
+              border: editQrCodeDataUrl ? '1px solid #22c55e' : '1px dashed rgba(234, 179, 8, 0.35)',
+            }}
+          >
+            {editQrCodeDataUrl ? (
+              <Stack gap="xs">
+                <Group justify="space-between" align="center">
+                  <Box>
+                    <Text size="xs" fw={700} c="#4ade80">
+                      ✓ Digital Pass Link Active
+                    </Text>
+                    <Text size="11px" c="gray.3">
+                      Public Pass URL: {typeof window !== 'undefined' ? `${window.location.origin}/dandiyaraas/stall/pass/${editBookingId}` : ''}
+                    </Text>
+                  </Box>
+                  <Group gap="xs">
+                    <Button
+                      size="xs"
+                      color="green"
+                      variant="light"
+                      leftSection={<IconCopy size={14} />}
+                      onClick={() =>
+                        copyToClipboard(
+                          `${window.location.origin}/dandiyaraas/stall/pass/${editBookingId}`,
+                          'Pass Link Copied'
+                        )
+                      }
+                    >
+                      Copy Link
+                    </Button>
+                    <Button
+                      size="xs"
+                      color="cyan"
+                      variant="light"
+                      component="a"
+                      href={`/dandiyaraas/stall/pass/${editBookingId}`}
+                      target="_blank"
+                      leftSection={<IconExternalLink size={14} />}
+                    >
+                      Open
+                    </Button>
+                  </Group>
+                </Group>
+              </Stack>
+            ) : (
+              <Group justify="space-between" align="center">
+                <Box style={{ flex: 1 }}>
+                  <Text size="xs" fw={700} c="yellow.3">
+                    Digital Pass Link Not Generated (Offline Allotment)
+                  </Text>
+                  <Text size="11px" c="gray.4">
+                    This booking has no active digital QR pass. Click below to generate the public pass link and QR code immediately.
+                  </Text>
+                </Box>
+                <Button
+                  size="xs"
+                  color="yellow"
+                  variant="filled"
+                  loading={generatingLinkForId === editBookingId}
+                  leftSection={<IconLink size={14} />}
+                  onClick={() => handleGenerateLinkForBooking(editBookingId)}
+                >
+                  Generate Pass Link Now
+                </Button>
+              </Group>
+            )}
+          </Paper>
+
+          <Group justify="flex-end" gap="sm" mt="xs">
+            <Button variant="default" onClick={() => setEditModalOpened(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="btn-auspicious-gold"
+              loading={savingEdit}
+              onClick={() => handleSaveEditBooking(false)}
+            >
+              Save Changes
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* =======================================================================
+          MODAL: BOOKING DETAILS & PASS PREVIEW
+          ======================================================================= */}
       <Modal
         opened={opened}
         onClose={close}
@@ -560,9 +1662,9 @@ export default function AdminBookingsPage() {
         {selectedBooking && (
           <Stack gap="lg">
             <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="xl" style={{ alignItems: 'start' }}>
-              {/* Left Column: Official Exhibitor Pass Card identical to user's view */}
+              {/* Left Column: Official Exhibitor Pass Card */}
               <Box style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                <ExhibitorPassCard booking={selectedBooking} showDownloadButton={true} />
+                <ExhibitorPassCard booking={selectedBooking} showDownloadButton={Boolean(selectedBooking.qrCodeDataUrl)} />
               </Box>
 
               {/* Right Column: Transaction & Verification Details */}
@@ -575,9 +1677,23 @@ export default function AdminBookingsPage() {
                     border: '1px solid rgba(234, 179, 8, 0.25)',
                   }}
                 >
-                  <Text size="xs" fw={700} c="royalGold.4" mb="sm">
-                    RESERVATION METRICS
-                  </Text>
+                  <Group justify="space-between" mb="sm">
+                    <Text size="xs" fw={700} c="royalGold.4">
+                      RESERVATION METRICS
+                    </Text>
+                    <Button
+                      size="xs"
+                      variant="subtle"
+                      color="yellow"
+                      leftSection={<IconEdit size={14} />}
+                      onClick={() => {
+                        close();
+                        handleOpenEditModal(selectedBooking);
+                      }}
+                    >
+                      Edit All Details
+                    </Button>
+                  </Group>
 
                   <Stack gap="xs">
                     <Group justify="space-between">
@@ -598,7 +1714,7 @@ export default function AdminBookingsPage() {
                     </Group>
                     <Group justify="space-between">
                       <Text size="xs" c="dimmed">Email Address:</Text>
-                      <Text size="xs" c="gray.3">{selectedBooking.email}</Text>
+                      <Text size="xs" c="gray.3">{selectedBooking.email || 'N/A'}</Text>
                     </Group>
                     <Group justify="space-between">
                       <Text size="xs" c="dimmed">Category / Products:</Text>
@@ -628,6 +1744,61 @@ export default function AdminBookingsPage() {
                     </Group>
                   </Stack>
                 </Paper>
+
+                {/* Digital Pass Link Box */}
+                {selectedBooking.qrCodeDataUrl ? (
+                  <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(6, 44, 20, 0.6)', border: '1px solid #22c55e' }}>
+                    <Text size="xs" fw={700} c="#4ade80" mb={2}>
+                      ✓ Digital QR Pass Active
+                    </Text>
+                    <Group gap="xs" mt="xs">
+                      <Button
+                        size="xs"
+                        color="green"
+                        variant="light"
+                        leftSection={<IconCopy size={14} />}
+                        onClick={() =>
+                          copyToClipboard(
+                            `${window.location.origin}/dandiyaraas/stall/pass/${selectedBooking.id}`,
+                            'Pass URL Copied'
+                          )
+                        }
+                      >
+                        Copy Pass Link
+                      </Button>
+                      <Button
+                        size="xs"
+                        color="cyan"
+                        variant="light"
+                        component="a"
+                        href={`/dandiyaraas/stall/pass/${selectedBooking.id}`}
+                        target="_blank"
+                        leftSection={<IconExternalLink size={14} />}
+                      >
+                        Open Live Pass
+                      </Button>
+                    </Group>
+                  </Paper>
+                ) : (
+                  <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px dashed rgba(234, 179, 8, 0.35)' }}>
+                    <Text size="xs" fw={700} c="yellow.3" mb={2}>
+                      Offline Allotment (Digital Pass Not Generated)
+                    </Text>
+                    <Text size="xs" c="gray.4" mb="xs">
+                      This stall was booked offline without creating a public pass URL or QR code.
+                    </Text>
+                    <Button
+                      size="xs"
+                      color="yellow"
+                      variant="filled"
+                      loading={generatingLinkForId === selectedBooking.id}
+                      leftSection={<IconLink size={14} />}
+                      onClick={() => handleGenerateLinkForBooking(selectedBooking.id)}
+                    >
+                      Generate Digital Pass Link Now
+                    </Button>
+                  </Paper>
+                )}
 
                 {/* Gate Entry Check-in Status Box */}
                 <Paper
@@ -684,25 +1855,38 @@ export default function AdminBookingsPage() {
                   leftSection={<IconBrandWhatsapp size={20} />}
                   onClick={() => sendWhatsAppMessage(selectedBooking)}
                 >
-                  Send Confirmation &amp; Pass on WhatsApp
+                  Send Details on WhatsApp
                 </Button>
 
                 {/* Resend Confirmation SMS Action */}
-                <Button
-                  color="blue"
-                  variant="light"
-                  size="md"
-                  fullWidth
-                  leftSection={<IconMessage size={20} />}
-                  loading={resendingSmsId === selectedBooking.id}
-                  onClick={() => handleResendSms(selectedBooking)}
-                >
-                  Resend Confirmation SMS (TextBee)
-                </Button>
+                {selectedBooking.qrCodeDataUrl && (
+                  <Button
+                    color="blue"
+                    variant="light"
+                    size="md"
+                    fullWidth
+                    leftSection={<IconMessage size={20} />}
+                    loading={resendingSmsId === selectedBooking.id}
+                    onClick={() => handleResendSms(selectedBooking)}
+                  >
+                    Resend Confirmation SMS (TextBee)
+                  </Button>
+                )}
               </Stack>
             </SimpleGrid>
 
-            <Group justify="flex-end" mt="sm">
+            <Group justify="space-between" mt="sm">
+              <Button
+                variant="light"
+                color="yellow"
+                leftSection={<IconEdit size={16} />}
+                onClick={() => {
+                  close();
+                  handleOpenEditModal(selectedBooking);
+                }}
+              >
+                Edit All Details &amp; Team Members
+              </Button>
               <Button variant="default" onClick={close}>
                 Close Details
               </Button>
@@ -711,7 +1895,9 @@ export default function AdminBookingsPage() {
         )}
       </Modal>
 
-      {/* Delete Stall Order Confirmation Modal */}
+      {/* =======================================================================
+          MODAL: DELETE ORDER CONFIRMATION
+          ======================================================================= */}
       <Modal
         opened={deleteOpened}
         onClose={closeDelete}

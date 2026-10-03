@@ -33,7 +33,9 @@ export interface StallItem {
   bookedByEmail?: string | null;
   bookedAt?: string | null;
   bookingId?: string | null;
+  bookingNumber?: string | null;
   teamMembers?: string | null;
+  qrCodeDataUrl?: string | null;
   extraMembers?: any[];
   extraMembersCount?: number;
   extraMembersAmount?: number;
@@ -44,6 +46,8 @@ interface InteractiveStallGridProps {
   selectedStallNumber?: string | null;
   onSelectStall?: (stall: StallItem) => void;
   isAdminView?: boolean;
+  isAdmin?: boolean;
+  loading?: boolean;
   onAdminAction?: (stall: StallItem) => void;
   onEditCategoryPricing?: () => void;
 }
@@ -53,6 +57,8 @@ export function InteractiveStallGrid({
   selectedStallNumber,
   onSelectStall,
   isAdminView = false,
+  isAdmin = false,
+  loading = false,
   onAdminAction,
   onEditCategoryPricing,
 }: InteractiveStallGridProps) {
