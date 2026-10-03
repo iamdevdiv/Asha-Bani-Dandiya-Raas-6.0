@@ -408,6 +408,21 @@ body {
   filter: grayscale(0.4);
 }
 
+/* Admin interactive view override: all booths clickable & interactive */
+.stall-canopy-admin .stall-canopy-box {
+  cursor: pointer !important;
+}
+
+.stall-canopy-admin .stall-booked {
+  cursor: pointer !important;
+  opacity: 0.88 !important;
+  filter: none !important;
+}
+
+.stall-canopy-admin .stall-canopy-box:hover {
+  transform: scale(1.05) !important;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;

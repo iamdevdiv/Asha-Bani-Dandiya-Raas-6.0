@@ -36,6 +36,10 @@ export interface StallItem {
   bookingNumber?: string | null;
   teamMembers?: string | null;
   qrCodeDataUrl?: string | null;
+  paymentStatus?: string | null;
+  paymentMethod?: string | null;
+  stallType?: string | null;
+  amount?: number | null;
   extraMembers?: any[];
   extraMembersCount?: number;
   extraMembersAmount?: number;
@@ -239,7 +243,7 @@ export function InteractiveStallGrid({
       </Paper>
 
       {/* Grid Container */}
-      <Stack gap="md">
+      <Stack gap="md" className={isAdminView ? 'stall-canopy-admin' : ''}>
         {rows.map((rowNumbers, rowIndex) => (
           <Box key={`row_${rowIndex}`}>
             {rowIndex === 0 && (
@@ -274,8 +278,12 @@ export function InteractiveStallGrid({
                     <Box
                       className={`stall-canopy-box ${isBooked ? 'stall-booked' : ''}`}
                       onClick={() => {
-                        if (isAdminView && onAdminAction) {
-                          onAdminAction(stall);
+                        if (isAdminView) {
+                          if (onAdminAction) {
+                            onAdminAction(stall);
+                          } else if (onSelectStall) {
+                            onSelectStall(stall);
+                          }
                           return;
                         }
                         if (!isBooked && onSelectStall) {
@@ -285,6 +293,8 @@ export function InteractiveStallGrid({
                       style={{
                         position: 'relative',
                         borderRadius: 12,
+                        cursor: isAdminView ? 'pointer' : (isBooked ? 'not-allowed' : 'pointer'),
+                        opacity: isBooked && !isAdminView ? 0.55 : 1,
                         backgroundColor: isSelected
                           ? 'rgba(234, 179, 8, 0.25)'
                           : isBooked

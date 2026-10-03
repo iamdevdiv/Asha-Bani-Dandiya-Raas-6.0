@@ -9,7 +9,9 @@ import {
   updateAdminStallBooking,
   deleteStallBooking,
   generateStallBookingLinkAndPass,
+  getBookingById,
 } from '@/lib/db';
+import { sendStallBookingSms } from '@/lib/sms';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,8 +54,13 @@ export async function PUT(req: NextRequest) {
       bookedByBrand,
       bookedByMobile,
       bookedByEmail,
+      stallType,
+      amount,
+      paymentStatus,
+      paymentMethod,
       teamMembers,
       generateBookingLink,
+      sendSms,
       action,
     } = body;
 
@@ -68,6 +75,17 @@ export async function PUT(req: NextRequest) {
 
     // Action: Generate link for existing booked stall
     if (action === 'generate_link' && currentStall.bookingId) {
+      const booking = await getBookingById(currentStall.bookingId);
+      if (!booking) {
+        return NextResponse.json({ success: false, message: 'Booking not found for this stall.' }, { status: 404 });
+      }
+      if (booking.paymentStatus !== 'success') {
+        return NextResponse.json({
+          success: false,
+          message: 'Cannot generate pass link for pending payments. Please confirm payment first.',
+        }, { status: 400 });
+      }
+
       const updatedBooking = await generateStallBookingLinkAndPass(currentStall.bookingId);
       const updatedStall = await getStallByNumber(stallNumber);
       return NextResponse.json({
@@ -94,12 +112,27 @@ export async function PUT(req: NextRequest) {
           bookedAt: null,
         });
       }
+      if (price !== undefined) {
+        await updateStall(stallNumber, { price: Number(price) });
+      }
       const updatedStall = await getStallByNumber(stallNumber);
       return NextResponse.json({ success: true, stall: updatedStall, message: `Stall ${stallNumber} marked as available.` });
     }
 
     // If booking or updating details for a stall
     if (isBooked === true) {
+      const targetPaymentStatus = paymentStatus || 'success';
+      if (Boolean(generateBookingLink) && targetPaymentStatus !== 'success') {
+        return NextResponse.json({
+          success: false,
+          message: 'Cannot generate pass link for pending payments. Please confirm payment first.',
+        }, { status: 400 });
+      }
+
+      const effectiveAmount = (amount !== undefined && amount !== null && amount !== '')
+        ? Number(amount)
+        : (price !== undefined ? Number(price) : currentStall.price);
+
       if (currentStall.bookingId) {
         // Update existing booking
         const updatedBooking = await updateAdminStallBooking(currentStall.bookingId, {
@@ -107,10 +140,18 @@ export async function PUT(req: NextRequest) {
           brandName: bookedByBrand || bookedByName,
           mobile: bookedByMobile,
           email: bookedByEmail,
-          amount: price !== undefined ? Number(price) : undefined,
+          stallType,
+          amount: effectiveAmount,
+          paymentStatus: targetPaymentStatus,
+          paymentMethod,
           teamMembers,
           generateBookingLink: Boolean(generateBookingLink),
         });
+
+        if (price !== undefined) {
+          await updateStall(stallNumber, { price: Number(price) });
+        }
+
         const updatedStall = await getStallByNumber(stallNumber);
         return NextResponse.json({
           success: true,
@@ -127,10 +168,26 @@ export async function PUT(req: NextRequest) {
           brandName: bookedByBrand || bookedByName,
           mobile: bookedByMobile,
           email: bookedByEmail,
-          amount: price !== undefined ? Number(price) : currentStall.price,
+          stallType,
+          amount: effectiveAmount,
+          paymentStatus: targetPaymentStatus,
+          paymentMethod: paymentMethod || 'Manual',
           teamMembers,
           generateBookingLink: Boolean(generateBookingLink),
         });
+
+        if (sendSms && Boolean(generateBookingLink)) {
+          try {
+            await sendStallBookingSms(createdBooking);
+          } catch (smsErr) {
+            console.warn('SMS dispatch failed in stall booking:', smsErr);
+          }
+        }
+
+        if (price !== undefined) {
+          await updateStall(stallNumber, { price: Number(price) });
+        }
+
         const updatedStall = await getStallByNumber(stallNumber);
         return NextResponse.json({
           success: true,
@@ -157,7 +214,7 @@ export async function PUT(req: NextRequest) {
     console.error('Error in PUT /api/admin/stalls:', error);
     return NextResponse.json(
       { success: false, message: error.message || 'Failed to update stall.' },
-      { status: 500 }
+      { status: 400 }
     );
   }
 }

@@ -366,6 +366,15 @@ export default function AdminBookingsPage() {
       return;
     }
 
+    if (newGenerateBookingLink && newPaymentStatus !== 'success') {
+      notifications.show({
+        title: 'Pending Payment',
+        message: 'Pass link cannot be generated for pending payments. Please confirm payment or turn off link generation.',
+        color: 'yellow',
+      });
+      return;
+    }
+
     setCreatingStallBooking(true);
     try {
       const res = await fetch('/api/admin/bookings/create', {
@@ -508,6 +517,16 @@ export default function AdminBookingsPage() {
   };
 
   const handleGenerateLinkForBooking = async (bookingId: string) => {
+    const targetBooking = bookings.find((b) => b.id === bookingId);
+    if (targetBooking && targetBooking.paymentStatus !== 'success') {
+      notifications.show({
+        title: 'Payment Pending',
+        message: 'Digital pass link cannot be generated for pending payments. Please confirm payment first.',
+        color: 'yellow',
+      });
+      return;
+    }
+
     setGeneratingLinkForId(bookingId);
     try {
       const res = await fetch(`/api/admin/bookings/${bookingId}`, {
@@ -862,14 +881,21 @@ export default function AdminBookingsPage() {
                               </ActionIcon>
                             </Tooltip>
                           ) : (
-                            <Tooltip label="Generate Digital Pass & QR Link">
+                            <Tooltip
+                              label={
+                                b.paymentStatus === 'success'
+                                  ? 'Generate Digital Pass & QR Link'
+                                  : 'Payment pending — confirm payment first to generate pass link'
+                              }
+                            >
                               <ActionIcon
                                 color="cyan"
                                 variant="outline"
                                 size="sm"
                                 radius="md"
+                                disabled={b.paymentStatus !== 'success'}
                                 loading={generatingLinkForId === b.id}
-                                onClick={() => handleGenerateLinkForBooking(b.id)}
+                                onClick={() => b.paymentStatus === 'success' && handleGenerateLinkForBooking(b.id)}
                               >
                                 <IconLink size={15} />
                               </ActionIcon>
@@ -1004,7 +1030,6 @@ export default function AdminBookingsPage() {
                   label: `Stall ${s.stallNumber} - ₹${s.price?.toLocaleString('en-IN')} (${
                     s.isBooked ? 'Already Reserved' : 'Available'
                   })`,
-                  disabled: s.isBooked,
                 }))}
                 value={newStallNumber}
                 onChange={(val) => val && handleSelectStallForNewBooking(val)}
@@ -1195,14 +1220,30 @@ export default function AdminBookingsPage() {
                   </Text>
                 </Box>
                 <Switch
-                  checked={newGenerateBookingLink}
+                  checked={newPaymentStatus === 'success' && newGenerateBookingLink}
+                  disabled={newPaymentStatus !== 'success'}
                   onChange={(e) => setNewGenerateBookingLink(e.currentTarget.checked)}
                   color="yellow"
                   size="md"
                 />
               </Group>
 
-              {newGenerateBookingLink && (
+              {newPaymentStatus !== 'success' && (
+                <Alert
+                  icon={<IconAlertCircle size={16} />}
+                  color="yellow"
+                  variant="light"
+                  radius="md"
+                  styles={{
+                    root: { backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)' },
+                    message: { color: '#fde047', fontSize: '0.8rem' },
+                  }}
+                >
+                  Payment is marked as <strong>Pending Payment</strong>. Digital booking link and QR pass generation is not allowed until payment is confirmed.
+                </Alert>
+              )}
+
+              {newPaymentStatus === 'success' && newGenerateBookingLink && (
                 <>
                   <Divider my={4} color="rgba(234, 179, 8, 0.2)" />
                   <Group justify="space-between" align="center">
@@ -1584,26 +1625,45 @@ export default function AdminBookingsPage() {
                 </Group>
               </Stack>
             ) : (
-              <Group justify="space-between" align="center">
-                <Box style={{ flex: 1 }}>
-                  <Text size="xs" fw={700} c="yellow.3">
-                    Digital Pass Link Not Generated (Offline Allotment)
-                  </Text>
-                  <Text size="11px" c="gray.4">
-                    This booking has no active digital QR pass. Click below to generate the public pass link and QR code immediately.
-                  </Text>
-                </Box>
-                <Button
-                  size="xs"
-                  color="yellow"
-                  variant="filled"
-                  loading={generatingLinkForId === editBookingId}
-                  leftSection={<IconLink size={14} />}
-                  onClick={() => handleGenerateLinkForBooking(editBookingId)}
-                >
-                  Generate Pass Link Now
-                </Button>
-              </Group>
+              <Stack gap="xs">
+                <Group justify="space-between" align="center">
+                  <Box style={{ flex: 1 }}>
+                    <Text size="xs" fw={700} c="yellow.3">
+                      Digital Pass Link Not Generated (Offline Allotment)
+                    </Text>
+                    <Text size="11px" c="gray.4">
+                      {editPaymentStatus === 'success'
+                        ? 'This booking has no active digital QR pass. Click below to generate the public pass link and QR code immediately.'
+                        : 'Payment is marked as Pending. Confirm payment before generating a digital pass link.'}
+                    </Text>
+                  </Box>
+                  <Button
+                    size="xs"
+                    color="yellow"
+                    variant="filled"
+                    disabled={editPaymentStatus !== 'success'}
+                    loading={generatingLinkForId === editBookingId}
+                    leftSection={<IconLink size={14} />}
+                    onClick={() => handleGenerateLinkForBooking(editBookingId)}
+                  >
+                    Generate Pass Link Now
+                  </Button>
+                </Group>
+                {editPaymentStatus !== 'success' && (
+                  <Alert
+                    icon={<IconAlertCircle size={15} />}
+                    color="yellow"
+                    variant="light"
+                    radius="md"
+                    styles={{
+                      root: { backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)' },
+                      message: { color: '#fde047', fontSize: '0.8rem' },
+                    }}
+                  >
+                    Payment is pending. Please update payment status to &quot;Paid &amp; Confirmed&quot; first to enable digital pass link generation.
+                  </Alert>
+                )}
+              </Stack>
             )}
           </Paper>
 

@@ -339,13 +339,19 @@ export async function getStalls() {
           orderBy: { stallNumber: 'asc' },
         }),
         prisma.booking.findMany({
-          where: { paymentStatus: 'success' },
+          where: { paymentStatus: { in: ['success', 'pending'] } },
           select: {
             id: true,
             bookingNumber: true,
             stallNumber: true,
             bookerName: true,
             brandName: true,
+            email: true,
+            mobile: true,
+            stallType: true,
+            amount: true,
+            paymentStatus: true,
+            razorpayPaymentId: true,
             teamMembers: true,
             qrCodeDataUrl: true,
           },
@@ -390,6 +396,14 @@ export async function getStalls() {
           ...s,
           bookingId: s.bookingId || b?.id || null,
           bookingNumber: b?.bookingNumber || null,
+          bookedByName: s.bookedByName || b?.bookerName || null,
+          bookedByBrand: s.bookedByBrand || b?.brandName || null,
+          bookedByMobile: s.bookedByMobile || b?.mobile || null,
+          bookedByEmail: s.bookedByEmail || b?.email || null,
+          paymentStatus: b?.paymentStatus || (s.isBooked ? 'success' : 'pending'),
+          paymentMethod: b?.razorpayPaymentId?.startsWith('ADMIN_') ? 'Manual' : (b?.razorpayPaymentId ? 'Online' : 'Cash'),
+          stallType: b?.stallType || (s.section === 'food' ? 'Food Stall' : 'Commercial Canopy'),
+          amount: b?.amount ?? s.price,
           teamMembers,
           qrCodeDataUrl: b?.qrCodeDataUrl || null,
           extraMembers: extras,
@@ -405,7 +419,7 @@ export async function getStalls() {
   const allStallMembers = store.stallMembers?.filter((m) => m.paymentStatus === 'success') || [];
   return store.stalls.map((s) => {
     const key = (s.stallNumber || '').trim().toUpperCase();
-    const b = store.bookings.find((bk) => (bk.stallNumber || '').trim().toUpperCase() === key && bk.paymentStatus === 'success');
+    const b = store.bookings.find((bk) => (bk.stallNumber || '').trim().toUpperCase() === key && bk.paymentStatus !== 'failed' && bk.paymentStatus !== 'cancelled');
     const extras = allStallMembers.filter((m) => (m.stallNumber || '').trim().toUpperCase() === key);
     const extraMembersAmount = extras.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
     const teamMembers = b?.teamMembers || s.bookedByName || null;
@@ -413,6 +427,14 @@ export async function getStalls() {
       ...s,
       bookingId: s.bookingId || b?.id || null,
       bookingNumber: b?.bookingNumber || null,
+      bookedByName: s.bookedByName || b?.bookerName || null,
+      bookedByBrand: s.bookedByBrand || b?.brandName || null,
+      bookedByMobile: s.bookedByMobile || b?.mobile || null,
+      bookedByEmail: s.bookedByEmail || b?.email || null,
+      paymentStatus: b?.paymentStatus || (s.isBooked ? 'success' : 'pending'),
+      paymentMethod: b?.razorpayPaymentId?.startsWith('ADMIN_') ? 'Manual' : (b?.razorpayPaymentId ? 'Online' : 'Cash'),
+      stallType: b?.stallType || (s.section === 'food' ? 'Food Stall' : 'Commercial Canopy'),
+      amount: b?.amount ?? s.price,
       teamMembers,
       qrCodeDataUrl: b?.qrCodeDataUrl || null,
       extraMembers: extras,
@@ -429,13 +451,54 @@ export async function getStallByNumber(stallNumber: string) {
       const stall = await prisma.stall.findUnique({
         where: { stallNumber },
       });
-      if (stall) return stall;
+      if (stall) {
+        if (stall.bookingId) {
+          const booking = await prisma.booking.findUnique({ where: { id: stall.bookingId } });
+          if (booking) {
+            return {
+              ...stall,
+              booking,
+              bookingNumber: booking.bookingNumber,
+              bookedByName: stall.bookedByName || booking.bookerName,
+              bookedByBrand: stall.bookedByBrand || booking.brandName,
+              bookedByMobile: stall.bookedByMobile || booking.mobile,
+              bookedByEmail: stall.bookedByEmail || booking.email,
+              qrCodeDataUrl: booking.qrCodeDataUrl,
+              teamMembers: booking.teamMembers,
+              paymentStatus: booking.paymentStatus,
+              stallType: booking.stallType,
+              amount: booking.amount,
+            };
+          }
+        }
+        return stall;
+      }
     } catch (e) {
       console.warn('Prisma error in getStallByNumber', e);
     }
   }
   const store = loadFallbackStore();
-  return store.stalls.find((s) => s.stallNumber.toUpperCase() === stallNumber.toUpperCase()) || null;
+  const stall = store.stalls.find((s) => s.stallNumber.toUpperCase() === stallNumber.toUpperCase()) || null;
+  if (stall && stall.bookingId) {
+    const booking = store.bookings.find((b) => b.id === stall.bookingId);
+    if (booking) {
+      return {
+        ...stall,
+        booking,
+        bookingNumber: booking.bookingNumber,
+        bookedByName: stall.bookedByName || booking.bookerName,
+        bookedByBrand: stall.bookedByBrand || booking.brandName,
+        bookedByMobile: stall.bookedByMobile || booking.mobile,
+        bookedByEmail: stall.bookedByEmail || booking.email,
+        qrCodeDataUrl: booking.qrCodeDataUrl,
+        teamMembers: booking.teamMembers,
+        paymentStatus: booking.paymentStatus,
+        stallType: booking.stallType,
+        amount: booking.amount,
+      };
+    }
+  }
+  return stall;
 }
 
 export async function updateStall(
@@ -4525,13 +4588,18 @@ export async function createAdminIssuedStallBooking(data: {
   const paymentStatus = data.paymentStatus || 'success';
   const paymentMethod = data.paymentMethod || 'Manual';
 
+  // CRITICAL: Do not allow link generation for pending payments
+  if (Boolean(data.generateBookingLink) && paymentStatus !== 'success') {
+    throw new Error('Digital booking link and QR pass cannot be generated for pending payments. Please confirm payment first.');
+  }
+
   const bookingNumber = await generateUniqueBookingNumber(`ABDR-STALL-${stall.stallNumber.toUpperCase()}-`);
 
   let qrCodeDataUrl: string | null = null;
   let confirmationDocUrl: string | null = null;
 
-  // Booking link generation is OPTIONAL (turned off by default)
-  const shouldGenerateLink = Boolean(data.generateBookingLink);
+  // Booking link generation is OPTIONAL (turned off by default) and STRICTLY requires paymentStatus === 'success'
+  const shouldGenerateLink = Boolean(data.generateBookingLink) && paymentStatus === 'success';
 
   if (shouldGenerateLink) {
     const settings = await getSettings();
@@ -4702,13 +4770,21 @@ export async function updateAdminStallBooking(
   const targetStallNumber = (data.stallNumber || booking.stallNumber).trim().toUpperCase();
   const isStallChanged = targetStallNumber !== booking.stallNumber.toUpperCase();
 
+  const targetPaymentStatus = data.paymentStatus !== undefined ? data.paymentStatus : booking.paymentStatus;
+  const isPaymentSuccess = targetPaymentStatus === 'success';
+
   let qrCodeDataUrl = booking.qrCodeDataUrl;
   let confirmationDocUrl = booking.confirmationDocUrl;
 
   const shouldGenerate = Boolean(data.generateBookingLink) && !qrCodeDataUrl;
   const shouldRegenerate = Boolean(data.forceRegenerateLink);
 
-  if (shouldGenerate || shouldRegenerate) {
+  // CRITICAL: Do not allow link generation for pending payments
+  if ((shouldGenerate || shouldRegenerate) && !isPaymentSuccess) {
+    throw new Error('Digital pass link and QR code cannot be generated for pending payments. Please confirm payment first.');
+  }
+
+  if ((shouldGenerate || shouldRegenerate) && isPaymentSuccess) {
     const settings = await getSettings();
     const eventDate = settings.event_date || '13 October 2026';
     const venue = `${settings.venue_name || 'Maharaja Agrasen Bhavan'}, ${settings.venue_address || 'Saharanpur'}`;
@@ -4746,7 +4822,7 @@ export async function updateAdminStallBooking(
     email: data.email !== undefined ? data.email.trim().toLowerCase() : booking.email,
     stallType: data.stallType !== undefined ? data.stallType.trim() : booking.stallType,
     amount: data.amount !== undefined ? Math.max(0, Number(data.amount)) : booking.amount,
-    paymentStatus: data.paymentStatus !== undefined ? data.paymentStatus : booking.paymentStatus,
+    paymentStatus: targetPaymentStatus,
     teamMembers: formattedTeamMembers,
     stallNumber: targetStallNumber,
     qrCodeDataUrl,
@@ -4841,6 +4917,13 @@ export async function updateAdminStallBooking(
 }
 
 export async function generateStallBookingLinkAndPass(bookingId: string) {
+  const booking = await getBookingById(bookingId);
+  if (!booking) {
+    throw new Error('Stall booking not found.');
+  }
+  if (booking.paymentStatus !== 'success') {
+    throw new Error('Digital pass link cannot be generated while payment is pending. Please confirm payment first.');
+  }
   return updateAdminStallBooking(bookingId, {
     generateBookingLink: true,
     forceRegenerateLink: true,

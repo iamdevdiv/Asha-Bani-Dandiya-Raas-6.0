@@ -45,6 +45,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Valid 10-digit mobile number is required.' }, { status: 400 });
     }
 
+    if (Boolean(generateBookingLink) && paymentStatus && paymentStatus !== 'success') {
+      return NextResponse.json({
+        success: false,
+        message: 'Cannot generate booking link or pass for pending payments. Please confirm payment first or disable link generation.',
+      }, { status: 400 });
+    }
+
     const booking = await createAdminIssuedStallBooking({
       stallNumber: stallNumber.trim(),
       bookerName: bookerName.trim(),

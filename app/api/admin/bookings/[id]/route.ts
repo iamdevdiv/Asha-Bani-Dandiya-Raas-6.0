@@ -65,7 +65,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     });
   } catch (error: any) {
     console.error('Error updating stall booking:', error);
-    return NextResponse.json({ success: false, message: error.message || 'Failed to update booking' }, { status: 500 });
+    return NextResponse.json({ success: false, message: error.message || 'Failed to update booking' }, { status: 400 });
   }
 }
 

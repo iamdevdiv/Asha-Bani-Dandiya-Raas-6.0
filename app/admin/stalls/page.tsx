@@ -14,6 +14,7 @@ import {
   Modal,
   TextInput,
   NumberInput,
+  Select,
   Switch,
   Badge,
   Loader,
@@ -22,6 +23,7 @@ import {
   ActionIcon,
   Tooltip,
   Alert,
+  ThemeIcon,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
 import { useDisclosure } from '@mantine/hooks';
@@ -43,6 +45,8 @@ import {
   IconExternalLink,
   IconCopy,
   IconInfoCircle,
+  IconAlertCircle,
+  IconUsers,
 } from '@tabler/icons-react';
 import { InteractiveStallGrid, StallItem } from '@/components/InteractiveStallGrid';
 
@@ -54,8 +58,9 @@ export default function AdminStallsPage() {
   const [saving, setSaving] = useState(false);
 
   // Dynamic team members in stall modal
-  const [modalTeamMembers, setModalTeamMembers] = useState<string[]>([]);
+  const [modalTeamMembers, setModalTeamMembers] = useState<string[]>(['', '']);
   const [modalGenerateBookingLink, setModalGenerateBookingLink] = useState<boolean>(false);
+  const [modalSendSms, setModalSendSms] = useState<boolean>(false);
   const [generatingLink, setGeneratingLink] = useState(false);
 
   const form = useForm({
@@ -66,6 +71,9 @@ export default function AdminStallsPage() {
       bookedByBrand: '',
       bookedByMobile: '',
       bookedByEmail: '',
+      stallType: 'Commercial Canopy',
+      paymentMethod: 'Cash',
+      paymentStatus: 'success',
     },
   });
 
@@ -154,13 +162,17 @@ export default function AdminStallsPage() {
 
   const handleOpenStallModal = (stall: StallItem) => {
     setSelectedStall(stall);
+    const defaultType = stall.stallType || (stall.section === 'food' || !isNaN(Number(stall.stallNumber)) ? 'Food Stall' : 'Commercial Canopy');
     form.setValues({
       price: stall.price,
-      isBooked: stall.isBooked,
+      isBooked: Boolean(stall.isBooked),
       bookedByName: stall.bookedByName || '',
       bookedByBrand: stall.bookedByBrand || '',
       bookedByMobile: stall.bookedByMobile || '',
       bookedByEmail: stall.bookedByEmail || '',
+      stallType: defaultType,
+      paymentMethod: stall.paymentMethod || 'Cash',
+      paymentStatus: stall.paymentStatus || (stall.isBooked ? 'success' : 'pending'),
     });
 
     // Parse team members
@@ -171,7 +183,15 @@ export default function AdminStallsPage() {
 
     setModalTeamMembers(membersList.length > 0 ? membersList : ['', '']);
     setModalGenerateBookingLink(false); // DEFAULT: OFF
+    setModalSendSms(false);
     open();
+  };
+
+  const handleSelectStallInModal = (stallNo: string) => {
+    const s = stalls.find((item) => item.stallNumber.toUpperCase() === stallNo.toUpperCase());
+    if (s) {
+      handleOpenStallModal(s);
+    }
   };
 
   const handleSaveStall = async (values: typeof form.values) => {
@@ -180,6 +200,36 @@ export default function AdminStallsPage() {
 
     try {
       const cleanTeam = modalTeamMembers.map((m) => m.trim()).filter(Boolean);
+      const cleanMobile = values.bookedByMobile ? values.bookedByMobile.replace(/\D/g, '') : '';
+
+      // If marked as booked, validate required fields
+      if (values.isBooked) {
+        if (!values.bookedByName.trim()) {
+          notifications.show({ title: 'Validation Error', message: 'Contact person full name is required to reserve stall.', color: 'red' });
+          setSaving(false);
+          return;
+        }
+        if (!values.bookedByBrand.trim()) {
+          notifications.show({ title: 'Validation Error', message: 'Brand or business name is required to reserve stall.', color: 'red' });
+          setSaving(false);
+          return;
+        }
+        if (cleanMobile.length < 10) {
+          notifications.show({ title: 'Validation Error', message: 'Valid 10-digit mobile number is required to reserve stall.', color: 'red' });
+          setSaving(false);
+          return;
+        }
+        if (modalGenerateBookingLink && values.paymentStatus !== 'success') {
+          notifications.show({
+            title: 'Payment Pending',
+            message: 'Pass link cannot be generated for pending payments. Please confirm payment or turn off link generation.',
+            color: 'yellow',
+          });
+          setSaving(false);
+          return;
+        }
+      }
+
       const res = await fetch('/api/admin/stalls', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -187,12 +237,16 @@ export default function AdminStallsPage() {
           stallNumber: selectedStall.stallNumber,
           price: values.price,
           isBooked: values.isBooked,
-          bookedByName: values.bookedByName,
-          bookedByBrand: values.bookedByBrand,
-          bookedByMobile: values.bookedByMobile,
-          bookedByEmail: values.bookedByEmail,
+          bookedByName: values.bookedByName.trim(),
+          bookedByBrand: values.bookedByBrand.trim(),
+          bookedByMobile: cleanMobile,
+          bookedByEmail: values.bookedByEmail.trim() || undefined,
+          stallType: values.stallType.trim(),
+          paymentMethod: values.paymentMethod,
+          paymentStatus: values.paymentStatus,
           teamMembers: cleanTeam,
-          generateBookingLink: modalGenerateBookingLink, // optional, turned off by default
+          generateBookingLink: values.paymentStatus === 'success' && modalGenerateBookingLink, // optional, turned off by default
+          sendSms: modalSendSms,
         }),
       });
 
@@ -202,7 +256,7 @@ export default function AdminStallsPage() {
       }
 
       notifications.show({
-        title: 'Stall Updated',
+        title: 'Stall Saved',
         message: data.message || `Stall ${selectedStall.stallNumber} details saved successfully.`,
         color: 'green',
       });
@@ -222,6 +276,14 @@ export default function AdminStallsPage() {
 
   const handleGenerateLinkForStall = async () => {
     if (!selectedStall) return;
+    if (form.values.paymentStatus !== 'success' && selectedStall.paymentStatus !== 'success') {
+      notifications.show({
+        title: 'Payment Pending',
+        message: 'Digital pass link cannot be generated for pending payments. Please confirm payment first.',
+        color: 'yellow',
+      });
+      return;
+    }
     setGeneratingLink(true);
     try {
       const res = await fetch('/api/admin/stalls', {
@@ -407,22 +469,28 @@ export default function AdminStallsPage() {
             stalls={stalls}
             selectedStallNumber={selectedStall?.stallNumber}
             onSelectStall={handleOpenStallModal}
+            onAdminAction={handleOpenStallModal}
             isAdminView={true}
           />
         )}
       </Paper>
 
       {/* =======================================================================
-          MODAL: EDIT STALL, ALLOTMENT & TEAM MEMBERS
+          MODAL: EDIT STALL, ALLOTMENT & TEAM MEMBERS (ALL FIELDS VISIBLE)
           ======================================================================= */}
       <Modal
         opened={opened}
         onClose={close}
+        size="lg"
+        centered
+        radius="xl"
         title={
           selectedStall && (
             <Group gap="xs">
-              <IconBuildingStore size={22} color="#facc15" />
-              <Text fw={800} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", fontSize: '1.2rem' }}>
+              <ThemeIcon color="yellow" variant="light" size="md" radius="md">
+                <IconBuildingStore size={18} />
+              </ThemeIcon>
+              <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif", fontSize: '1.2rem' }}>
                 Manage Stall #{selectedStall.stallNumber}
               </Text>
               <Badge color={selectedStall.isBooked ? 'red' : 'green'} variant="light">
@@ -431,7 +499,6 @@ export default function AdminStallsPage() {
             </Group>
           )
         }
-        size="md"
         styles={{
           content: {
             backgroundColor: '#140305',
@@ -445,234 +512,366 @@ export default function AdminStallsPage() {
       >
         {selectedStall && (
           <form onSubmit={form.onSubmit(handleSaveStall)}>
-            <Stack gap="md">
-              <NumberInput
-                label="Base Price (₹)"
-                description="Price displayed to visitors for this booth"
-                placeholder="Enter price"
-                min={0}
-                leftSection={<IconCoin size={16} color="#facc15" />}
-                {...form.getInputProps('price')}
-              />
-
-              <Switch
-                label="Mark Booth as Booked / Reserved"
-                description="Toggle booking reservation status for this stall"
+            <Stack gap="md" pt="xs">
+              <Alert
+                icon={<IconInfoCircle size={18} />}
                 color="yellow"
-                {...form.getInputProps('isBooked', { type: 'checkbox' })}
-              />
+                variant="light"
+                radius="md"
+                styles={{
+                  root: { backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)' },
+                  message: { color: '#e2e8f0', fontSize: '0.85rem' },
+                }}
+              >
+                Configure booth pricing, issue or update exhibitor reservations, manage pass attendees, and control digital booking links. All fields are accessible regardless of booked or unbooked status.
+              </Alert>
 
-              {form.values.isBooked && (
-                <Box
-                  p="sm"
-                  style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                    borderRadius: 8,
-                    border: '1px solid rgba(234, 179, 8, 0.2)',
-                  }}
-                >
-                  <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
-                    EXHIBITOR &amp; BOOKER DETAILS
+              {/* Section 1: Stall Selection & Exhibitor Info */}
+              <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+                <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+                  1. STALL SELECTION &amp; EXHIBITOR INFO
+                </Text>
+
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                  <Select
+                    label="Select Stall Booth"
+                    placeholder="Choose stall"
+                    data={stalls.map((s) => ({
+                      value: s.stallNumber,
+                      label: `Stall ${s.stallNumber} - ₹${s.price?.toLocaleString('en-IN')} (${
+                        s.isBooked ? 'Reserved / Booked' : 'Available'
+                      })`,
+                    }))}
+                    value={selectedStall.stallNumber}
+                    onChange={(val) => val && handleSelectStallInModal(val)}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    }}
+                  />
+
+                  <TextInput
+                    label="Brand / Business Name"
+                    placeholder="e.g. Royal Sweets & Snacks"
+                    leftSection={<IconBuildingStore size={14} color="#facc15" />}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    }}
+                    {...form.getInputProps('bookedByBrand')}
+                  />
+
+                  <TextInput
+                    label="Contact Person Full Name"
+                    placeholder="e.g. Rajesh Kumar"
+                    leftSection={<IconUser size={14} color="#facc15" />}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    }}
+                    {...form.getInputProps('bookedByName')}
+                  />
+
+                  <TextInput
+                    label="10-Digit Mobile Number"
+                    placeholder="e.g. 9876543210"
+                    maxLength={10}
+                    leftSection={<Text size="xs" c="gray.4">+91</Text>}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    }}
+                    {...form.getInputProps('bookedByMobile')}
+                  />
+
+                  <TextInput
+                    label="Email Address (Optional)"
+                    placeholder="e.g. contact@business.com"
+                    leftSection={<IconMail size={14} color="#facc15" />}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    }}
+                    {...form.getInputProps('bookedByEmail')}
+                  />
+
+                  <TextInput
+                    label="Stall Category / Products"
+                    placeholder="e.g. Food Stall, Garments, Jewellery"
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    }}
+                    {...form.getInputProps('stallType')}
+                  />
+                </SimpleGrid>
+
+                {selectedStall.bookedAt && (
+                  <Text size="xs" c="dimmed" mt="xs">
+                    Reserved on: {new Date(selectedStall.bookedAt).toLocaleString('en-IN')}
                   </Text>
+                )}
+              </Paper>
 
-                  <Stack gap="xs">
-                    <TextInput
-                      label="Contact Person Name"
-                      placeholder="Enter booker's full name"
-                      leftSection={<IconUser size={14} color="#facc15" />}
-                      {...form.getInputProps('bookedByName')}
-                    />
+              {/* Section 2: Pricing & Payment Method */}
+              <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+                <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+                  2. PRICING &amp; PAYMENT DETAILS
+                </Text>
 
-                    <TextInput
-                      label="Brand / Business Name"
-                      placeholder="Enter business or brand name"
-                      leftSection={<IconBuildingStore size={14} color="#facc15" />}
-                      {...form.getInputProps('bookedByBrand')}
-                    />
+                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
+                  <NumberInput
+                    label="Allotment Amount / Price (₹)"
+                    description="Base rate or custom negotiated fee"
+                    placeholder="Enter price"
+                    min={0}
+                    leftSection={<IconCoin size={16} color="#facc15" />}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    }}
+                    {...form.getInputProps('price')}
+                  />
 
-                    <TextInput
-                      label="Mobile Number"
-                      placeholder="Enter 10-digit mobile number"
-                      maxLength={10}
-                      leftSection={<IconPhone size={14} color="#facc15" />}
-                      {...form.getInputProps('bookedByMobile')}
-                    />
+                  <Select
+                    label="Payment Method"
+                    data={[
+                      { value: 'Cash', label: 'Cash Payment' },
+                      { value: 'UPI', label: 'UPI / QR Transfer' },
+                      { value: 'Bank Transfer', label: 'NEFT / RTGS / Bank Transfer' },
+                      { value: 'Complimentary / Sponsor', label: 'Complimentary / Sponsor (₹0)' },
+                      { value: 'Cheque', label: 'Cheque' },
+                      { value: 'Online', label: 'Pre-paid Online' },
+                    ]}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    }}
+                    {...form.getInputProps('paymentMethod')}
+                  />
 
-                    <TextInput
-                      label="Email Address"
-                      placeholder="Enter email address"
-                      leftSection={<IconMail size={14} color="#facc15" />}
-                      {...form.getInputProps('bookedByEmail')}
-                    />
+                  <Select
+                    label="Payment Status"
+                    data={[
+                      { value: 'success', label: 'Paid & Confirmed' },
+                      { value: 'pending', label: 'Pending Payment' },
+                    ]}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    }}
+                    {...form.getInputProps('paymentStatus')}
+                  />
+                </SimpleGrid>
 
-                    {selectedStall.bookedAt && (
-                      <Text size="xs" c="dimmed" mt={4}>
-                        Booked on: {new Date(selectedStall.bookedAt).toLocaleString('en-IN')}
+                <Box mt="sm">
+                  <Switch
+                    label="Mark Booth as Booked / Reserved"
+                    description="Toggle active reservation allotment status for this stall"
+                    color="yellow"
+                    size="md"
+                    {...form.getInputProps('isBooked', { type: 'checkbox' })}
+                  />
+                </Box>
+              </Paper>
+
+              {/* Section 3: Allotted Team Members Management */}
+              <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+                <Group justify="space-between" mb="xs">
+                  <Box>
+                    <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.05em' }}>
+                      3. EXHIBITOR TEAM MEMBER PASSES ({modalTeamMembers.length} PASSES)
+                    </Text>
+                    <Text size="11px" c="gray.4">
+                      2 passes included by default. Add or modify member names attending the booth.
+                    </Text>
+                  </Box>
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="yellow"
+                    leftSection={<IconPlus size={13} />}
+                    onClick={() => setModalTeamMembers([...modalTeamMembers, ''])}
+                  >
+                    Add Member
+                  </Button>
+                </Group>
+                <Stack gap="xs" mt="xs">
+                  {modalTeamMembers.map((m, idx) => (
+                    <Group key={idx} gap="xs" wrap="nowrap">
+                      <TextInput
+                        placeholder={`Member #${idx + 1} Name`}
+                        value={m}
+                        onChange={(e) => {
+                          const updated = [...modalTeamMembers];
+                          updated[idx] = e.currentTarget.value;
+                          setModalTeamMembers(updated);
+                        }}
+                        style={{ flex: 1 }}
+                        styles={{
+                          input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                        }}
+                      />
+                      {modalTeamMembers.length > 1 && (
+                        <ActionIcon
+                          color="red"
+                          variant="subtle"
+                          onClick={() => setModalTeamMembers(modalTeamMembers.filter((_, i) => i !== idx))}
+                        >
+                          <IconTrash size={15} />
+                        </ActionIcon>
+                      )}
+                    </Group>
+                  ))}
+                </Stack>
+              </Paper>
+
+              {/* Section 4: Digital Pass / Booking Link Options */}
+              <Paper
+                p="sm"
+                radius="md"
+                style={{
+                  backgroundColor: selectedStall.qrCodeDataUrl ? 'rgba(6, 44, 20, 0.5)' : 'rgba(234, 179, 8, 0.05)',
+                  border: selectedStall.qrCodeDataUrl ? '1px solid #22c55e' : '1px dashed rgba(234, 179, 8, 0.35)',
+                }}
+              >
+                {selectedStall.qrCodeDataUrl ? (
+                  <Group justify="space-between" align="center" wrap="wrap">
+                    <Box>
+                      <Text size="xs" fw={700} c="#4ade80">
+                        ✓ Digital Pass Link Active
                       </Text>
+                      <Text size="11px" c="gray.3">
+                        Pass URL: {typeof window !== 'undefined' ? `${window.location.origin}/dandiyaraas/stall/pass/${selectedStall.bookingId}` : ''}
+                      </Text>
+                    </Box>
+                    <Group gap="xs">
+                      <Button
+                        size="xs"
+                        color="green"
+                        variant="light"
+                        leftSection={<IconCopy size={13} />}
+                        onClick={() =>
+                          copyToClipboard(
+                            `${window.location.origin}/dandiyaraas/stall/pass/${selectedStall.bookingId}`,
+                            'Pass URL Copied'
+                          )
+                        }
+                      >
+                        Copy Link
+                      </Button>
+                      <Button
+                        size="xs"
+                        color="cyan"
+                        variant="light"
+                        component="a"
+                        href={`/dandiyaraas/stall/pass/${selectedStall.bookingId}`}
+                        target="_blank"
+                        leftSection={<IconExternalLink size={13} />}
+                      >
+                        Open
+                      </Button>
+                    </Group>
+                  </Group>
+                ) : selectedStall.isBooked && selectedStall.bookingId ? (
+                  <Stack gap="xs">
+                    <Group justify="space-between" align="center" wrap="wrap">
+                      <Box style={{ flex: 1 }}>
+                        <Text size="xs" fw={700} c="yellow.3">
+                          Digital Pass Not Generated (Offline Allotment)
+                        </Text>
+                        <Text size="11px" c="gray.4">
+                          {form.values.paymentStatus === 'success'
+                            ? 'No public pass URL exists for this stall yet. Click to generate immediately.'
+                            : 'Payment status is Pending. Payment must be confirmed before digital pass links can be generated.'}
+                        </Text>
+                      </Box>
+                      <Button
+                        size="xs"
+                        color="yellow"
+                        variant="filled"
+                        disabled={form.values.paymentStatus !== 'success'}
+                        loading={generatingLink}
+                        leftSection={<IconLink size={14} />}
+                        onClick={handleGenerateLinkForStall}
+                      >
+                        Generate Pass Link Now
+                      </Button>
+                    </Group>
+                    {form.values.paymentStatus !== 'success' && (
+                      <Alert
+                        icon={<IconAlertCircle size={15} />}
+                        color="yellow"
+                        variant="light"
+                        radius="md"
+                        styles={{
+                          root: { backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)' },
+                          message: { color: '#fde047', fontSize: '0.8rem' },
+                        }}
+                      >
+                        Payment is marked as <strong>Pending Payment</strong>. Digital booking link and QR pass generation is not allowed until payment is confirmed.
+                      </Alert>
+                    )}
+                  </Stack>
+                ) : (
+                  <Stack gap="xs">
+                    <Group justify="space-between" align="center">
+                      <Box style={{ flex: 1 }}>
+                        <Text size="xs" fw={700} c="yellow.3">
+                          Generate Public Booking Link &amp; Pass
+                        </Text>
+                        <Text size="11px" c="gray.4">
+                          Optional (turned <strong>OFF by default</strong>). If OFF, stall is reserved offline without creating a pass URL.
+                        </Text>
+                      </Box>
+                      <Switch
+                        checked={form.values.paymentStatus === 'success' && modalGenerateBookingLink}
+                        disabled={form.values.paymentStatus !== 'success'}
+                        onChange={(e) => setModalGenerateBookingLink(e.currentTarget.checked)}
+                        color="yellow"
+                        size="md"
+                      />
+                    </Group>
+
+                    {form.values.paymentStatus !== 'success' && (
+                      <Alert
+                        icon={<IconAlertCircle size={16} />}
+                        color="yellow"
+                        variant="light"
+                        radius="md"
+                        styles={{
+                          root: { backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)' },
+                          message: { color: '#fde047', fontSize: '0.8rem' },
+                        }}
+                      >
+                        Payment is marked as <strong>Pending Payment</strong>. Digital booking link and QR pass generation is not allowed until payment is confirmed.
+                      </Alert>
                     )}
 
-                    {/* Allotted Team Members Management */}
-                    <Box
-                      p="xs"
-                      mt="xs"
-                      style={{
-                        backgroundColor: 'rgba(234, 179, 8, 0.08)',
-                        borderRadius: 8,
-                        border: '1px solid rgba(234, 179, 8, 0.25)',
-                      }}
-                    >
-                      <Group justify="space-between" mb={6}>
-                        <Box>
-                          <Text size="xs" fw={700} c="royalGold.3" style={{ letterSpacing: '0.04em' }}>
-                            ALLOTTED TEAM MEMBERS ({modalTeamMembers.length} PASSES)
-                          </Text>
-                          <Text size="11px" c="gray.4">
-                            2 passes included by default. Add or modify member names.
-                          </Text>
-                        </Box>
-                        <Button
-                          size="xs"
-                          variant="light"
-                          color="yellow"
-                          leftSection={<IconPlus size={13} />}
-                          onClick={() => setModalTeamMembers([...modalTeamMembers, ''])}
-                        >
-                          Add Member
-                        </Button>
-                      </Group>
-                      <Stack gap="xs" mt="xs">
-                        {modalTeamMembers.map((m, idx) => (
-                          <Group key={idx} gap="xs" wrap="nowrap">
-                            <TextInput
-                              placeholder={`Member #${idx + 1} Name`}
-                              value={m}
-                              onChange={(e) => {
-                                const updated = [...modalTeamMembers];
-                                updated[idx] = e.currentTarget.value;
-                                setModalTeamMembers(updated);
-                              }}
-                              style={{ flex: 1 }}
-                              styles={{
-                                input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
-                              }}
-                            />
-                            {modalTeamMembers.length > 1 && (
-                              <ActionIcon
-                                color="red"
-                                variant="subtle"
-                                onClick={() => setModalTeamMembers(modalTeamMembers.filter((_, i) => i !== idx))}
-                              >
-                                <IconTrash size={15} />
-                              </ActionIcon>
-                            )}
-                          </Group>
-                        ))}
-                      </Stack>
-                    </Box>
-
-                    {/* Digital Pass / Booking Link Options */}
-                    {selectedStall.isBooked && selectedStall.bookingId ? (
-                      <Paper
-                        p="xs"
-                        mt="xs"
-                        radius="md"
-                        style={{
-                          backgroundColor: selectedStall.qrCodeDataUrl ? 'rgba(6, 44, 20, 0.5)' : 'rgba(234, 179, 8, 0.06)',
-                          border: selectedStall.qrCodeDataUrl ? '1px solid #22c55e' : '1px dashed rgba(234, 179, 8, 0.35)',
-                        }}
-                      >
-                        {selectedStall.qrCodeDataUrl ? (
-                          <Group justify="space-between" align="center" wrap="wrap">
-                            <Box>
-                              <Text size="xs" fw={700} c="#4ade80">
-                                ✓ Digital Pass Link Active
-                              </Text>
-                              <Text size="11px" c="gray.3">
-                                Pass URL: {typeof window !== 'undefined' ? `${window.location.origin}/dandiyaraas/stall/pass/${selectedStall.bookingId}` : ''}
-                              </Text>
-                            </Box>
-                            <Group gap="xs">
-                              <Button
-                                size="xs"
-                                color="green"
-                                variant="light"
-                                leftSection={<IconCopy size={13} />}
-                                onClick={() =>
-                                  copyToClipboard(
-                                    `${window.location.origin}/dandiyaraas/stall/pass/${selectedStall.bookingId}`,
-                                    'Pass URL Copied'
-                                  )
-                                }
-                              >
-                                Copy Link
-                              </Button>
-                              <Button
-                                size="xs"
-                                color="cyan"
-                                variant="light"
-                                component="a"
-                                href={`/dandiyaraas/stall/pass/${selectedStall.bookingId}`}
-                                target="_blank"
-                                leftSection={<IconExternalLink size={13} />}
-                              >
-                                Open
-                              </Button>
-                            </Group>
-                          </Group>
-                        ) : (
-                          <Group justify="space-between" align="center" wrap="wrap">
-                            <Box style={{ flex: 1 }}>
-                              <Text size="xs" fw={700} c="yellow.3">
-                                Digital Pass Not Generated (Offline Allotment)
-                              </Text>
-                              <Text size="11px" c="gray.4">
-                                No public pass URL exists for this stall yet.
-                              </Text>
-                            </Box>
-                            <Button
-                              size="xs"
-                              color="yellow"
-                              variant="filled"
-                              loading={generatingLink}
-                              leftSection={<IconLink size={14} />}
-                              onClick={handleGenerateLinkForStall}
-                            >
-                              Generate Pass Link Now
-                            </Button>
-                          </Group>
-                        )}
-                      </Paper>
-                    ) : (
-                      <Paper
-                        p="xs"
-                        mt="xs"
-                        radius="md"
-                        style={{
-                          backgroundColor: 'rgba(234, 179, 8, 0.05)',
-                          border: '1px dashed rgba(234, 179, 8, 0.35)',
-                        }}
-                      >
+                    {form.values.paymentStatus === 'success' && modalGenerateBookingLink && (
+                      <>
+                        <Divider my={4} color="rgba(234, 179, 8, 0.2)" />
                         <Group justify="space-between" align="center">
                           <Box style={{ flex: 1 }}>
-                            <Text size="xs" fw={700} c="yellow.3">
-                              Generate Booking Link &amp; Pass
+                            <Text size="xs" fw={600} c="white">
+                              Dispatch Confirmation SMS to Exhibitor
                             </Text>
                             <Text size="11px" c="gray.4">
-                              Optional (<strong>turned OFF by default</strong>). If OFF, stall is reserved offline without creating a pass URL.
+                              Send automated SMS via TextBee to +91 {form.values.bookedByMobile || 'exhibitor'} with pass details.
                             </Text>
                           </Box>
                           <Switch
-                            checked={modalGenerateBookingLink}
-                            onChange={(e) => setModalGenerateBookingLink(e.currentTarget.checked)}
-                            color="yellow"
-                            size="md"
+                            checked={modalSendSms}
+                            onChange={(e) => setModalSendSms(e.currentTarget.checked)}
+                            color="green"
+                            size="sm"
                           />
                         </Group>
-                      </Paper>
+                      </>
                     )}
                   </Stack>
-                </Box>
-              )}
+                )}
+              </Paper>
 
               <Group justify="flex-end" gap="sm" mt="md">
                 <Button variant="default" onClick={close}>
