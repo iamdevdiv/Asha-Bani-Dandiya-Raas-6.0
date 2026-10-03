@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminFromRequest, getAdminSession } from '@/lib/auth';
-import { getBookingById, updateBookingPayment, markStallBooked, getSettings } from '@/lib/db';
+import { getBookingById, updateBookingPayment, markStallBooked, getSettings, getStallByNumber, getAllBookings } from '@/lib/db';
 import { generateStallQrCode } from '@/lib/qr-service';
 import { generateBookingConfirmationPackage } from '@/lib/docx-pdf-service';
 import { sendStallBookingSms } from '@/lib/sms';
@@ -24,6 +24,33 @@ export async function POST(req: NextRequest) {
     const booking = await getBookingById(bookingId);
     if (!booking) {
       return NextResponse.json({ success: false, message: 'Stall booking not found.' }, { status: 404 });
+    }
+
+    const normStall = (booking.stallNumber || '').trim().toUpperCase();
+
+    // CRITICAL CONFLICT CHECK: Cannot confirm payment if stall is already confirmed/occupied
+    if (booking.paymentStatus !== 'success') {
+      const currentStall = await getStallByNumber(normStall);
+      if (currentStall && currentStall.isBooked && currentStall.bookingId && currentStall.bookingId !== booking.id) {
+        return NextResponse.json({
+          success: false,
+          message: `Stall #${booking.stallNumber} is already booked and allotted to another confirmed reservation (${currentStall.bookedByName || currentStall.bookedByBrand || 'Reserved'}). There cannot be two bookers of the same stall.`,
+        }, { status: 400 });
+      }
+
+      const allBookings = await getAllBookings();
+      const conflictBooking = allBookings.find(
+        (other) =>
+          other.id !== booking.id &&
+          (other.stallNumber || '').trim().toUpperCase() === normStall &&
+          other.paymentStatus === 'success'
+      );
+      if (conflictBooking) {
+        return NextResponse.json({
+          success: false,
+          message: `Stall #${booking.stallNumber} is already booked and confirmed under booking #${conflictBooking.bookingNumber} (${conflictBooking.brandName || conflictBooking.bookerName}). There cannot be two bookers of the same stall.`,
+        }, { status: 400 });
+      }
     }
 
     const paymentId = razorpayPaymentId && razorpayPaymentId.trim()

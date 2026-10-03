@@ -464,8 +464,42 @@ export default function AdminBookingsPage() {
     setEditTeamMembers(editTeamMembers.filter((_, i) => i !== index));
   };
 
+  const isStallAlreadyConfirmed = (booking: any) => {
+    const normStall = (booking.stallNumber || '').trim().toUpperCase();
+    if (!normStall) return false;
+
+    // 1. Another confirmed booking exists for this stall
+    const hasOtherConfirmedBooking = bookings.some(
+      (other) =>
+        other.id !== booking.id &&
+        (other.stallNumber || '').trim().toUpperCase() === normStall &&
+        other.paymentStatus === 'success'
+    );
+    if (hasOtherConfirmedBooking) return true;
+
+    // 2. The stall in live layout is marked as booked by another booking or offline
+    const stallObj = stallsList.find(
+      (s) => (s.stallNumber || '').trim().toUpperCase() === normStall
+    );
+    if (stallObj && stallObj.isBooked && stallObj.bookingId !== booking.id) {
+      return true;
+    }
+
+    return false;
+  };
+
   const handleSaveEditBooking = async (generateLinkNow = false) => {
     if (!editBookingId) return;
+
+    if (editPaymentStatus === 'success' && isStallAlreadyConfirmed({ id: editBookingId, stallNumber: editStallNumber })) {
+      notifications.show({
+        title: 'Duplicate Stall Conflict',
+        message: `Stall #${editStallNumber} is already confirmed and occupied by another booking. A stall cannot have two bookers.`,
+        color: 'red',
+      });
+      return;
+    }
+
     setSavingEdit(true);
 
     try {
@@ -930,18 +964,33 @@ export default function AdminBookingsPage() {
                           )}
 
                           {b.paymentStatus !== 'success' && (
-                            <Tooltip label="Mark Payment Confirmed & Issue Stall Pass">
-                              <ActionIcon
-                                variant="filled"
-                                color="green"
-                                size="sm"
-                                radius="md"
-                                loading={confirmingStallId === b.id}
-                                onClick={() => handleConfirmStallPayment(b)}
-                              >
-                                <IconCheck size={15} />
-                              </ActionIcon>
-                            </Tooltip>
+                            isStallAlreadyConfirmed(b) ? (
+                              <Tooltip label={`Stall #${b.stallNumber} is already confirmed and booked by another exhibitor. Duplicate payment cannot be confirmed.`}>
+                                <ActionIcon
+                                  variant="subtle"
+                                  color="gray"
+                                  size="sm"
+                                  radius="md"
+                                  disabled
+                                  style={{ cursor: 'not-allowed', opacity: 0.35 }}
+                                >
+                                  <IconCheck size={15} />
+                                </ActionIcon>
+                              </Tooltip>
+                            ) : (
+                              <Tooltip label="Mark Payment Confirmed & Issue Stall Pass">
+                                <ActionIcon
+                                  variant="filled"
+                                  color="green"
+                                  size="sm"
+                                  radius="md"
+                                  loading={confirmingStallId === b.id}
+                                  onClick={() => handleConfirmStallPayment(b)}
+                                >
+                                  <IconCheck size={15} />
+                                </ActionIcon>
+                              </Tooltip>
+                            )
                           )}
 
                           <Button
@@ -1413,6 +1462,23 @@ export default function AdminBookingsPage() {
         }}
       >
         <Stack gap="md" pt="xs">
+          {isStallAlreadyConfirmed({ id: editBookingId, stallNumber: editStallNumber }) && (
+            <Alert
+              icon={<IconAlertCircle size={18} />}
+              color="orange"
+              variant="light"
+              radius="md"
+              title="Duplicate Stall Warning"
+              styles={{
+                root: { backgroundColor: 'rgba(234, 88, 12, 0.12)', border: '1px solid rgba(234, 88, 12, 0.35)' },
+                message: { color: '#fed7aa', fontSize: '0.85rem' },
+                title: { color: '#fb923c', fontWeight: 700 },
+              }}
+            >
+              Stall #{editStallNumber} is already confirmed and occupied by another booking. This pending payment record cannot be marked as Paid &amp; Confirmed because a stall cannot have two bookers.
+            </Alert>
+          )}
+
           {/* Section 1: Booker & Brand Info */}
           <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
             <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>

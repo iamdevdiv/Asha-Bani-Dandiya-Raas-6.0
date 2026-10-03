@@ -172,7 +172,7 @@ export default function AdminStallsPage() {
       bookedByEmail: stall.bookedByEmail || '',
       stallType: defaultType,
       paymentMethod: stall.paymentMethod || 'Cash',
-      paymentStatus: stall.paymentStatus || (stall.isBooked ? 'success' : 'pending'),
+      paymentStatus: stall.isBooked ? (stall.paymentStatus || 'success') : 'pending',
     });
 
     // Parse team members
@@ -202,24 +202,24 @@ export default function AdminStallsPage() {
       const cleanTeam = modalTeamMembers.map((m) => m.trim()).filter(Boolean);
       const cleanMobile = values.bookedByMobile ? values.bookedByMobile.replace(/\D/g, '') : '';
 
-      // If marked as booked, validate required fields
-      if (values.isBooked) {
+      // If digital pass link generation is requested, validate contact person & mobile
+      if (values.isBooked && modalGenerateBookingLink) {
         if (!values.bookedByName.trim()) {
-          notifications.show({ title: 'Validation Error', message: 'Contact person full name is required to reserve stall.', color: 'red' });
+          notifications.show({ title: 'Validation Error', message: 'Contact person full name is required to generate digital pass link.', color: 'red' });
           setSaving(false);
           return;
         }
         if (!values.bookedByBrand.trim()) {
-          notifications.show({ title: 'Validation Error', message: 'Brand or business name is required to reserve stall.', color: 'red' });
+          notifications.show({ title: 'Validation Error', message: 'Brand or business name is required to generate digital pass link.', color: 'red' });
           setSaving(false);
           return;
         }
         if (cleanMobile.length < 10) {
-          notifications.show({ title: 'Validation Error', message: 'Valid 10-digit mobile number is required to reserve stall.', color: 'red' });
+          notifications.show({ title: 'Validation Error', message: 'Valid 10-digit mobile number is required to generate digital pass link.', color: 'red' });
           setSaving(false);
           return;
         }
-        if (modalGenerateBookingLink && values.paymentStatus !== 'success') {
+        if (values.paymentStatus !== 'success') {
           notifications.show({
             title: 'Payment Pending',
             message: 'Pass link cannot be generated for pending payments. Please confirm payment or turn off link generation.',
@@ -229,6 +229,8 @@ export default function AdminStallsPage() {
           return;
         }
       }
+
+      const effectivePaymentStatus = values.isBooked ? (values.paymentStatus || 'success') : 'pending';
 
       const res = await fetch('/api/admin/stalls', {
         method: 'PUT',
@@ -243,9 +245,9 @@ export default function AdminStallsPage() {
           bookedByEmail: values.bookedByEmail.trim() || undefined,
           stallType: values.stallType.trim(),
           paymentMethod: values.paymentMethod,
-          paymentStatus: values.paymentStatus,
+          paymentStatus: effectivePaymentStatus,
           teamMembers: cleanTeam,
-          generateBookingLink: values.paymentStatus === 'success' && modalGenerateBookingLink, // optional, turned off by default
+          generateBookingLink: effectivePaymentStatus === 'success' && modalGenerateBookingLink, // optional, turned off by default
           sendSms: modalSendSms,
         }),
       });

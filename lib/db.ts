@@ -339,7 +339,7 @@ export async function getStalls() {
           orderBy: { stallNumber: 'asc' },
         }),
         prisma.booking.findMany({
-          where: { paymentStatus: { in: ['success', 'pending'] } },
+          where: { paymentStatus: 'success' },
           select: {
             id: true,
             bookingNumber: true,
@@ -371,7 +371,9 @@ export async function getStalls() {
       ]);
 
       const bookingsByStallNo: { [key: string]: any } = {};
+      const bookingsById: { [key: string]: any } = {};
       for (const b of bookings) {
+        if (b.id) bookingsById[b.id] = b;
         const key = (b.stallNumber || '').trim().toUpperCase();
         if (key) bookingsByStallNo[key] = b;
       }
@@ -387,25 +389,66 @@ export async function getStalls() {
 
       return stalls.map((s) => {
         const key = (s.stallNumber || '').trim().toUpperCase();
-        const b = bookingsByStallNo[key];
+        const b = (s.bookingId && bookingsById[s.bookingId]) || bookingsByStallNo[key];
         const extras = extraMembersByStallNo[key] || [];
         const extraMembersAmount = extras.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
-        const teamMembers = b?.teamMembers || s.bookedByName || null;
+
+        if (s.isBooked) {
+          if (b) {
+            return {
+              ...s,
+              bookingId: b.id,
+              bookingNumber: b.bookingNumber || null,
+              bookedByName: s.bookedByName || b.bookerName || null,
+              bookedByBrand: s.bookedByBrand || b.brandName || null,
+              bookedByMobile: s.bookedByMobile || b.mobile || null,
+              bookedByEmail: s.bookedByEmail || b.email || null,
+              paymentStatus: 'success',
+              paymentMethod: b.razorpayPaymentId?.startsWith('ADMIN_') ? 'Manual' : (b.razorpayPaymentId ? 'Online' : 'Cash'),
+              stallType: b.stallType || (s.section === 'food' ? 'Food Stall' : 'Commercial Canopy'),
+              amount: b.amount ?? s.price,
+              teamMembers: b.teamMembers || s.bookedByName || null,
+              qrCodeDataUrl: b.qrCodeDataUrl || null,
+              extraMembers: extras,
+              extraMembersCount: extras.length,
+              extraMembersAmount,
+            };
+          } else {
+            return {
+              ...s,
+              bookingId: s.bookingId || null,
+              bookingNumber: null,
+              bookedByName: s.bookedByName || null,
+              bookedByBrand: s.bookedByBrand || null,
+              bookedByMobile: s.bookedByMobile || null,
+              bookedByEmail: s.bookedByEmail || null,
+              paymentStatus: 'success',
+              paymentMethod: 'Cash',
+              stallType: s.section === 'food' || !isNaN(Number(s.stallNumber)) ? 'Food Stall' : 'Commercial Canopy',
+              amount: s.price,
+              teamMembers: s.bookedByName || null,
+              qrCodeDataUrl: null,
+              extraMembers: extras,
+              extraMembersCount: extras.length,
+              extraMembersAmount,
+            };
+          }
+        }
 
         return {
           ...s,
-          bookingId: s.bookingId || b?.id || null,
-          bookingNumber: b?.bookingNumber || null,
-          bookedByName: s.bookedByName || b?.bookerName || null,
-          bookedByBrand: s.bookedByBrand || b?.brandName || null,
-          bookedByMobile: s.bookedByMobile || b?.mobile || null,
-          bookedByEmail: s.bookedByEmail || b?.email || null,
-          paymentStatus: b?.paymentStatus || (s.isBooked ? 'success' : 'pending'),
-          paymentMethod: b?.razorpayPaymentId?.startsWith('ADMIN_') ? 'Manual' : (b?.razorpayPaymentId ? 'Online' : 'Cash'),
-          stallType: b?.stallType || (s.section === 'food' ? 'Food Stall' : 'Commercial Canopy'),
-          amount: b?.amount ?? s.price,
-          teamMembers,
-          qrCodeDataUrl: b?.qrCodeDataUrl || null,
+          bookingId: null,
+          bookingNumber: null,
+          bookedByName: null,
+          bookedByBrand: null,
+          bookedByMobile: null,
+          bookedByEmail: null,
+          paymentStatus: 'pending',
+          paymentMethod: 'Cash',
+          stallType: s.section === 'food' || !isNaN(Number(s.stallNumber)) ? 'Food Stall' : 'Commercial Canopy',
+          amount: s.price,
+          teamMembers: null,
+          qrCodeDataUrl: null,
           extraMembers: extras,
           extraMembersCount: extras.length,
           extraMembersAmount,
@@ -419,24 +462,68 @@ export async function getStalls() {
   const allStallMembers = store.stallMembers?.filter((m) => m.paymentStatus === 'success') || [];
   return store.stalls.map((s) => {
     const key = (s.stallNumber || '').trim().toUpperCase();
-    const b = store.bookings.find((bk) => (bk.stallNumber || '').trim().toUpperCase() === key && bk.paymentStatus !== 'failed' && bk.paymentStatus !== 'cancelled');
+    const b = store.bookings.find(
+      (bk) =>
+        ((s.bookingId && bk.id === s.bookingId) || (bk.stallNumber || '').trim().toUpperCase() === key) &&
+        bk.paymentStatus === 'success'
+    );
     const extras = allStallMembers.filter((m) => (m.stallNumber || '').trim().toUpperCase() === key);
     const extraMembersAmount = extras.reduce((sum, m) => sum + (Number(m.amount) || 0), 0);
-    const teamMembers = b?.teamMembers || s.bookedByName || null;
+
+    if (s.isBooked) {
+      if (b) {
+        return {
+          ...s,
+          bookingId: b.id,
+          bookingNumber: b.bookingNumber || null,
+          bookedByName: s.bookedByName || b.bookerName || null,
+          bookedByBrand: s.bookedByBrand || b.brandName || null,
+          bookedByMobile: s.bookedByMobile || b.mobile || null,
+          bookedByEmail: s.bookedByEmail || b.email || null,
+          paymentStatus: 'success',
+          paymentMethod: b.razorpayPaymentId?.startsWith('ADMIN_') ? 'Manual' : (b.razorpayPaymentId ? 'Online' : 'Cash'),
+          stallType: b.stallType || (s.section === 'food' ? 'Food Stall' : 'Commercial Canopy'),
+          amount: b.amount ?? s.price,
+          teamMembers: b.teamMembers || s.bookedByName || null,
+          qrCodeDataUrl: b.qrCodeDataUrl || null,
+          extraMembers: extras,
+          extraMembersCount: extras.length,
+          extraMembersAmount,
+        };
+      }
+      return {
+        ...s,
+        bookingId: s.bookingId || null,
+        bookingNumber: null,
+        bookedByName: s.bookedByName || null,
+        bookedByBrand: s.bookedByBrand || null,
+        bookedByMobile: s.bookedByMobile || null,
+        bookedByEmail: s.bookedByEmail || null,
+        paymentStatus: 'success',
+        paymentMethod: 'Cash',
+        stallType: s.section === 'food' || !isNaN(Number(s.stallNumber)) ? 'Food Stall' : 'Commercial Canopy',
+        amount: s.price,
+        teamMembers: s.bookedByName || null,
+        qrCodeDataUrl: null,
+        extraMembers: extras,
+        extraMembersCount: extras.length,
+        extraMembersAmount,
+      };
+    }
     return {
       ...s,
-      bookingId: s.bookingId || b?.id || null,
-      bookingNumber: b?.bookingNumber || null,
-      bookedByName: s.bookedByName || b?.bookerName || null,
-      bookedByBrand: s.bookedByBrand || b?.brandName || null,
-      bookedByMobile: s.bookedByMobile || b?.mobile || null,
-      bookedByEmail: s.bookedByEmail || b?.email || null,
-      paymentStatus: b?.paymentStatus || (s.isBooked ? 'success' : 'pending'),
-      paymentMethod: b?.razorpayPaymentId?.startsWith('ADMIN_') ? 'Manual' : (b?.razorpayPaymentId ? 'Online' : 'Cash'),
-      stallType: b?.stallType || (s.section === 'food' ? 'Food Stall' : 'Commercial Canopy'),
-      amount: b?.amount ?? s.price,
-      teamMembers,
-      qrCodeDataUrl: b?.qrCodeDataUrl || null,
+      bookingId: null,
+      bookingNumber: null,
+      bookedByName: null,
+      bookedByBrand: null,
+      bookedByMobile: null,
+      bookedByEmail: null,
+      paymentStatus: 'pending',
+      paymentMethod: 'Cash',
+      stallType: s.section === 'food' || !isNaN(Number(s.stallNumber)) ? 'Food Stall' : 'Commercial Canopy',
+      amount: s.price,
+      teamMembers: null,
+      qrCodeDataUrl: null,
       extraMembers: extras,
       extraMembersCount: extras.length,
       extraMembersAmount,
@@ -445,6 +532,7 @@ export async function getStalls() {
 }
 
 export async function getStallByNumber(stallNumber: string) {
+  const normStall = (stallNumber || '').trim().toUpperCase();
   const hasPrisma = await checkPrisma();
   if (hasPrisma) {
     try {
@@ -452,51 +540,80 @@ export async function getStallByNumber(stallNumber: string) {
         where: { stallNumber },
       });
       if (stall) {
+        let booking: any = null;
         if (stall.bookingId) {
-          const booking = await prisma.booking.findUnique({ where: { id: stall.bookingId } });
-          if (booking) {
-            return {
-              ...stall,
-              booking,
-              bookingNumber: booking.bookingNumber,
-              bookedByName: stall.bookedByName || booking.bookerName,
-              bookedByBrand: stall.bookedByBrand || booking.brandName,
-              bookedByMobile: stall.bookedByMobile || booking.mobile,
-              bookedByEmail: stall.bookedByEmail || booking.email,
-              qrCodeDataUrl: booking.qrCodeDataUrl,
-              teamMembers: booking.teamMembers,
-              paymentStatus: booking.paymentStatus,
-              stallType: booking.stallType,
-              amount: booking.amount,
-            };
-          }
+          booking = await prisma.booking.findUnique({ where: { id: stall.bookingId } });
         }
-        return stall;
+        if (!booking || booking.paymentStatus !== 'success') {
+          // Look for any confirmed booking matching stallNumber
+          booking = await prisma.booking.findFirst({
+            where: {
+              stallNumber: { equals: stallNumber, mode: 'insensitive' },
+              paymentStatus: 'success',
+            },
+          });
+        }
+        if (booking && booking.paymentStatus === 'success') {
+          return {
+            ...stall,
+            booking,
+            bookingId: booking.id,
+            bookingNumber: booking.bookingNumber,
+            bookedByName: stall.bookedByName || booking.bookerName,
+            bookedByBrand: stall.bookedByBrand || booking.brandName,
+            bookedByMobile: stall.bookedByMobile || booking.mobile,
+            bookedByEmail: stall.bookedByEmail || booking.email,
+            qrCodeDataUrl: booking.qrCodeDataUrl,
+            teamMembers: booking.teamMembers || stall.bookedByName || null,
+            paymentStatus: 'success',
+            stallType: booking.stallType,
+            amount: booking.amount,
+          };
+        }
+        return {
+          ...stall,
+          booking: null,
+          bookingId: stall.isBooked ? stall.bookingId : null,
+          paymentStatus: stall.isBooked ? 'success' : 'pending',
+        };
       }
     } catch (e) {
       console.warn('Prisma error in getStallByNumber', e);
     }
   }
   const store = loadFallbackStore();
-  const stall = store.stalls.find((s) => s.stallNumber.toUpperCase() === stallNumber.toUpperCase()) || null;
-  if (stall && stall.bookingId) {
-    const booking = store.bookings.find((b) => b.id === stall.bookingId);
-    if (booking) {
+  const stall = store.stalls.find((s) => s.stallNumber.toUpperCase() === normStall) || null;
+  if (stall) {
+    let booking: any = null;
+    if (stall.bookingId) {
+      booking = store.bookings.find((b) => b.id === stall.bookingId && b.paymentStatus === 'success');
+    }
+    if (!booking) {
+      booking = store.bookings.find((b) => (b.stallNumber || '').trim().toUpperCase() === normStall && b.paymentStatus === 'success');
+    }
+    if (booking && booking.paymentStatus === 'success') {
       return {
         ...stall,
         booking,
+        bookingId: booking.id,
         bookingNumber: booking.bookingNumber,
         bookedByName: stall.bookedByName || booking.bookerName,
         bookedByBrand: stall.bookedByBrand || booking.brandName,
         bookedByMobile: stall.bookedByMobile || booking.mobile,
         bookedByEmail: stall.bookedByEmail || booking.email,
         qrCodeDataUrl: booking.qrCodeDataUrl,
-        teamMembers: booking.teamMembers,
-        paymentStatus: booking.paymentStatus,
+        teamMembers: booking.teamMembers || stall.bookedByName || null,
+        paymentStatus: 'success',
         stallType: booking.stallType,
         amount: booking.amount,
       };
     }
+    return {
+      ...stall,
+      booking: null,
+      bookingId: stall.isBooked ? stall.bookingId : null,
+      paymentStatus: stall.isBooked ? 'success' : 'pending',
+    };
   }
   return stall;
 }
@@ -4557,11 +4674,14 @@ export async function createAdminIssuedStallBooking(data: {
   }
 
   // If already booked, check if there's an active booking
-  if (stall.isBooked && stall.bookingId) {
-    const existing = await getBookingById(stall.bookingId);
-    if (existing && existing.paymentStatus !== 'failed' && existing.paymentStatus !== 'cancelled') {
-      throw new Error(`Stall ${data.stallNumber} is already reserved by ${stall.bookedByName || stall.bookedByBrand || 'another exhibitor'}.`);
+  if (stall.isBooked) {
+    if (stall.bookingId) {
+      const existing = await getBookingById(stall.bookingId);
+      if (existing && existing.paymentStatus === 'success') {
+        throw new Error(`Stall #${data.stallNumber} is already reserved by ${stall.bookedByName || stall.bookedByBrand || existing.bookerName || 'another exhibitor'}.`);
+      }
     }
+    throw new Error(`Stall #${data.stallNumber} is already marked as reserved in the live layout.`);
   }
 
   const cleanMobile = (data.mobile || '').replace(/\D/g, '');
@@ -4772,6 +4892,50 @@ export async function updateAdminStallBooking(
 
   const targetPaymentStatus = data.paymentStatus !== undefined ? data.paymentStatus : booking.paymentStatus;
   const isPaymentSuccess = targetPaymentStatus === 'success';
+
+  // CRITICAL CONFLICT CHECK: Cannot confirm payment if target stall is already booked/confirmed by another reservation
+  if (targetPaymentStatus === 'success' && booking.paymentStatus !== 'success') {
+    const hasPrisma = await checkPrisma();
+    if (hasPrisma) {
+      const conflictBooking = await prisma.booking.findFirst({
+        where: {
+          id: { not: bookingId },
+          stallNumber: { equals: targetStallNumber, mode: 'insensitive' },
+          paymentStatus: 'success',
+        },
+      });
+      if (conflictBooking) {
+        throw new Error(
+          `Cannot confirm payment: Stall #${targetStallNumber} is already confirmed and occupied by booking #${conflictBooking.bookingNumber} (${conflictBooking.brandName || conflictBooking.bookerName}). There cannot be two bookers of the same stall.`
+        );
+      }
+      const targetStall = await prisma.stall.findUnique({ where: { stallNumber: targetStallNumber } });
+      if (targetStall && targetStall.isBooked && targetStall.bookingId && targetStall.bookingId !== bookingId) {
+        throw new Error(
+          `Cannot confirm payment: Stall #${targetStallNumber} is already booked and allotted to another confirmed reservation (${targetStall.bookedByName || targetStall.bookedByBrand || 'Reserved'}).`
+        );
+      }
+    } else {
+      const store = loadFallbackStore();
+      const conflictBooking = store.bookings?.find(
+        (b) =>
+          b.id !== bookingId &&
+          (b.stallNumber || '').trim().toUpperCase() === targetStallNumber &&
+          b.paymentStatus === 'success'
+      );
+      if (conflictBooking) {
+        throw new Error(
+          `Cannot confirm payment: Stall #${targetStallNumber} is already confirmed and occupied by booking #${conflictBooking.bookingNumber} (${conflictBooking.brandName || conflictBooking.bookerName}). There cannot be two bookers of the same stall.`
+        );
+      }
+      const targetStall = store.stalls?.find((s) => s.stallNumber.toUpperCase() === targetStallNumber);
+      if (targetStall && targetStall.isBooked && targetStall.bookingId && targetStall.bookingId !== bookingId) {
+        throw new Error(
+          `Cannot confirm payment: Stall #${targetStallNumber} is already booked and allotted to another confirmed reservation (${targetStall.bookedByName || targetStall.bookedByBrand || 'Reserved'}).`
+        );
+      }
+    }
+  }
 
   let qrCodeDataUrl = booking.qrCodeDataUrl;
   let confirmationDocUrl = booking.confirmationDocUrl;
