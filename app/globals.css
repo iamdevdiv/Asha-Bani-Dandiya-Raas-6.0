@@ -134,15 +134,7 @@ body {
 .mantine-Badge-root[data-variant="filled"][data-color="yellow"],
 .mantine-Badge-root[data-variant="filled"][data-color="royalGold"],
 .mantine-Badge-root[data-color="yellow"],
-.mantine-Badge-root[data-color="royalGold"],
-.mantine-Badge-root[style*="royalGold"],
-.mantine-Badge-root[style*="yellow"],
-.mantine-Badge-root[style*="#facc15"],
-.mantine-Badge-root[style*="#eab308"],
-.mantine-Badge-root[style*="250, 204, 21"],
-.mantine-Badge-root[style*="234, 179, 8"],
-.mantine-Badge-root[style*="--mantine-color-royalGold"],
-.mantine-Badge-root[style*="--mantine-color-yellow"] {
+.mantine-Badge-root[data-color="royalGold"] {
   --badge-color: #140305 !important;
   color: #140305 !important;
   font-weight: 800 !important;
@@ -152,15 +144,7 @@ body {
 .mantine-Badge-root[data-variant="filled"][data-color="yellow"] .mantine-Badge-label,
 .mantine-Badge-root[data-variant="filled"][data-color="royalGold"] .mantine-Badge-label,
 .mantine-Badge-root[data-color="yellow"] .mantine-Badge-label,
-.mantine-Badge-root[data-color="royalGold"] .mantine-Badge-label,
-.mantine-Badge-root[style*="royalGold"] .mantine-Badge-label,
-.mantine-Badge-root[style*="yellow"] .mantine-Badge-label,
-.mantine-Badge-root[style*="#facc15"] .mantine-Badge-label,
-.mantine-Badge-root[style*="#eab308"] .mantine-Badge-label,
-.mantine-Badge-root[style*="250, 204, 21"] .mantine-Badge-label,
-.mantine-Badge-root[style*="234, 179, 8"] .mantine-Badge-label,
-.mantine-Badge-root[style*="--mantine-color-royalGold"] .mantine-Badge-label,
-.mantine-Badge-root[style*="--mantine-color-yellow"] .mantine-Badge-label {
+.mantine-Badge-root[data-color="royalGold"] .mantine-Badge-label {
   color: #140305 !important;
   font-weight: 800 !important;
 }

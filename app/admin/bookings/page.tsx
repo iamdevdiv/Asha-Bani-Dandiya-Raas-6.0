@@ -25,8 +25,9 @@ import {
   Alert,
   Divider,
   ThemeIcon,
+  Pagination,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useDebouncedValue } from '@mantine/hooks';
 import { DatePickerInput } from '@mantine/dates';
 import { notifications } from '@mantine/notifications';
 import {
@@ -67,6 +68,9 @@ export default function AdminBookingsPage() {
   const [stallsList, setStallsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(search, 250);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 25;
   const [filterStatus, setFilterStatus] = useState<string | null>('all');
   const [filterEntryStatus, setFilterEntryStatus] = useState<string | null>('all');
   const [filterDate, setFilterDate] = useState<string | null>(null);
@@ -613,31 +617,39 @@ export default function AdminBookingsPage() {
     }
   };
 
-  // Filter bookings
-  const filteredBookings = bookings.filter((b) => {
-    const q = search.toLowerCase();
-    const matchesQuery =
-      !search ||
-      b.brandName?.toLowerCase().includes(q) ||
-      b.bookerName?.toLowerCase().includes(q) ||
-      b.mobile?.includes(q) ||
-      b.bookingNumber?.toLowerCase().includes(q) ||
-      b.stallNumber?.toLowerCase().includes(q);
+  // Filter bookings (memoized using debouncedSearch)
+  const filteredBookings = React.useMemo(() => {
+    return bookings.filter((b) => {
+      const q = debouncedSearch.toLowerCase();
+      const matchesQuery =
+        !debouncedSearch ||
+        b.brandName?.toLowerCase().includes(q) ||
+        b.bookerName?.toLowerCase().includes(q) ||
+        b.mobile?.includes(q) ||
+        b.bookingNumber?.toLowerCase().includes(q) ||
+        b.stallNumber?.toLowerCase().includes(q);
 
-    const matchesStatus = filterStatus === 'all' || b.paymentStatus === filterStatus;
+      const matchesStatus = filterStatus === 'all' || b.paymentStatus === filterStatus;
 
-    let matchesEntry = true;
-    if (filterEntryStatus === 'entered') matchesEntry = b.isCheckedIn;
-    if (filterEntryStatus === 'unentered') matchesEntry = !b.isCheckedIn;
+      let matchesEntry = true;
+      if (filterEntryStatus === 'entered') matchesEntry = b.isCheckedIn;
+      if (filterEntryStatus === 'unentered') matchesEntry = !b.isCheckedIn;
 
-    let matchesDate = true;
-    if (filterDate && b.createdAt) {
-      const bookingDay = dayjs(b.createdAt).format('YYYY-MM-DD');
-      matchesDate = filterDate === bookingDay;
-    }
+      let matchesDate = true;
+      if (filterDate && b.createdAt) {
+        const bookingDay = dayjs(b.createdAt).format('YYYY-MM-DD');
+        matchesDate = filterDate === bookingDay;
+      }
 
-    return matchesQuery && matchesStatus && matchesEntry && matchesDate;
-  });
+      return matchesQuery && matchesStatus && matchesEntry && matchesDate;
+    });
+  }, [bookings, debouncedSearch, filterStatus, filterEntryStatus, filterDate]);
+
+  const totalPages = Math.ceil(filteredBookings.length / PAGE_SIZE) || 1;
+  const paginatedBookings = React.useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredBookings.slice(start, start + PAGE_SIZE);
+  }, [filteredBookings, currentPage]);
 
   const handleViewBooking = (booking: any) => {
     setSelectedBooking(booking);
@@ -692,7 +704,10 @@ export default function AdminBookingsPage() {
           <TextInput
             placeholder="Search by brand, name, mobile, booking ref..."
             value={search}
-            onChange={(e) => setSearch(e.currentTarget.value)}
+            onChange={(e) => {
+              setSearch(e.currentTarget.value);
+              setCurrentPage(1);
+            }}
             leftSection={<IconSearch size={16} color="#facc15" />}
             style={{ flexGrow: 1, minWidth: 240 }}
           />
@@ -700,7 +715,10 @@ export default function AdminBookingsPage() {
           <DatePickerInput
             placeholder="Filter by Booking Date"
             value={filterDate}
-            onChange={setFilterDate}
+            onChange={(val) => {
+              setFilterDate(val);
+              setCurrentPage(1);
+            }}
             clearable
             leftSection={<IconCalendar size={16} color="#facc15" />}
             style={{ width: 190 }}
@@ -714,7 +732,10 @@ export default function AdminBookingsPage() {
               { value: 'failed', label: 'Failed' },
             ]}
             value={filterStatus}
-            onChange={setFilterStatus}
+            onChange={(val) => {
+              setFilterStatus(val);
+              setCurrentPage(1);
+            }}
             style={{ width: 180 }}
           />
 
@@ -725,7 +746,10 @@ export default function AdminBookingsPage() {
               { value: 'unentered', label: 'Pending Entry / Unentered' },
             ]}
             value={filterEntryStatus}
-            onChange={setFilterEntryStatus}
+            onChange={(val) => {
+              setFilterEntryStatus(val);
+              setCurrentPage(1);
+            }}
             style={{ width: 195 }}
           />
         </Group>
@@ -769,7 +793,8 @@ export default function AdminBookingsPage() {
             </Button>
           </Stack>
         ) : (
-          <Table.ScrollContainer minWidth={900}>
+          <>
+            <Table.ScrollContainer minWidth={900}>
             <Table verticalSpacing="sm" highlightOnHover>
               <Table.Thead>
                 <Table.Tr style={{ borderBottom: '1px solid rgba(234, 179, 8, 0.3)' }}>
@@ -786,7 +811,7 @@ export default function AdminBookingsPage() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {filteredBookings.map((b) => {
+                {paginatedBookings.map((b) => {
                   const hasLink = Boolean(b.qrCodeDataUrl);
                   const passUrl = typeof window !== 'undefined' ? `${window.location.origin}/dandiyaraas/stall/pass/${b.id}` : '';
 
@@ -1022,8 +1047,24 @@ export default function AdminBookingsPage() {
               </Table.Tbody>
             </Table>
           </Table.ScrollContainer>
-        )}
-      </Paper>
+
+          {totalPages > 1 && (
+            <Group justify="space-between" mt="md" pt="xs" style={{ borderTop: '1px solid rgba(234, 179, 8, 0.15)' }}>
+              <Text size="xs" c="gray.4">
+                Page {currentPage} of {totalPages} ({filteredBookings.length} total stall bookings)
+              </Text>
+              <Pagination
+                value={currentPage}
+                onChange={setCurrentPage}
+                total={totalPages}
+                color="yellow"
+                size="sm"
+              />
+            </Group>
+          )}
+        </>
+      )}
+    </Paper>
 
       {/* =======================================================================
           MODAL: DIRECT STALL BOOKING ISSUANCE (ADMIN DIRECT ISSUE)

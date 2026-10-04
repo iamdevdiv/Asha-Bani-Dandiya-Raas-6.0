@@ -56,7 +56,17 @@ interface InteractiveStallGridProps {
   onEditCategoryPricing?: () => void;
 }
 
-export function InteractiveStallGrid({
+const ROWS = [
+  ['1', '2', '3', '4', '5'],
+  ['6', '7', '8', '9', '10'],
+  ['11', '12', '13', '14', '15'],
+  ['A', 'B', 'C', 'D', 'E'],
+  ['F', 'G', 'H', 'I', 'J'],
+  ['K', 'L', 'M', 'N', 'O'],
+  ['P', 'Q', 'R', 'S', 'T'],
+];
+
+export const InteractiveStallGrid = React.memo(function InteractiveStallGrid({
   stalls,
   selectedStallNumber,
   onSelectStall,
@@ -66,40 +76,50 @@ export function InteractiveStallGrid({
   onAdminAction,
   onEditCategoryPricing,
 }: InteractiveStallGridProps) {
-  // Derive category prices dynamically from stalls list
-  const foodPrice = stalls.find((s) => s.section === 'food' || !isNaN(Number(s.stallNumber)))?.price ?? 3500;
-  const cjPrice = stalls.find((s) => s.stallNumber.toUpperCase() === 'C' || s.section === 'outstanding_visibility')?.price ?? 3500;
-  const turningPrice = stalls.find((s) => ['A', 'B', 'Q', 'R', 'S', 'T'].includes(s.stallNumber.toUpperCase()) || s.section === 'turning_premium')?.price ?? 4500;
-  const frontPrice = stalls.find((s) => ['K', 'L', 'M', 'N', 'O', 'P'].includes(s.stallNumber.toUpperCase()) || s.section === 'front_visibility')?.price ?? 5500;
+  // Derive category prices dynamically from stalls list with useMemo
+  const { foodPrice, cjPrice, turningPrice, frontPrice, stallMap } = React.useMemo(() => {
+    const food = stalls.find((s) => s.section === 'food' || !isNaN(Number(s.stallNumber)))?.price ?? 3500;
+    const cj = stalls.find((s) => s.stallNumber.toUpperCase() === 'C' || s.section === 'outstanding_visibility')?.price ?? 3500;
+    const turning = stalls.find((s) => ['A', 'B', 'Q', 'R', 'S', 'T'].includes(s.stallNumber.toUpperCase()) || s.section === 'turning_premium')?.price ?? 4500;
+    const front = stalls.find((s) => ['K', 'L', 'M', 'N', 'O', 'P'].includes(s.stallNumber.toUpperCase()) || s.section === 'front_visibility')?.price ?? 5500;
+    
+    const map = new Map<string, StallItem>();
+    for (const s of stalls) {
+      map.set(s.stallNumber.toUpperCase(), s);
+    }
 
-  // Group stalls into 7 rows of 5 columns
-  const rows = [
-    ['1', '2', '3', '4', '5'],
-    ['6', '7', '8', '9', '10'],
-    ['11', '12', '13', '14', '15'],
-    ['A', 'B', 'C', 'D', 'E'],
-    ['F', 'G', 'H', 'I', 'J'],
-    ['K', 'L', 'M', 'N', 'O'],
-    ['P', 'Q', 'R', 'S', 'T'],
-  ];
+    return {
+      foodPrice: food,
+      cjPrice: cj,
+      turningPrice: turning,
+      frontPrice: front,
+      stallMap: map,
+    };
+  }, [stalls]);
 
-  const getStall = (num: string) => {
-    return (
-      stalls.find((s) => s.stallNumber.toUpperCase() === num.toUpperCase()) || {
-        id: `stall_${num}`,
-        stallNumber: num,
-        section: isNaN(Number(num)) ? 'commercial' : 'food',
-        price: num === 'A' || num === 'B' || num === 'R' || num === 'Q' || num === 'S' || num === 'T'
-          ? turningPrice
-          : ['K', 'L', 'M', 'N', 'O', 'P'].includes(num)
-          ? frontPrice
-          : !isNaN(Number(num))
-          ? foodPrice
-          : cjPrice,
-        isBooked: false,
-      }
-    );
-  };
+  const rows = ROWS;
+
+  const getStall = React.useCallback(
+    (num: string) => {
+      return (
+        stallMap.get(num.toUpperCase()) || {
+          id: `stall_${num}`,
+          stallNumber: num,
+          section: isNaN(Number(num)) ? 'commercial' : 'food',
+          price:
+            num === 'A' || num === 'B' || num === 'R' || num === 'Q' || num === 'S' || num === 'T'
+              ? turningPrice
+              : ['K', 'L', 'M', 'N', 'O', 'P'].includes(num)
+              ? frontPrice
+              : !isNaN(Number(num))
+              ? foodPrice
+              : cjPrice,
+          isBooked: false,
+        }
+      );
+    },
+    [stallMap, turningPrice, frontPrice, foodPrice, cjPrice]
+  );
 
   const getSectionBadge = (stall: StallItem) => {
     if (!isNaN(Number(stall.stallNumber))) {
@@ -423,4 +443,4 @@ export function InteractiveStallGrid({
       </Stack>
     </Box>
   );
-}
+});

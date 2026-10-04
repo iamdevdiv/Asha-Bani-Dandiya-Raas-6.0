@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   Container,
   Box,
@@ -27,8 +26,9 @@ import {
   Tabs,
   Alert,
   Checkbox,
-  Divider,
+  Pagination,
 } from '@mantine/core';
+import { useDebouncedValue } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
   IconTicket,
@@ -48,11 +48,8 @@ import {
   IconClock,
   IconAlertCircle,
   IconInfoCircle,
-  IconGift,
   IconReceipt,
-  IconFilter,
   IconRefresh,
-  IconArrowsSort,
   IconX,
   IconMessageCircle,
 } from '@tabler/icons-react';
@@ -61,52 +58,221 @@ import { CustomerPassCard } from '@/components/CustomerPassCard';
 import { openWhatsAppChat } from '@/lib/whatsapp';
 import { renderMessageTemplate, getVoucherUsabilityLabel, DEFAULT_TEMPLATES } from '@/lib/message-templates-core';
 
-export default function AdminTicketBookingsPage() {
-  const [loading, setLoading] = useState(true);
-  const [bookings, setBookings] = useState<any[]>([]);
-  const [search, setSearch] = useState('');
-  const [pendingSearch, setPendingSearch] = useState('');
-  const [phaseFilter, setPhaseFilter] = useState<string | null>(null);
-  const [checkInFilter, setCheckInFilter] = useState<string | null>(null);
-  const [passTypeFilter, setPassTypeFilter] = useState<string | null>(null);
-  const [voucherFilter, setVoucherFilter] = useState<string | null>(null);
-  const [attendeeFilter, setAttendeeFilter] = useState<string | null>(null);
-  const [referralFilter, setReferralFilter] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<string>('newest');
+/* =========================================================================
+   COMPONENT: MEMOIZED CONFIRMED BOOKING TABLE ROW
+   ========================================================================= */
+interface TicketRowProps {
+  b: any;
+  downloading: boolean;
+  resendingSms: boolean;
+  onDownload: (b: any) => void;
+  onWhatsApp: (b: any) => void;
+  onResendSms: (b: any) => void;
+  onPreview: (b: any) => void;
+  onRule: (b: any) => void;
+  onTopUp: (b: any) => void;
+  onDelete: (b: any) => void;
+}
 
-  // View Modal State
-  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+const ConfirmedBookingRow = React.memo(function ConfirmedBookingRow({
+  b,
+  downloading,
+  resendingSms,
+  onDownload,
+  onWhatsApp,
+  onResendSms,
+  onPreview,
+  onRule,
+  onTopUp,
+  onDelete,
+}: TicketRowProps) {
+  return (
+    <Table.Tr key={b.id}>
+      <Table.Td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#fde047', whiteSpace: 'nowrap' }}>
+        {b.bookingNumber}
+      </Table.Td>
+      <Table.Td style={{ fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap' }}>{b.fullName}</Table.Td>
+      <Table.Td style={{ color: '#d1d5db', whiteSpace: 'nowrap' }}>{b.mobile}</Table.Td>
+      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+        <Text size="xs" c="white">
+          1 Adult{b.childrenCount > 0 ? ` + ${b.childrenCount} Child${b.childrenCount > 1 ? 'ren' : ''}` : ''}
+        </Text>
+      </Table.Td>
+      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+        <Badge size="xs" color="yellow" variant="light" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+          {b.phaseName}
+        </Badge>
+      </Table.Td>
+      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+        {b.totalAmount === 0 ? (
+          <Badge size="xs" color="teal" variant="light" style={{ fontWeight: 700 }}>
+            FREE (₹0)
+          </Badge>
+        ) : (
+          <Text size="sm" fw={700} c="white">₹{b.totalAmount}</Text>
+        )}
+      </Table.Td>
+      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+        <Stack gap={3}>
+          {b.voucherAmount === 0 ? (
+            <Badge size="xs" color="gray" variant="outline" style={{ fontSize: '10px' }}>
+              No Voucher
+            </Badge>
+          ) : (
+            <Badge size="xs" color={b.voucherBalance > 0 ? 'green' : 'gray'} variant="light" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+              ₹{b.voucherBalance}
+            </Badge>
+          )}
+          {b.isAmbassadorPass ? (
+            <Badge
+              size="xs"
+              color="yellow"
+              variant="light"
+              style={{ flexShrink: 0, whiteSpace: 'nowrap', fontSize: '9px', padding: '0 4px', fontWeight: 700 }}
+            >
+              Ambassador Tier ({b.effectiveVoucherApplicableTo === 'food' ? 'Food' : b.effectiveVoucherApplicableTo === 'other' ? 'Commercial' : 'All Stalls'})
+            </Badge>
+          ) : b.isCustomVoucherRule ? (
+            <Badge
+              size="xs"
+              color={b.voucherApplicableTo === 'food' ? 'orange' : b.voucherApplicableTo === 'other' ? 'grape' : 'teal'}
+              variant="filled"
+              style={{ flexShrink: 0, whiteSpace: 'nowrap', fontSize: '9px', padding: '0 4px', fontWeight: 800 }}
+            >
+              Exception ({b.voucherApplicableTo === 'food' ? 'Food Only' : b.voucherApplicableTo === 'other' ? 'Commercial' : 'All Stalls'})
+            </Badge>
+          ) : (
+            <Text size="10px" c="gray.4" style={{ fontSize: '10px' }}>
+              Global ({b.effectiveVoucherApplicableTo === 'food' ? 'Food Only' : b.effectiveVoucherApplicableTo === 'other' ? 'Commercial' : 'All Stalls'})
+            </Text>
+          )}
+        </Stack>
+      </Table.Td>
+      <Table.Td style={{ whiteSpace: 'nowrap' }}>
+        <Badge size="xs" color={b.isCheckedIn ? 'green' : 'gray'} variant="filled" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+          {b.isCheckedIn ? 'CHECKED IN' : 'PENDING'}
+        </Badge>
+      </Table.Td>
+      <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+        <Group gap="xs" justify="flex-end" wrap="nowrap">
+          <Tooltip label="Download Official Pass (PNG)">
+            <ActionIcon
+              color="yellow"
+              variant="filled"
+              className="badge-gold-filled"
+              style={{ color: '#140305', backgroundColor: '#facc15' }}
+              size="sm"
+              radius="md"
+              loading={downloading}
+              onClick={() => onDownload(b)}
+            >
+              <IconDownload size={15} />
+            </ActionIcon>
+          </Tooltip>
 
-  // Direct Instant Download State
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [directDownloadBooking, setDirectDownloadBooking] = useState<any | null>(null);
+          <Tooltip label="Send WhatsApp Pass Link">
+            <ActionIcon
+              color="green"
+              variant="light"
+              size="sm"
+              radius="md"
+              onClick={() => onWhatsApp(b)}
+            >
+              <IconBrandWhatsapp size={16} />
+            </ActionIcon>
+          </Tooltip>
 
-  // Resend SMS State
-  const [resendingSmsId, setResendingSmsId] = useState<string | null>(null);
+          <Tooltip label="Resend Confirmation SMS">
+            <ActionIcon
+              color="orange"
+              variant="light"
+              size="sm"
+              radius="md"
+              loading={resendingSms}
+              onClick={() => onResendSms(b)}
+            >
+              <IconMessageCircle size={16} />
+            </ActionIcon>
+          </Tooltip>
 
-  // Manual Confirm Payment State (for captured Razorpay payments showing as pending)
-  const [bookingToConfirm, setBookingToConfirm] = useState<any | null>(null);
-  const [confirmPaymentId, setConfirmPaymentId] = useState('');
-  const [confirmSendSms, setConfirmSendSms] = useState(true);
-  const [confirmingPayment, setConfirmingPayment] = useState(false);
+          <Tooltip label="Open Live Pass Link (New Tab)">
+            <ActionIcon
+              component="a"
+              href={`/dandiyaraas/tickets/pass/${b.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              color="cyan"
+              variant="light"
+              size="sm"
+              radius="md"
+            >
+              <IconExternalLink size={15} />
+            </ActionIcon>
+          </Tooltip>
 
-  // Delete Booking State
-  const [bookingToDelete, setBookingToDelete] = useState<any | null>(null);
-  const [deleting, setDeleting] = useState(false);
+          <Tooltip label="Preview Pass Card">
+            <ActionIcon
+              color="blue"
+              variant="light"
+              size="sm"
+              radius="md"
+              onClick={() => onPreview(b)}
+            >
+              <IconEye size={16} />
+            </ActionIcon>
+          </Tooltip>
 
-  // Top-Up Voucher Balance State
-  const [bookingToTopUp, setBookingToTopUp] = useState<any | null>(null);
-  const [topUpAmount, setTopUpAmount] = useState<number | string>(100);
-  const [topUpReason, setTopUpReason] = useState('');
-  const [toppingUp, setToppingUp] = useState(false);
+          <Tooltip label="Set Voucher Stall Access Exception">
+            <ActionIcon
+              color="grape"
+              variant="light"
+              size="sm"
+              radius="md"
+              onClick={() => onRule(b)}
+            >
+              <IconAdjustments size={16} />
+            </ActionIcon>
+          </Tooltip>
 
-  // Voucher Rule Exception State
-  const [bookingForRule, setBookingForRule] = useState<any | null>(null);
-  const [selectedVoucherRule, setSelectedVoucherRule] = useState<string>('default');
-  const [savingRule, setSavingRule] = useState(false);
+          <Tooltip label="Add / Top-Up Voucher Balance">
+            <ActionIcon
+              color="yellow"
+              variant="light"
+              size="sm"
+              radius="md"
+              onClick={() => onTopUp(b)}
+            >
+              <IconCurrencyRupee size={16} />
+            </ActionIcon>
+          </Tooltip>
 
-  // Manual Ticket Generation State (Admin direct pass creation / gift passes)
-  const [createModalOpened, setCreateModalOpened] = useState(false);
+          <Tooltip label="Delete Ticket Pass">
+            <ActionIcon
+              color="red"
+              variant="light"
+              size="sm"
+              radius="md"
+              onClick={() => onDelete(b)}
+            >
+              <IconTrash size={16} />
+            </ActionIcon>
+          </Tooltip>
+        </Group>
+      </Table.Td>
+    </Table.Tr>
+  );
+});
+
+/* =========================================================================
+   COMPONENT: ISOLATED MODAL - CREATE TICKET PASS
+   ========================================================================= */
+interface CreateTicketModalProps {
+  opened: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function CreateTicketModal({ opened, onClose, onSuccess }: CreateTicketModalProps) {
   const [availablePhases, setAvailablePhases] = useState<any[]>([]);
   const [availableAmbassadors, setAvailableAmbassadors] = useState<any[]>([]);
   const [newFullName, setNewFullName] = useState('');
@@ -122,448 +288,9 @@ export default function AdminTicketBookingsPage() {
   const [newReferredByAmbassadorId, setNewReferredByAmbassadorId] = useState<string>('');
   const [newSendSms, setNewSendSms] = useState(true);
   const [creatingTicket, setCreatingTicket] = useState(false);
-  const [lastCreatedBooking, setLastCreatedBooking] = useState<any | null>(null);
-  const [ticketWaTemplate, setTicketWaTemplate] = useState<string>('');
-
-  const fetchBookings = () => {
-    fetch('/api/admin/ticket-bookings')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.bookings) {
-          setBookings(data.bookings);
-        }
-      })
-      .catch((err) => console.error('Error fetching ticket bookings:', err))
-      .finally(() => setLoading(false));
-  };
 
   useEffect(() => {
-    fetchBookings();
-    fetch('/api/admin/message-templates')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.success && data?.templates?.template_ticket_wa) {
-          setTicketWaTemplate(data.templates.template_ticket_wa);
-        }
-      })
-      .catch((err) => console.error('Error fetching ticket WA template:', err));
-  }, []);
-
-  // Handle direct instant pass download
-  const handleDirectDownload = async (booking: any) => {
-    setDownloadingId(booking.id);
-    setDirectDownloadBooking(booking);
-  };
-
-  useEffect(() => {
-    if (!directDownloadBooking) return;
-
-    const timer = setTimeout(async () => {
-      const el = document.getElementById(`direct-download-pass-${directDownloadBooking.id}`);
-      if (!el) {
-        setDownloadingId(null);
-        setDirectDownloadBooking(null);
-        return;
-      }
-
-      try {
-        const canvas = await html2canvas(el, {
-          scale: 2.5,
-          useCORS: true,
-          backgroundColor: '#140305',
-          logging: false,
-          borderRadius: 24,
-          onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
-            clonedElement.style.width = '480px';
-            clonedElement.style.maxWidth = '480px';
-            clonedElement.style.minWidth = '480px';
-          },
-        } as any);
-
-        const dataUrl = canvas.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.download = `Asha-Bani-Dandiya-Raas-Pass-${directDownloadBooking.bookingNumber}.png`;
-        link.href = dataUrl;
-        link.click();
-
-        notifications.show({
-          title: 'Pass Downloaded',
-          message: `Official pass for ${directDownloadBooking.fullName} (#${directDownloadBooking.bookingNumber}) saved to device.`,
-          color: 'green',
-        });
-      } catch (err) {
-        console.error('Direct download error:', err);
-        notifications.show({
-          title: 'Download Failed',
-          message: 'Could not generate pass. Please try opening pass preview.',
-          color: 'red',
-        });
-      } finally {
-        setDownloadingId(null);
-        setDirectDownloadBooking(null);
-      }
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [directDownloadBooking]);
-
-  // Separate Confirmed vs Pending Bookings
-  const confirmedBookings = bookings.filter((b) => b.paymentStatus === 'success');
-  const pendingBookings = bookings.filter((b) => b.paymentStatus !== 'success');
-
-  // Distinct phases present in bookings for dynamic phase dropdown
-  const uniquePhaseNames = Array.from(
-    new Set(bookings.map((b) => b.phaseName).filter(Boolean))
-  ) as string[];
-
-  // Filter & Sort Confirmed Bookings
-  const filteredConfirmedBookings = confirmedBookings
-    .filter((b) => {
-      // Phase Filter
-      if (phaseFilter && phaseFilter !== 'all' && b.phaseName !== phaseFilter) return false;
-
-      // Check-in Filter
-      if (checkInFilter === 'checked_in' && !b.isCheckedIn) return false;
-      if (checkInFilter === 'pending' && b.isCheckedIn) return false;
-
-      // Pass Type Filter
-      if (passTypeFilter === 'paid' && b.totalAmount === 0) return false;
-      if (passTypeFilter === 'free' && b.totalAmount > 0) return false;
-      if (passTypeFilter === 'ambassador_reward' && !b.isAmbassadorPass) return false;
-
-      // Voucher Status Filter
-      if (voucherFilter === 'has_voucher' && (b.voucherAmount || 0) === 0) return false;
-      if (voucherFilter === 'active_balance' && (b.voucherBalance || 0) <= 0) return false;
-      if (voucherFilter === 'exhausted' && ((b.voucherAmount || 0) === 0 || (b.voucherBalance || 0) > 0)) return false;
-      if (voucherFilter === 'no_voucher' && (b.voucherAmount || 0) > 0) return false;
-
-      // Attendee Composition Filter
-      if (attendeeFilter === 'adult_only' && (b.childrenCount || 0) > 0) return false;
-      if (attendeeFilter === 'with_children' && (b.childrenCount || 0) === 0) return false;
-
-      // Referral Source Filter
-      if (referralFilter === 'referred' && !b.referredByAmbassadorId && !b.isAmbassadorPass) return false;
-      if (referralFilter === 'direct' && (b.referredByAmbassadorId || b.isAmbassadorPass)) return false;
-
-      // Search Query
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const nameMatch = (b.fullName || '').toLowerCase().includes(q);
-        const mobileMatch = (b.mobile || '').includes(q);
-        const idMatch = (b.bookingNumber || '').toLowerCase().includes(q);
-        const emailMatch = (b.email || '').toLowerCase().includes(q);
-        if (!nameMatch && !mobileMatch && !idMatch && !emailMatch) return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'newest') return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
-      if (sortBy === 'oldest') return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
-      if (sortBy === 'amount_desc') return (b.totalAmount || 0) - (a.totalAmount || 0);
-      if (sortBy === 'amount_asc') return (a.totalAmount || 0) - (b.totalAmount || 0);
-      if (sortBy === 'voucher_desc') return (b.voucherAmount || 0) - (a.voucherAmount || 0);
-      return 0;
-    });
-
-  const activeFiltersCount = [
-    Boolean(phaseFilter && phaseFilter !== 'all'),
-    Boolean(checkInFilter && checkInFilter !== 'all'),
-    Boolean(passTypeFilter && passTypeFilter !== 'all'),
-    Boolean(voucherFilter && voucherFilter !== 'all'),
-    Boolean(attendeeFilter && attendeeFilter !== 'all'),
-    Boolean(referralFilter && referralFilter !== 'all'),
-    Boolean(search.trim() !== ''),
-    Boolean(sortBy !== 'newest'),
-  ].filter(Boolean).length;
-
-  const handleResetFilters = () => {
-    setSearch('');
-    setPhaseFilter(null);
-    setCheckInFilter(null);
-    setPassTypeFilter(null);
-    setVoucherFilter(null);
-    setAttendeeFilter(null);
-    setReferralFilter(null);
-    setSortBy('newest');
-  };
-
-  // Filter Pending Bookings
-  const filteredPendingBookings = pendingBookings.filter((b) => {
-    if (pendingSearch.trim()) {
-      const q = pendingSearch.toLowerCase();
-      const nameMatch = (b.fullName || '').toLowerCase().includes(q);
-      const mobileMatch = (b.mobile || '').includes(q);
-      const idMatch = (b.bookingNumber || '').toLowerCase().includes(q);
-      if (!nameMatch && !mobileMatch && !idMatch) return false;
-    }
-    return true;
-  });
-
-  // Calculate Metrics Strictly for Confirmed Bookings
-  const totalRevenue = confirmedBookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
-  const totalVouchersAmount = confirmedBookings.reduce((sum, b) => sum + (b.voucherAmount || 0), 0);
-  const totalRemainingVoucherBalance = confirmedBookings.reduce((sum, b) => sum + (b.voucherBalance || 0), 0);
-  const totalRedeemedVouchers = Math.max(0, totalVouchersAmount - totalRemainingVoucherBalance);
-  const realizedNetRevenue = Math.max(0, totalRevenue - totalRedeemedVouchers);
-  const committedNetRevenue = Math.max(0, totalRevenue - totalVouchersAmount);
-  const totalAdults = confirmedBookings.reduce((sum, b) => sum + (b.adultCount || 1), 0);
-  const totalChildren = confirmedBookings.reduce((sum, b) => sum + (b.childrenCount || 0), 0);
-  const totalPasses = totalAdults + totalChildren;
-  const totalCheckedIn = confirmedBookings.filter((b) => b.isCheckedIn).length;
-
-  const handleSendWhatsApp = (b: any) => {
-    if (typeof window !== 'undefined') {
-      const origin = window.location.origin;
-      const passUrl = `${origin}/dandiyaraas/tickets/pass/${b.id}`;
-      const template = ticketWaTemplate || DEFAULT_TEMPLATES.template_ticket_wa.defaultText;
-      const passesText = `1 Adult${b.childrenCount > 0 ? ` + ${b.childrenCount} Children` : ''}`;
-      const usability = getVoucherUsabilityLabel(b.voucherApplicableTo || b.phase?.voucherApplicableTo);
-
-      const rawAmount = b.totalAmount ?? 0;
-      const formattedPrice = typeof rawAmount === 'number' ? rawAmount.toLocaleString('en-IN') : String(rawAmount);
-      const priceLine = rawAmount === 0
-        ? 'Pass Type: Complimentary / Gift Pass (Rs. 0)\n'
-        : `Amount Paid: Rs. ${formattedPrice}\n`;
-      const voucherAmount = b.voucherAmount ?? 0;
-      const voucherLine = voucherAmount > 0
-        ? `Included Voucher: Rs. ${voucherAmount}\n`
-        : `Stall Voucher: None (Rs. 0)\n`;
-
-      const msg = renderMessageTemplate(template, {
-        name: b.fullName || 'Guest',
-        booker_name: b.fullName || 'Guest',
-        booking_id: b.bookingNumber || '',
-        booking_number: b.bookingNumber || '',
-        passes_text: passesText,
-        adult_count: b.adultCount ?? 1,
-        children_count: b.childrenCount ?? 0,
-        price: formattedPrice,
-        amount: formattedPrice,
-        price_line: priceLine,
-        voucher_line: voucherLine,
-        voucher_amount: voucherAmount,
-        voucher_usability: usability,
-        event_date: 'Tuesday, 13 October 2026 (6:00 PM onwards)',
-        venue: 'Maharaja Agrasen Bhavan, Saharanpur',
-        pass_link: passUrl,
-        booking_link: passUrl,
-        helpline: '+91 6399063455',
-      });
-
-      openWhatsAppChat(b.mobile || '', msg);
-    }
-  };
-
-  const handleSendPendingWhatsApp = (b: any) => {
-    if (typeof window !== 'undefined') {
-      const origin = window.location.origin;
-      const buyUrl = `${origin}/dandiyaraas/tickets/buy`;
-      const displayName = (b.fullName || 'Guest').toUpperCase();
-      const rawAmount = b.totalAmount ?? 0;
-      const formattedPrice = typeof rawAmount === 'number' ? rawAmount.toLocaleString('en-IN') : String(rawAmount);
-
-      const msg =
-        `*NAMASTE ${displayName}!*\n\n` +
-        `We noticed your ticket booking attempt for *Asha Bani Dandiya Raas 6.0* (#${b.bookingNumber || ''}) was not completed.\n\n` +
-        `*Passes:* 1 Adult${(b.childrenCount || 0) > 0 ? ` + ${b.childrenCount} Children` : ''}\n` +
-        `*Amount:* Rs. ${formattedPrice}\n` +
-        `*Event Date:* 13 October 2026\n` +
-        `*Venue:* Maharaja Agrasen Bhavan, Saharanpur\n\n` +
-        `If you faced any payment issue or need assistance, you can complete your booking here:\n${buyUrl}\n\n` +
-        `Feel free to reply if you need any help!`;
-
-      openWhatsAppChat(b.mobile || '', msg);
-    }
-  };
-
-  const handleResendSms = async (b: any) => {
-    setResendingSmsId(b.id);
-    try {
-      const res = await fetch('/api/admin/ticket-bookings/confirm-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketBookingId: b.id, forceResendSms: true, sendSms: true }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to dispatch SMS');
-      }
-      notifications.show({
-        title: 'SMS Sent Successfully',
-        message: `Updated confirmation SMS dispatched to +91 ${b.mobile}.`,
-        color: 'green',
-      });
-    } catch (err: any) {
-      notifications.show({
-        title: 'SMS Dispatch Failed',
-        message: err.message || 'Could not dispatch SMS.',
-        color: 'red',
-      });
-    } finally {
-      setResendingSmsId(null);
-    }
-  };
-
-  const handlePromptConfirmPayment = (b: any) => {
-    setBookingToConfirm(b);
-    setConfirmPaymentId(b.razorpayPaymentId || '');
-    setConfirmSendSms(true);
-  };
-
-  const handleConfirmPayment = async () => {
-    if (!bookingToConfirm) return;
-    setConfirmingPayment(true);
-    try {
-      const res = await fetch('/api/admin/ticket-bookings/confirm-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticketBookingId: bookingToConfirm.id,
-          razorpayPaymentId: confirmPaymentId.trim() || undefined,
-          sendSms: confirmSendSms,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to confirm ticket booking payment');
-      }
-
-      notifications.show({
-        title: 'Payment Confirmed & Pass Issued',
-        message: data.message || `Ticket booking #${bookingToConfirm.bookingNumber} is now confirmed. Pass generated and SMS dispatched.`,
-        color: 'green',
-      });
-
-      setBookingToConfirm(null);
-      fetchBookings();
-    } catch (err: any) {
-      notifications.show({
-        title: 'Confirmation Failed',
-        message: err.message || 'Could not confirm payment.',
-        color: 'red',
-      });
-    } finally {
-      setConfirmingPayment(false);
-    }
-  };
-
-  const handlePromptDelete = (b: any) => {
-    setBookingToDelete(b);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!bookingToDelete) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/admin/ticket-bookings/${bookingToDelete.id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to delete ticket pass booking');
-      }
-
-      notifications.show({
-        title: 'Booking Deleted',
-        message: `Ticket booking ${bookingToDelete.bookingNumber} has been removed.`,
-        color: 'green',
-      });
-
-      setBookingToDelete(null);
-      fetchBookings();
-    } catch (err: any) {
-      notifications.show({ title: 'Delete Failed', message: err.message, color: 'red' });
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handlePromptTopUp = (b: any) => {
-    setBookingToTopUp(b);
-    setTopUpAmount(100);
-    setTopUpReason('');
-  };
-
-  const handleConfirmTopUp = async () => {
-    if (!bookingToTopUp) return;
-    const amount = Number(topUpAmount);
-    if (!amount || amount <= 0) {
-      notifications.show({ title: 'Invalid Amount', message: 'Please enter a valid top-up amount.', color: 'red' });
-      return;
-    }
-
-    setToppingUp(true);
-    try {
-      const res = await fetch('/api/admin/ticket-bookings/topup-voucher', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticketBookingId: bookingToTopUp.id,
-          additionalAmount: amount,
-          reason: topUpReason.trim() || undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to top-up voucher balance');
-      }
-
-      notifications.show({
-        title: 'Voucher Balance Credited',
-        message: `Added ₹${amount} voucher balance to ${bookingToTopUp.bookingNumber}!`,
-        color: 'green',
-      });
-
-      setBookingToTopUp(null);
-      fetchBookings();
-    } catch (err: any) {
-      notifications.show({ title: 'Top-Up Failed', message: err.message, color: 'red' });
-    } finally {
-      setToppingUp(false);
-    }
-  };
-
-  const handlePromptRule = (b: any) => {
-    setBookingForRule(b);
-    setSelectedVoucherRule(b.isCustomVoucherRule ? b.voucherApplicableTo : 'default');
-  };
-
-  const handleSaveRule = async () => {
-    if (!bookingForRule) return;
-    setSavingRule(true);
-    try {
-      const res = await fetch('/api/admin/ticket-bookings/voucher-rule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticketBookingId: bookingForRule.id,
-          voucherApplicableTo: selectedVoucherRule,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to update voucher rule');
-      }
-
-      notifications.show({
-        title: 'Voucher Rule Updated',
-        message: `Stall usability rule updated for ${bookingForRule.bookingNumber}!`,
-        color: 'green',
-      });
-
-      setBookingForRule(null);
-      fetchBookings();
-    } catch (err: any) {
-      notifications.show({ title: 'Update Failed', message: err.message, color: 'red' });
-    } finally {
-      setSavingRule(false);
-    }
-  };
-
-  // Manual Ticket Generation Handlers
-  const handleOpenCreateModal = async () => {
-    setCreateModalOpened(true);
+    if (!opened) return;
     setNewFullName('');
     setNewMobile('');
     setNewEmail('');
@@ -572,50 +299,43 @@ export default function AdminTicketBookingsPage() {
     setNewChildren([]);
     setNewReferredByAmbassadorId('');
     setNewSendSms(true);
-    setLastCreatedBooking(null);
 
-    // Fetch phases
-    try {
-      const res = await fetch('/api/tickets/phases');
-      const data = await res.json();
-      if (data.success && Array.isArray(data.phases)) {
-        setAvailablePhases(data.phases);
-        const active = data.currentActive || data.phases[0];
-        if (active) {
-          setNewPhaseId(active.id);
-          setNewTotalAmount(active.adultPrice || 499);
-          setNewVoucherAmount(active.voucherAmount ?? 100);
-          setNewVoucherApplicableTo(active.voucherApplicableTo || 'both');
+    fetch('/api/tickets/phases')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.phases)) {
+          setAvailablePhases(data.phases);
+          const active = data.currentActive || data.phases[0];
+          if (active) {
+            setNewPhaseId(active.id);
+            setNewTotalAmount(active.adultPrice || 499);
+            setNewVoucherAmount(active.voucherAmount ?? 100);
+            setNewVoucherApplicableTo(active.voucherApplicableTo || 'both');
+          }
         }
-      }
-    } catch (err) {
-      console.warn('Failed to load phases for ticket creation:', err);
-    }
+      })
+      .catch((err) => console.warn('Failed to load phases for ticket creation:', err));
 
-    // Fetch ambassadors for optional linking
-    try {
-      const ambRes = await fetch('/api/admin/ambassadors');
-      const ambData = await ambRes.json();
-      if (ambData.success && Array.isArray(ambData.ambassadors)) {
-        setAvailableAmbassadors(ambData.ambassadors);
-      }
-    } catch (err) {
-      console.warn('Failed to load ambassadors:', err);
-    }
-  };
+    fetch('/api/admin/ambassadors')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.ambassadors)) {
+          setAvailableAmbassadors(data.ambassadors);
+        }
+      })
+      .catch((err) => console.warn('Failed to load ambassadors:', err));
+  }, [opened]);
 
   const handlePhaseChange = (phaseId: string | null) => {
     if (!phaseId) return;
     setNewPhaseId(phaseId);
     const selected = availablePhases.find((p) => p.id === phaseId);
     if (selected) {
-      // Auto recalculate price if not explicitly set to 0
       if (Number(newTotalAmount) !== 0) {
         const adultP = selected.adultPrice || 499;
         const childP = selected.childPrice || 199;
         setNewTotalAmount(adultP * newAdultCount + childP * newChildren.length);
       }
-      // Auto recalculate voucher if not explicitly set to 0
       if (Number(newVoucherAmount) !== 0) {
         setNewVoucherAmount(selected.voucherAmount ?? 100);
       }
@@ -697,9 +417,8 @@ export default function AdminTicketBookingsPage() {
         color: 'green',
       });
 
-      setLastCreatedBooking(data.booking);
-      setCreateModalOpened(false);
-      fetchBookings();
+      onClose();
+      onSuccess();
     } catch (err: any) {
       notifications.show({
         title: 'Pass Generation Failed',
@@ -708,6 +427,834 @@ export default function AdminTicketBookingsPage() {
       });
     } finally {
       setCreatingTicket(false);
+    }
+  };
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={() => !creatingTicket && onClose()}
+      title={
+        <Group gap="xs">
+          <ThemeIcon color="yellow" variant="light" size="md" radius="md">
+            <IconTicket size={18} />
+          </ThemeIcon>
+          <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+            Issue Official Customer Pass
+          </Text>
+        </Group>
+      }
+      size="lg"
+      centered
+      radius="xl"
+      styles={{
+        content: {
+          backgroundColor: '#140305',
+          border: '1px solid rgba(234, 179, 8, 0.35)',
+        },
+        header: {
+          backgroundColor: '#140305',
+          borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
+        },
+      }}
+    >
+      <Stack gap="md" pt="xs">
+        <Alert
+          icon={<IconInfoCircle size={18} />}
+          color="yellow"
+          variant="light"
+          radius="md"
+          styles={{
+            root: { backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)' },
+            message: { color: '#e2e8f0', fontSize: '0.85rem' },
+          }}
+        >
+          Directly generate a confirmed festival entry pass. Prices and vouchers auto-fetch from the selected phase, but you can set <strong>Ticket Price to ₹0</strong> for a complimentary gift pass, or set <strong>Voucher Amount to ₹0</strong> if no stall credits are included.
+        </Alert>
+
+        {/* Attendee Details */}
+        <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+          <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+            1. ATTENDEE INFORMATION
+          </Text>
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+            <TextInput
+              label="Attendee Full Name"
+              placeholder="e.g. Priyansh Sharma"
+              required
+              value={newFullName}
+              onChange={(e) => setNewFullName(e.currentTarget.value)}
+              styles={{
+                input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+              }}
+            />
+
+            <TextInput
+              label="10-Digit Mobile Number"
+              placeholder="e.g. 9876543210"
+              required
+              maxLength={10}
+              leftSection={<Text size="xs" c="gray.4">+91</Text>}
+              value={newMobile}
+              onChange={(e) => setNewMobile(e.currentTarget.value)}
+              styles={{
+                input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+              }}
+            />
+
+            <TextInput
+              label="Email Address (Optional)"
+              placeholder="e.g. customer@example.com"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.currentTarget.value)}
+              styles={{
+                input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+              }}
+            />
+
+            <TextInput
+              label="City / Residential Area"
+              placeholder="e.g. Saharanpur"
+              value={newAddress}
+              onChange={(e) => setNewAddress(e.currentTarget.value)}
+              styles={{
+                input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+              }}
+            />
+          </SimpleGrid>
+        </Paper>
+
+        {/* Accompanying Children */}
+        <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+          <Group justify="space-between" mb="xs">
+            <Box>
+              <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.05em' }}>
+                2. ACCOMPANYING CHILDREN (&lt;10 YRS)
+              </Text>
+              <Text size="11px" c="gray.4">
+                Each pass includes 1 adult. Accompanying children must be under 10 years old (Aadhaar checked at entry).
+              </Text>
+            </Box>
+            <Button
+              size="xs"
+              variant="light"
+              color="yellow"
+              leftSection={<IconPlus size={14} />}
+              onClick={handleAddChild}
+            >
+              Add Child
+            </Button>
+          </Group>
+
+          {newChildren.length === 0 ? (
+            <Text size="xs" c="gray.5" fs="italic">
+              No accompanying children added (1 adult pass only).
+            </Text>
+          ) : (
+            <Stack gap="xs" mt="xs">
+              {newChildren.map((childName, idx) => (
+                <Group key={idx} gap="xs" wrap="nowrap">
+                  <TextInput
+                    placeholder={`Child #${idx + 1} Full Name`}
+                    value={childName}
+                    onChange={(e) => handleChildNameChange(idx, e.currentTarget.value)}
+                    style={{ flex: 1 }}
+                    styles={{
+                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                    }}
+                  />
+                  <Tooltip label="Remove Child">
+                    <ActionIcon color="red" variant="subtle" onClick={() => handleRemoveChild(idx)}>
+                      <IconTrash size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                </Group>
+              ))}
+            </Stack>
+          )}
+        </Paper>
+
+        {/* Phase Tier, Pricing & Voucher */}
+        <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+          <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+            3. PHASE TIER, PRICING &amp; STALL VOUCHER
+          </Text>
+
+          <Stack gap="sm">
+            <Select
+              label="Ticketing Phase Tier"
+              description="Fetches current phase baseline rates and stall voucher defaults."
+              data={availablePhases.map((p) => ({
+                value: p.id,
+                label: `${p.name} (Adult: ₹${p.adultPrice}, Child: ₹${p.childPrice}, Voucher: ₹${p.voucherAmount ?? 100})`,
+              }))}
+              value={newPhaseId}
+              onChange={handlePhaseChange}
+              styles={{
+                input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                description: { color: '#9ca3af', fontSize: '0.75rem' },
+              }}
+            />
+
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              <Box>
+                <NumberInput
+                  label="Ticket Total Price (₹)"
+                  description="Price collected for this booking. Set to ₹0 for gift passes."
+                  min={0}
+                  value={newTotalAmount}
+                  onChange={(val) => setNewTotalAmount(val ?? 0)}
+                  styles={{
+                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)', fontWeight: 700 },
+                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    description: { color: '#9ca3af', fontSize: '0.75rem' },
+                  }}
+                />
+                <Group gap="xs" mt={6} align="center">
+                  <Badge
+                    size="sm"
+                    style={{ cursor: 'pointer' }}
+                    color={Number(newTotalAmount) === 0 ? 'teal' : 'yellow'}
+                    variant={Number(newTotalAmount) === 0 ? 'filled' : 'outline'}
+                    onClick={() => setNewTotalAmount(0)}
+                  >
+                    🎁 Set to ₹0 (Free Gift Pass)
+                  </Badge>
+                  <Text
+                    size="11px"
+                    c="gray.4"
+                    style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                    onClick={() => {
+                      const p = availablePhases.find((ph) => ph.id === newPhaseId);
+                      const adultP = p?.adultPrice || 499;
+                      const childP = p?.childPrice || 199;
+                      setNewTotalAmount(adultP * newAdultCount + childP * newChildren.length);
+                    }}
+                  >
+                    Reset to Phase Rate
+                  </Text>
+                </Group>
+              </Box>
+
+              <Box>
+                <NumberInput
+                  label="Included Stall Voucher Amount (₹)"
+                  description="Stall credit included with this ticket. Set to ₹0 for none."
+                  min={0}
+                  value={newVoucherAmount}
+                  onChange={(val) => setNewVoucherAmount(val ?? 0)}
+                  styles={{
+                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)', fontWeight: 700 },
+                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    description: { color: '#9ca3af', fontSize: '0.75rem' },
+                  }}
+                />
+                <Group gap="xs" mt={6} align="center">
+                  <Badge
+                    size="sm"
+                    style={{ cursor: 'pointer' }}
+                    color={Number(newVoucherAmount) === 0 ? 'teal' : 'yellow'}
+                    variant={Number(newVoucherAmount) === 0 ? 'filled' : 'outline'}
+                    onClick={() => setNewVoucherAmount(0)}
+                  >
+                    🚫 Set to ₹0 (No Voucher)
+                  </Badge>
+                  <Text
+                    size="11px"
+                    c="gray.4"
+                    style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                    onClick={() => {
+                      const p = availablePhases.find((ph) => ph.id === newPhaseId);
+                      setNewVoucherAmount(p?.voucherAmount ?? 100);
+                    }}
+                  >
+                    Reset to Phase Default
+                  </Text>
+                </Group>
+              </Box>
+            </SimpleGrid>
+
+            {Number(newVoucherAmount) > 0 && (
+              <Select
+                label="Stall Voucher Usability Rule"
+                description="Determine where the customer can spend their voucher credits."
+                data={[
+                  { value: 'both', label: 'All 35 Stalls (Food & Commercial)' },
+                  { value: 'food', label: 'Food Stalls Only (Stalls 1–15)' },
+                  { value: 'other', label: 'Commercial Stalls Only (Stalls A–T)' },
+                ]}
+                value={newVoucherApplicableTo}
+                onChange={(v) => setNewVoucherApplicableTo(v || 'both')}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                  description: { color: '#9ca3af', fontSize: '0.75rem' },
+                }}
+              />
+            )}
+          </Stack>
+        </Paper>
+
+        {availableAmbassadors.length > 0 && (
+          <Select
+            label="Referred by Ambassador (Optional)"
+            placeholder="Select an ambassador to attribute ticket referral..."
+            clearable
+            data={availableAmbassadors.map((a) => ({
+              value: a.id,
+              label: `${a.name} (${a.referralCode || a.mobile})`,
+            }))}
+            value={newReferredByAmbassadorId}
+            onChange={(val) => setNewReferredByAmbassadorId(val || '')}
+            styles={{
+              input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+              label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+            }}
+          />
+        )}
+
+        <Checkbox
+          label={
+            <Text size="xs" c="gray.3">
+              Dispatch confirmation SMS with digital entry pass link to <strong>+91 {newMobile || '...'}</strong>
+            </Text>
+          }
+          checked={newSendSms}
+          onChange={(e) => setNewSendSms(e.currentTarget.checked)}
+          color="green"
+        />
+
+        <Group justify="flex-end" mt="md">
+          <Button variant="default" disabled={creatingTicket} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            className="btn-auspicious-gold"
+            loading={creatingTicket}
+            onClick={handleCreateTicket}
+            leftSection={<IconCheck size={16} />}
+          >
+            Issue &amp; Confirm Official Pass
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
+
+/* =========================================================================
+   PAGE: CUSTOMER TICKET BOOKINGS
+   ========================================================================= */
+export default function AdminTicketBookingsPage() {
+  const [loading, setLoading] = useState(true);
+  const [bookings, setBookings] = useState<any[]>([]);
+
+  // Debounced search terms to avoid re-rendering entire table on every single keystroke
+  const [search, setSearch] = useState('');
+  const [debouncedSearch] = useDebouncedValue(search, 250);
+
+  const [pendingSearch, setPendingSearch] = useState('');
+  const [debouncedPendingSearch] = useDebouncedValue(pendingSearch, 250);
+
+  const [phaseFilter, setPhaseFilter] = useState<string | null>(null);
+  const [checkInFilter, setCheckInFilter] = useState<string | null>(null);
+  const [passTypeFilter, setPassTypeFilter] = useState<string | null>(null);
+  const [voucherFilter, setVoucherFilter] = useState<string | null>(null);
+  const [attendeeFilter, setAttendeeFilter] = useState<string | null>(null);
+  const [referralFilter, setReferralFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<string>('newest');
+
+  // Pagination states
+  const [confirmedPage, setConfirmedPage] = useState(1);
+  const [pendingPage, setPendingPage] = useState(1);
+  const PAGE_SIZE = 25;
+
+  // View Modal State
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+
+  // Direct Instant Download State
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [directDownloadBooking, setDirectDownloadBooking] = useState<any | null>(null);
+
+  // Resend SMS State
+  const [resendingSmsId, setResendingSmsId] = useState<string | null>(null);
+
+  // Manual Confirm Payment State
+  const [bookingToConfirm, setBookingToConfirm] = useState<any | null>(null);
+  const [confirmPaymentId, setConfirmPaymentId] = useState('');
+  const [confirmSendSms, setConfirmSendSms] = useState(true);
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
+
+  // Delete Booking State
+  const [bookingToDelete, setBookingToDelete] = useState<any | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Top-Up Voucher Balance State
+  const [bookingToTopUp, setBookingToTopUp] = useState<any | null>(null);
+  const [topUpAmount, setTopUpAmount] = useState<number | string>(100);
+  const [topUpReason, setTopUpReason] = useState('');
+  const [toppingUp, setToppingUp] = useState(false);
+
+  // Voucher Rule Exception State
+  const [bookingForRule, setBookingForRule] = useState<any | null>(null);
+  const [selectedVoucherRule, setSelectedVoucherRule] = useState<string>('default');
+  const [savingRule, setSavingRule] = useState(false);
+
+  // Manual Ticket Generation Modal
+  const [createModalOpened, setCreateModalOpened] = useState(false);
+  const [ticketWaTemplate, setTicketWaTemplate] = useState<string>('');
+
+  const fetchBookings = useCallback(() => {
+    fetch('/api/admin/ticket-bookings')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && data.bookings) {
+          setBookings(data.bookings);
+        }
+      })
+      .catch((err) => console.error('Error fetching ticket bookings:', err))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchBookings();
+    fetch('/api/admin/message-templates')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && data?.templates?.template_ticket_wa) {
+          setTicketWaTemplate(data.templates.template_ticket_wa);
+        }
+      })
+      .catch((err) => console.error('Error fetching ticket WA template:', err));
+  }, [fetchBookings]);
+
+  // Handle direct instant pass download
+  const handleDirectDownload = useCallback((booking: any) => {
+    setDownloadingId(booking.id);
+    setDirectDownloadBooking(booking);
+  }, []);
+
+  useEffect(() => {
+    if (!directDownloadBooking) return;
+
+    const timer = setTimeout(async () => {
+      const el = document.getElementById(`direct-download-pass-${directDownloadBooking.id}`);
+      if (!el) {
+        setDownloadingId(null);
+        setDirectDownloadBooking(null);
+        return;
+      }
+
+      try {
+        const canvas = await html2canvas(el, {
+          scale: 2.5,
+          useCORS: true,
+          backgroundColor: '#140305',
+          logging: false,
+          borderRadius: 24,
+          onclone: (_clonedDoc: Document, clonedElement: HTMLElement) => {
+            clonedElement.style.width = '480px';
+            clonedElement.style.maxWidth = '480px';
+            clonedElement.style.minWidth = '480px';
+          },
+        } as any);
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `Asha-Bani-Dandiya-Raas-Pass-${directDownloadBooking.bookingNumber}.png`;
+        link.href = dataUrl;
+        link.click();
+
+        notifications.show({
+          title: 'Pass Downloaded',
+          message: `Official pass for ${directDownloadBooking.fullName} (#${directDownloadBooking.bookingNumber}) saved to device.`,
+          color: 'green',
+        });
+      } catch (err) {
+        console.error('Direct download error:', err);
+        notifications.show({
+          title: 'Download Failed',
+          message: 'Could not generate pass. Please try opening pass preview.',
+          color: 'red',
+        });
+      } finally {
+        setDownloadingId(null);
+        setDirectDownloadBooking(null);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [directDownloadBooking]);
+
+  // Separate Confirmed vs Pending Bookings (memoized)
+  const confirmedBookings = useMemo(() => bookings.filter((b) => b.paymentStatus === 'success'), [bookings]);
+  const pendingBookings = useMemo(() => bookings.filter((b) => b.paymentStatus !== 'success'), [bookings]);
+
+  // Distinct phases present in bookings
+  const uniquePhaseNames = useMemo(
+    () => Array.from(new Set(bookings.map((b) => b.phaseName).filter(Boolean))) as string[],
+    [bookings]
+  );
+
+  // Filter & Sort Confirmed Bookings (memoized using debouncedSearch)
+  const filteredConfirmedBookings = useMemo(() => {
+    return confirmedBookings
+      .filter((b) => {
+        if (phaseFilter && phaseFilter !== 'all' && b.phaseName !== phaseFilter) return false;
+        if (checkInFilter === 'checked_in' && !b.isCheckedIn) return false;
+        if (checkInFilter === 'pending' && b.isCheckedIn) return false;
+        if (passTypeFilter === 'paid' && b.totalAmount === 0) return false;
+        if (passTypeFilter === 'free' && b.totalAmount > 0) return false;
+        if (passTypeFilter === 'ambassador_reward' && !b.isAmbassadorPass) return false;
+        if (voucherFilter === 'has_voucher' && (b.voucherAmount || 0) === 0) return false;
+        if (voucherFilter === 'active_balance' && (b.voucherBalance || 0) <= 0) return false;
+        if (voucherFilter === 'exhausted' && ((b.voucherAmount || 0) === 0 || (b.voucherBalance || 0) > 0)) return false;
+        if (voucherFilter === 'no_voucher' && (b.voucherAmount || 0) > 0) return false;
+        if (attendeeFilter === 'adult_only' && (b.childrenCount || 0) > 0) return false;
+        if (attendeeFilter === 'with_children' && (b.childrenCount || 0) === 0) return false;
+        if (referralFilter === 'referred' && !b.referredByAmbassadorId && !b.isAmbassadorPass) return false;
+        if (referralFilter === 'direct' && (b.referredByAmbassadorId || b.isAmbassadorPass)) return false;
+
+        if (debouncedSearch.trim()) {
+          const q = debouncedSearch.toLowerCase();
+          const nameMatch = (b.fullName || '').toLowerCase().includes(q);
+          const mobileMatch = (b.mobile || '').includes(q);
+          const idMatch = (b.bookingNumber || '').toLowerCase().includes(q);
+          const emailMatch = (b.email || '').toLowerCase().includes(q);
+          if (!nameMatch && !mobileMatch && !idMatch && !emailMatch) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'newest') return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+        if (sortBy === 'oldest') return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+        if (sortBy === 'amount_desc') return (b.totalAmount || 0) - (a.totalAmount || 0);
+        if (sortBy === 'amount_asc') return (a.totalAmount || 0) - (b.totalAmount || 0);
+        if (sortBy === 'voucher_desc') return (b.voucherAmount || 0) - (a.voucherAmount || 0);
+        return 0;
+      });
+  }, [
+    confirmedBookings,
+    debouncedSearch,
+    phaseFilter,
+    checkInFilter,
+    passTypeFilter,
+    voucherFilter,
+    attendeeFilter,
+    referralFilter,
+    sortBy,
+  ]);
+
+  // Paginated slices for confirmed bookings
+  const totalConfirmedPages = Math.ceil(filteredConfirmedBookings.length / PAGE_SIZE) || 1;
+  const paginatedConfirmedBookings = useMemo(() => {
+    const start = (confirmedPage - 1) * PAGE_SIZE;
+    return filteredConfirmedBookings.slice(start, start + PAGE_SIZE);
+  }, [filteredConfirmedBookings, confirmedPage]);
+
+  // Filter Pending Bookings (memoized using debouncedPendingSearch)
+  const filteredPendingBookings = useMemo(() => {
+    return pendingBookings.filter((b) => {
+      if (debouncedPendingSearch.trim()) {
+        const q = debouncedPendingSearch.toLowerCase();
+        const nameMatch = (b.fullName || '').toLowerCase().includes(q);
+        const mobileMatch = (b.mobile || '').includes(q);
+        const idMatch = (b.bookingNumber || '').toLowerCase().includes(q);
+        if (!nameMatch && !mobileMatch && !idMatch) return false;
+      }
+      return true;
+    });
+  }, [pendingBookings, debouncedPendingSearch]);
+
+  const totalPendingPages = Math.ceil(filteredPendingBookings.length / PAGE_SIZE) || 1;
+  const paginatedPendingBookings = useMemo(() => {
+    const start = (pendingPage - 1) * PAGE_SIZE;
+    return filteredPendingBookings.slice(start, start + PAGE_SIZE);
+  }, [filteredPendingBookings, pendingPage]);
+
+  const activeFiltersCount = useMemo(() => {
+    return [
+      Boolean(phaseFilter && phaseFilter !== 'all'),
+      Boolean(checkInFilter && checkInFilter !== 'all'),
+      Boolean(passTypeFilter && passTypeFilter !== 'all'),
+      Boolean(voucherFilter && voucherFilter !== 'all'),
+      Boolean(attendeeFilter && attendeeFilter !== 'all'),
+      Boolean(referralFilter && referralFilter !== 'all'),
+      Boolean(search.trim() !== ''),
+      Boolean(sortBy !== 'newest'),
+    ].filter(Boolean).length;
+  }, [phaseFilter, checkInFilter, passTypeFilter, voucherFilter, attendeeFilter, referralFilter, search, sortBy]);
+
+  const handleResetFilters = () => {
+    setSearch('');
+    setPhaseFilter(null);
+    setCheckInFilter(null);
+    setPassTypeFilter(null);
+    setVoucherFilter(null);
+    setAttendeeFilter(null);
+    setReferralFilter(null);
+    setSortBy('newest');
+    setConfirmedPage(1);
+  };
+
+  // Memoized Metrics Strictly for Confirmed Bookings
+  const metrics = useMemo(() => {
+    const revenue = confirmedBookings.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+    const vouchersAmount = confirmedBookings.reduce((sum, b) => sum + (b.voucherAmount || 0), 0);
+    const remainingVouchers = confirmedBookings.reduce((sum, b) => sum + (b.voucherBalance || 0), 0);
+    const redeemedVouchers = Math.max(0, vouchersAmount - remainingVouchers);
+    const realizedNet = Math.max(0, revenue - redeemedVouchers);
+    const committedNet = Math.max(0, revenue - vouchersAmount);
+    const adults = confirmedBookings.reduce((sum, b) => sum + (b.adultCount || 1), 0);
+    const children = confirmedBookings.reduce((sum, b) => sum + (b.childrenCount || 0), 0);
+    const passes = adults + children;
+    const checkedIn = confirmedBookings.filter((b) => b.isCheckedIn).length;
+
+    return {
+      totalRevenue: revenue,
+      totalVouchersAmount: vouchersAmount,
+      totalRemainingVoucherBalance: remainingVouchers,
+      totalRedeemedVouchers: redeemedVouchers,
+      realizedNetRevenue: realizedNet,
+      committedNetRevenue: committedNet,
+      totalAdults: adults,
+      totalChildren: children,
+      totalPasses: passes,
+      totalCheckedIn: checkedIn,
+    };
+  }, [confirmedBookings]);
+
+  const handleSendWhatsApp = useCallback((b: any) => {
+    if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      const passUrl = `${origin}/dandiyaraas/tickets/pass/${b.id}`;
+      const template = ticketWaTemplate || DEFAULT_TEMPLATES.template_ticket_wa.defaultText;
+      const passesText = `1 Adult${b.childrenCount > 0 ? ` + ${b.childrenCount} Children` : ''}`;
+      const usability = getVoucherUsabilityLabel(b.voucherApplicableTo || b.phase?.voucherApplicableTo);
+
+      const rawAmount = b.totalAmount ?? 0;
+      const formattedPrice = typeof rawAmount === 'number' ? rawAmount.toLocaleString('en-IN') : String(rawAmount);
+      const priceLine = rawAmount === 0
+        ? 'Pass Type: Complimentary / Gift Pass (Rs. 0)\n'
+        : `Amount Paid: Rs. ${formattedPrice}\n`;
+      const voucherAmount = b.voucherAmount ?? 0;
+      const voucherLine = voucherAmount > 0
+        ? `Included Voucher: Rs. ${voucherAmount}\n`
+        : `Stall Voucher: None (Rs. 0)\n`;
+
+      const msg = renderMessageTemplate(template, {
+        name: b.fullName || 'Guest',
+        booker_name: b.fullName || 'Guest',
+        booking_id: b.bookingNumber || '',
+        booking_number: b.bookingNumber || '',
+        passes_text: passesText,
+        adult_count: b.adultCount ?? 1,
+        children_count: b.childrenCount ?? 0,
+        price: formattedPrice,
+        amount: formattedPrice,
+        price_line: priceLine,
+        voucher_line: voucherLine,
+        voucher_amount: voucherAmount,
+        voucher_usability: usability,
+        event_date: 'Tuesday, 13 October 2026 (6:00 PM onwards)',
+        venue: 'Maharaja Agrasen Bhavan, Saharanpur',
+        pass_link: passUrl,
+        booking_link: passUrl,
+        helpline: '+91 6399063455',
+      });
+
+      openWhatsAppChat(b.mobile || '', msg);
+    }
+  }, [ticketWaTemplate]);
+
+  const handleSendPendingWhatsApp = useCallback((b: any) => {
+    if (typeof window !== 'undefined') {
+      const origin = window.location.origin;
+      const buyUrl = `${origin}/dandiyaraas/tickets/buy`;
+      const displayName = (b.fullName || 'Guest').toUpperCase();
+      const rawAmount = b.totalAmount ?? 0;
+      const formattedPrice = typeof rawAmount === 'number' ? rawAmount.toLocaleString('en-IN') : String(rawAmount);
+
+      const msg =
+        `*NAMASTE ${displayName}!*\n\n` +
+        `We noticed your ticket booking attempt for *Asha Bani Dandiya Raas 6.0* (#${b.bookingNumber || ''}) was not completed.\n\n` +
+        `*Passes:* 1 Adult${(b.childrenCount || 0) > 0 ? ` + ${b.childrenCount} Children` : ''}\n` +
+        `*Amount:* Rs. ${formattedPrice}\n` +
+        `*Event Date:* 13 October 2026\n` +
+        `*Venue:* Maharaja Agrasen Bhavan, Saharanpur\n\n` +
+        `If you faced any payment issue or need assistance, you can complete your booking here:\n${buyUrl}\n\n` +
+        `Feel free to reply if you need any help!`;
+
+      openWhatsAppChat(b.mobile || '', msg);
+    }
+  }, []);
+
+  const handleResendSms = useCallback(async (b: any) => {
+    setResendingSmsId(b.id);
+    try {
+      const res = await fetch('/api/admin/ticket-bookings/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketBookingId: b.id, forceResendSms: true, sendSms: true }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to dispatch SMS');
+      }
+      notifications.show({
+        title: 'SMS Sent Successfully',
+        message: `Updated confirmation SMS dispatched to +91 ${b.mobile}.`,
+        color: 'green',
+      });
+    } catch (err: any) {
+      notifications.show({
+        title: 'SMS Dispatch Failed',
+        message: err.message || 'Could not dispatch SMS.',
+        color: 'red',
+      });
+    } finally {
+      setResendingSmsId(null);
+    }
+  }, []);
+
+  const handleConfirmPayment = async () => {
+    if (!bookingToConfirm) return;
+    setConfirmingPayment(true);
+    try {
+      const res = await fetch('/api/admin/ticket-bookings/confirm-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketBookingId: bookingToConfirm.id,
+          razorpayPaymentId: confirmPaymentId.trim() || undefined,
+          sendSms: confirmSendSms,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to confirm ticket booking payment');
+      }
+
+      notifications.show({
+        title: 'Payment Confirmed & Pass Issued',
+        message: data.message || `Ticket booking #${bookingToConfirm.bookingNumber} is now confirmed. Pass generated and SMS dispatched.`,
+        color: 'green',
+      });
+
+      setBookingToConfirm(null);
+      fetchBookings();
+    } catch (err: any) {
+      notifications.show({
+        title: 'Confirmation Failed',
+        message: err.message || 'Could not confirm payment.',
+        color: 'red',
+      });
+    } finally {
+      setConfirmingPayment(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!bookingToDelete) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/ticket-bookings/${bookingToDelete.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to delete ticket pass booking');
+      }
+
+      notifications.show({
+        title: 'Booking Deleted',
+        message: `Ticket booking ${bookingToDelete.bookingNumber} has been removed.`,
+        color: 'green',
+      });
+
+      setBookingToDelete(null);
+      fetchBookings();
+    } catch (err: any) {
+      notifications.show({ title: 'Delete Failed', message: err.message, color: 'red' });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleConfirmTopUp = async () => {
+    if (!bookingToTopUp) return;
+    const amount = Number(topUpAmount);
+    if (!amount || amount <= 0) {
+      notifications.show({ title: 'Invalid Amount', message: 'Please enter a valid top-up amount.', color: 'red' });
+      return;
+    }
+
+    setToppingUp(true);
+    try {
+      const res = await fetch('/api/admin/ticket-bookings/topup-voucher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketBookingId: bookingToTopUp.id,
+          additionalAmount: amount,
+          reason: topUpReason.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to top-up voucher balance');
+      }
+
+      notifications.show({
+        title: 'Voucher Balance Credited',
+        message: `Added ₹${amount} voucher balance to ${bookingToTopUp.bookingNumber}!`,
+        color: 'green',
+      });
+
+      setBookingToTopUp(null);
+      fetchBookings();
+    } catch (err: any) {
+      notifications.show({ title: 'Top-Up Failed', message: err.message, color: 'red' });
+    } finally {
+      setToppingUp(false);
+    }
+  };
+
+  const handleSaveRule = async () => {
+    if (!bookingForRule) return;
+    setSavingRule(true);
+    try {
+      const res = await fetch('/api/admin/ticket-bookings/voucher-rule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ticketBookingId: bookingForRule.id,
+          voucherApplicableTo: selectedVoucherRule,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to update voucher rule');
+      }
+
+      notifications.show({
+        title: 'Voucher Rule Updated',
+        message: `Stall usability rule updated for ${bookingForRule.bookingNumber}!`,
+        color: 'green',
+      });
+
+      setBookingForRule(null);
+      fetchBookings();
+    } catch (err: any) {
+      notifications.show({ title: 'Update Failed', message: err.message, color: 'red' });
+    } finally {
+      setSavingRule(false);
     }
   };
 
@@ -732,15 +1279,14 @@ export default function AdminTicketBookingsPage() {
             className="btn-auspicious-gold"
             leftSection={<IconPlus size={18} />}
             size="md"
-            onClick={handleOpenCreateModal}
+            onClick={() => setCreateModalOpened(true)}
           >
             Issue New Ticket Pass
           </Button>
         </Group>
 
-        {/* Metrics Grid (Confirmed Bookings Only) - Displaying Both Realized & Committed Net Revenue */}
+        {/* Metrics Grid */}
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 6 }} spacing="md">
-          {/* Card 1: Gross Ticket Sales */}
           <Card p="md" radius="lg" className="festive-card">
             <Group justify="space-between" align="flex-start">
               <Box>
@@ -748,7 +1294,7 @@ export default function AdminTicketBookingsPage() {
                   GROSS TICKET REVENUE
                 </Text>
                 <Title order={2} size="h3" c="white" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
-                  ₹{totalRevenue.toLocaleString('en-IN')}
+                  ₹{metrics.totalRevenue.toLocaleString('en-IN')}
                 </Title>
                 <Text size="xs" c="gray.4" mt={2}>
                   Total gross sales collected
@@ -760,7 +1306,6 @@ export default function AdminTicketBookingsPage() {
             </Group>
           </Card>
 
-          {/* Card 2: Realized Net Revenue (Gross - Vouchers Actually Used) */}
           <Card
             p="md"
             radius="lg"
@@ -779,10 +1324,10 @@ export default function AdminTicketBookingsPage() {
                   NET (LESS USED VOUCHERS)
                 </Text>
                 <Title order={2} size="h3" c="green.2" mt={2} style={{ fontFamily: "'Cinzel', serif", fontWeight: 800 }}>
-                  ₹{realizedNetRevenue.toLocaleString('en-IN')}
+                  ₹{metrics.realizedNetRevenue.toLocaleString('en-IN')}
                 </Title>
                 <Text size="xs" c="gray.4" mt={2}>
-                  ₹{totalRevenue.toLocaleString('en-IN')} gross − ₹{totalRedeemedVouchers.toLocaleString('en-IN')} used
+                  ₹{metrics.totalRevenue.toLocaleString('en-IN')} gross − ₹{metrics.totalRedeemedVouchers.toLocaleString('en-IN')} used
                 </Text>
               </Box>
               <ThemeIcon size={40} radius="md" color="green" variant="light">
@@ -791,7 +1336,6 @@ export default function AdminTicketBookingsPage() {
             </Group>
           </Card>
 
-          {/* Card 3: Committed Net Revenue (Gross - Total Vouchers Granted) */}
           <Card
             p="md"
             radius="lg"
@@ -810,10 +1354,10 @@ export default function AdminTicketBookingsPage() {
                   NET (LESS ALL GRANTED)
                 </Text>
                 <Title order={2} size="h3" c="blue.2" mt={2} style={{ fontFamily: "'Cinzel', serif", fontWeight: 800 }}>
-                  ₹{committedNetRevenue.toLocaleString('en-IN')}
+                  ₹{metrics.committedNetRevenue.toLocaleString('en-IN')}
                 </Title>
                 <Text size="xs" c="gray.4" mt={2}>
-                  ₹{totalRevenue.toLocaleString('en-IN')} gross − ₹{totalVouchersAmount.toLocaleString('en-IN')} granted
+                  ₹{metrics.totalRevenue.toLocaleString('en-IN')} gross − ₹{metrics.totalVouchersAmount.toLocaleString('en-IN')} granted
                 </Text>
               </Box>
               <ThemeIcon size={40} radius="md" color="blue" variant="light">
@@ -822,7 +1366,6 @@ export default function AdminTicketBookingsPage() {
             </Group>
           </Card>
 
-          {/* Card 4: Total Vouchers Issued & Used */}
           <Card p="md" radius="lg" className="festive-card">
             <Group justify="space-between" align="flex-start">
               <Box>
@@ -830,10 +1373,10 @@ export default function AdminTicketBookingsPage() {
                   VOUCHERS STATUS
                 </Text>
                 <Title order={2} size="h3" c="teal.2" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
-                  ₹{totalVouchersAmount.toLocaleString('en-IN')}
+                  ₹{metrics.totalVouchersAmount.toLocaleString('en-IN')}
                 </Title>
                 <Text size="xs" c="gray.4" mt={2}>
-                  ₹{totalRedeemedVouchers.toLocaleString('en-IN')} used · ₹{totalRemainingVoucherBalance.toLocaleString('en-IN')} unspent
+                  ₹{metrics.totalRedeemedVouchers.toLocaleString('en-IN')} used · ₹{metrics.totalRemainingVoucherBalance.toLocaleString('en-IN')} unspent
                 </Text>
               </Box>
               <ThemeIcon size={40} radius="md" color="teal" variant="light">
@@ -842,7 +1385,6 @@ export default function AdminTicketBookingsPage() {
             </Group>
           </Card>
 
-          {/* Card 5: Confirmed Passes */}
           <Card p="md" radius="lg" className="festive-card">
             <Group justify="space-between" align="flex-start">
               <Box>
@@ -850,10 +1392,10 @@ export default function AdminTicketBookingsPage() {
                   CONFIRMED PASSES
                 </Text>
                 <Title order={2} size="h3" c="white" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
-                  {totalAdults} Adult{totalChildren > 0 ? ` + ${totalChildren} Child` : ''}
+                  {metrics.totalAdults} Adult{metrics.totalChildren > 0 ? ` + ${metrics.totalChildren} Child` : ''}
                 </Title>
                 <Text size="xs" c="gray.4" mt={2}>
-                  {totalPasses} total festival attendees
+                  {metrics.totalPasses} total festival attendees
                 </Text>
               </Box>
               <ThemeIcon size={40} radius="md" color="yellow" variant="light">
@@ -862,7 +1404,6 @@ export default function AdminTicketBookingsPage() {
             </Group>
           </Card>
 
-          {/* Card 6: Gate Check-Ins */}
           <Card p="md" radius="lg" className="festive-card">
             <Group justify="space-between" align="flex-start">
               <Box>
@@ -870,10 +1411,10 @@ export default function AdminTicketBookingsPage() {
                   GATE CHECK-INS
                 </Text>
                 <Title order={2} size="h3" c="white" mt={4} style={{ fontFamily: "'Cinzel', serif" }}>
-                  {totalCheckedIn} / {confirmedBookings.length}
+                  {metrics.totalCheckedIn} / {confirmedBookings.length}
                 </Title>
                 <Text size="xs" c="gray.4" mt={2}>
-                  {confirmedBookings.length > 0 ? Math.round((totalCheckedIn / confirmedBookings.length) * 100) : 0}% check-in rate
+                  {confirmedBookings.length > 0 ? Math.round((metrics.totalCheckedIn / confirmedBookings.length) * 100) : 0}% check-in rate
                 </Text>
               </Box>
               <ThemeIcon size={40} radius="md" color="cyan" variant="light">
@@ -911,12 +1452,9 @@ export default function AdminTicketBookingsPage() {
             </Tabs.Tab>
           </Tabs.List>
 
-          {/* ========================================================================= */}
           {/* TAB 1: CONFIRMED PASSES */}
-          {/* ========================================================================= */}
           <Tabs.Panel value="confirmed">
             <Stack gap="md">
-              {/* Diverse Multi-Faceted Filters & Search */}
               <Paper
                 p="md"
                 radius="lg"
@@ -927,13 +1465,15 @@ export default function AdminTicketBookingsPage() {
                 }}
               >
                 <Stack gap="sm">
-                  {/* Row 1: Search, Phase, Check-in, Pass Type */}
                   <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
                     <TextInput
                       placeholder="Search Name, Mobile, ID, Email..."
                       leftSection={<IconSearch size={16} />}
                       value={search}
-                      onChange={(e) => setSearch(e.currentTarget.value)}
+                      onChange={(e) => {
+                        setSearch(e.currentTarget.value);
+                        setConfirmedPage(1);
+                      }}
                       rightSection={
                         search ? (
                           <ActionIcon size="xs" variant="subtle" color="gray" onClick={() => setSearch('')}>
@@ -949,41 +1489,49 @@ export default function AdminTicketBookingsPage() {
                       leftSection={<IconTicket size={16} />}
                       data={[
                         { value: 'all', label: 'All Ticket Phases' },
-                        ...uniquePhaseNames.map((p) => ({ value: p, label: p })),
+                        ...uniquePhaseNames.map((name) => ({ value: name, label: name })),
                       ]}
-                      value={phaseFilter || 'all'}
-                      onChange={(val) => setPhaseFilter(val === 'all' ? null : val)}
+                      value={phaseFilter}
+                      onChange={(val) => {
+                        setPhaseFilter(val);
+                        setConfirmedPage(1);
+                      }}
                     />
 
                     <Select
-                      placeholder="Gate Check-In"
+                      placeholder="Check-In Status"
                       clearable
                       leftSection={<IconUserCheck size={16} />}
                       data={[
-                        { value: 'all', label: 'All Gate Statuses' },
+                        { value: 'all', label: 'All Check-in Statuses' },
                         { value: 'checked_in', label: 'Checked In at Gate' },
-                        { value: 'pending', label: 'Pending Gate Entry' },
+                        { value: 'pending', label: 'Pending Arrival' },
                       ]}
-                      value={checkInFilter || 'all'}
-                      onChange={(val) => setCheckInFilter(val === 'all' ? null : val)}
+                      value={checkInFilter}
+                      onChange={(val) => {
+                        setCheckInFilter(val);
+                        setConfirmedPage(1);
+                      }}
                     />
 
                     <Select
                       placeholder="Pass Type"
                       clearable
-                      leftSection={<IconReceipt size={16} />}
+                      leftSection={<IconCurrencyRupee size={16} />}
                       data={[
                         { value: 'all', label: 'All Pass Types' },
-                        { value: 'paid', label: 'Paid Passes (₹ > 0)' },
+                        { value: 'paid', label: 'Paid Passes (> ₹0)' },
                         { value: 'free', label: 'Complimentary / Gift (₹0)' },
-                        { value: 'ambassador_reward', label: 'Ambassador Milestone Passes' },
+                        { value: 'ambassador_reward', label: 'Ambassador Free Passes' },
                       ]}
-                      value={passTypeFilter || 'all'}
-                      onChange={(val) => setPassTypeFilter(val === 'all' ? null : val)}
+                      value={passTypeFilter}
+                      onChange={(val) => {
+                        setPassTypeFilter(val);
+                        setConfirmedPage(1);
+                      }}
                     />
                   </SimpleGrid>
 
-                  {/* Row 2: Voucher Status, Composition, Referral Source, Sort Order */}
                   <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
                     <Select
                       placeholder="Voucher Status"
@@ -991,62 +1539,70 @@ export default function AdminTicketBookingsPage() {
                       leftSection={<IconBuildingStore size={16} />}
                       data={[
                         { value: 'all', label: 'All Voucher Statuses' },
-                        { value: 'has_voucher', label: 'Has Voucher Included' },
-                        { value: 'active_balance', label: 'Active Unused Balance (> ₹0)' },
-                        { value: 'exhausted', label: 'Fully Spent / Redeemed' },
+                        { value: 'has_voucher', label: 'Has Stall Voucher (> ₹0)' },
+                        { value: 'active_balance', label: 'Active Balance Left' },
+                        { value: 'exhausted', label: 'Fully Spent / Exhausted' },
                         { value: 'no_voucher', label: 'No Voucher Included' },
                       ]}
-                      value={voucherFilter || 'all'}
-                      onChange={(val) => setVoucherFilter(val === 'all' ? null : val)}
+                      value={voucherFilter}
+                      onChange={(val) => {
+                        setVoucherFilter(val);
+                        setConfirmedPage(1);
+                      }}
                     />
 
                     <Select
-                      placeholder="Attendee Composition"
+                      placeholder="Attendee Type"
                       clearable
                       leftSection={<IconUsers size={16} />}
                       data={[
-                        { value: 'all', label: 'All Compositions' },
-                        { value: 'adult_only', label: 'Adult Only (No Children)' },
-                        { value: 'with_children', label: 'Family (With Children)' },
+                        { value: 'all', label: 'All Attendee Compositions' },
+                        { value: 'adult_only', label: '1 Adult Only' },
+                        { value: 'with_children', label: 'With Children' },
                       ]}
-                      value={attendeeFilter || 'all'}
-                      onChange={(val) => setAttendeeFilter(val === 'all' ? null : val)}
+                      value={attendeeFilter}
+                      onChange={(val) => {
+                        setAttendeeFilter(val);
+                        setConfirmedPage(1);
+                      }}
                     />
 
                     <Select
                       placeholder="Referral Source"
                       clearable
-                      leftSection={<IconGift size={16} />}
+                      leftSection={<IconUsers size={16} />}
                       data={[
-                        { value: 'all', label: 'All Sources' },
-                        { value: 'referred', label: 'Ambassador Referred' },
-                        { value: 'direct', label: 'Direct / Organic Bookings' },
+                        { value: 'all', label: 'All Booking Sources' },
+                        { value: 'referred', label: 'Referred by Ambassador' },
+                        { value: 'direct', label: 'Direct Organic Bookings' },
                       ]}
-                      value={referralFilter || 'all'}
-                      onChange={(val) => setReferralFilter(val === 'all' ? null : val)}
+                      value={referralFilter}
+                      onChange={(val) => {
+                        setReferralFilter(val);
+                        setConfirmedPage(1);
+                      }}
                     />
 
                     <Select
-                      placeholder="Sort Bookings"
-                      leftSection={<IconArrowsSort size={16} />}
+                      placeholder="Sort Attendees"
+                      leftSection={<IconRefresh size={16} />}
                       data={[
                         { value: 'newest', label: 'Newest First' },
                         { value: 'oldest', label: 'Oldest First' },
-                        { value: 'amount_desc', label: 'Amount: High to Low' },
-                        { value: 'amount_asc', label: 'Amount: Low to High' },
-                        { value: 'voucher_desc', label: 'Voucher: Highest First' },
+                        { value: 'amount_desc', label: 'Highest Amount' },
+                        { value: 'amount_asc', label: 'Lowest Amount' },
+                        { value: 'voucher_desc', label: 'Highest Voucher' },
                       ]}
                       value={sortBy}
                       onChange={(val) => setSortBy(val || 'newest')}
                     />
                   </SimpleGrid>
 
-                  {/* Filter Status Summary & Reset Bar */}
-                  <Group justify="space-between" align="center" wrap="wrap" gap="xs" pt="xs" style={{ borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                    <Group gap="xs" align="center">
-                      <Badge color="royalGold" variant="light" size="md">
-                        Showing {filteredConfirmedBookings.length} of {confirmedBookings.length} Confirmed Passes
-                      </Badge>
+                  <Group justify="space-between" mt="xs">
+                    <Group gap="xs">
+                      <Text size="xs" c="gray.4">
+                        Showing <strong>{filteredConfirmedBookings.length}</strong> confirmed passes
+                      </Text>
                       {activeFiltersCount > 0 && (
                         <Badge color="yellow" variant="filled" size="sm" style={{ color: '#140305', fontWeight: 700 }}>
                           {activeFiltersCount} {activeFiltersCount === 1 ? 'filter' : 'filters'} active
@@ -1085,208 +1641,70 @@ export default function AdminTicketBookingsPage() {
                     No confirmed ticket bookings matching your search criteria.
                   </Text>
                 ) : (
-                  <Table.ScrollContainer minWidth={950}>
-                    <Table striped highlightOnHover verticalSpacing="sm" style={{ minWidth: 950 }}>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Booking ID</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Attendee Name</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Mobile</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Passes</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Phase</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Amount</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Voucher Bal</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Gate Entry</Table.Th>
-                          <Table.Th style={{ color: '#facc15', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {filteredConfirmedBookings.map((b) => (
-                          <Table.Tr key={b.id}>
-                            <Table.Td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#fde047', whiteSpace: 'nowrap' }}>
-                              {b.bookingNumber}
-                            </Table.Td>
-                            <Table.Td style={{ fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap' }}>{b.fullName}</Table.Td>
-                            <Table.Td style={{ color: '#d1d5db', whiteSpace: 'nowrap' }}>{b.mobile}</Table.Td>
-                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                              <Text size="xs" c="white">
-                                1 Adult{b.childrenCount > 0 ? ` + ${b.childrenCount} Child${b.childrenCount > 1 ? 'ren' : ''}` : ''}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                              <Badge size="xs" color="yellow" variant="light" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                {b.phaseName}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                              {b.totalAmount === 0 ? (
-                                <Badge size="xs" color="teal" variant="light" style={{ fontWeight: 700 }}>
-                                  FREE (₹0)
-                                </Badge>
-                              ) : (
-                                <Text size="sm" fw={700} c="white">₹{b.totalAmount}</Text>
-                              )}
-                            </Table.Td>
-                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                              <Stack gap={3}>
-                                {b.voucherAmount === 0 ? (
-                                  <Badge size="xs" color="gray" variant="outline" style={{ fontSize: '10px' }}>
-                                    No Voucher
-                                  </Badge>
-                                ) : (
-                                  <Badge size="xs" color={b.voucherBalance > 0 ? 'green' : 'gray'} variant="light" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                    ₹{b.voucherBalance}
-                                  </Badge>
-                                )}
-                                {b.isAmbassadorPass ? (
-                                  <Badge
-                                    size="xs"
-                                    color="yellow"
-                                    variant="light"
-                                    style={{ flexShrink: 0, whiteSpace: 'nowrap', fontSize: '9px', padding: '0 4px', fontWeight: 700 }}
-                                  >
-                                    Ambassador Tier ({b.effectiveVoucherApplicableTo === 'food' ? 'Food' : b.effectiveVoucherApplicableTo === 'other' ? 'Commercial' : 'All Stalls'})
-                                  </Badge>
-                                ) : b.isCustomVoucherRule ? (
-                                  <Badge
-                                    size="xs"
-                                    color={b.voucherApplicableTo === 'food' ? 'orange' : b.voucherApplicableTo === 'other' ? 'grape' : 'teal'}
-                                    variant="filled"
-                                    style={{ flexShrink: 0, whiteSpace: 'nowrap', fontSize: '9px', padding: '0 4px', fontWeight: 800 }}
-                                  >
-                                    Exception ({b.voucherApplicableTo === 'food' ? 'Food Only' : b.voucherApplicableTo === 'other' ? 'Commercial' : 'All Stalls'})
-                                  </Badge>
-                                ) : (
-                                  <Text size="10px" c="gray.4" style={{ fontSize: '10px' }}>
-                                    Global ({b.effectiveVoucherApplicableTo === 'food' ? 'Food Only' : b.effectiveVoucherApplicableTo === 'other' ? 'Commercial' : 'All Stalls'})
-                                  </Text>
-                                )}
-                              </Stack>
-                            </Table.Td>
-                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                              <Badge size="xs" color={b.isCheckedIn ? 'green' : 'gray'} variant="filled" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                {b.isCheckedIn ? 'CHECKED IN' : 'PENDING'}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                              <Group gap="xs" justify="flex-end" wrap="nowrap">
-                                <Tooltip label="Download Official Pass (PNG)">
-                                  <ActionIcon
-                                    color="yellow"
-                                    variant="filled"
-                                    className="badge-gold-filled"
-                                    style={{ color: '#140305', backgroundColor: '#facc15' }}
-                                    size="sm"
-                                    radius="md"
-                                    loading={downloadingId === b.id}
-                                    onClick={() => handleDirectDownload(b)}
-                                  >
-                                    <IconDownload size={15} />
-                                  </ActionIcon>
-                                </Tooltip>
-
-                                <Tooltip label="Send WhatsApp Pass Link">
-                                  <ActionIcon
-                                    color="green"
-                                    variant="light"
-                                    size="sm"
-                                    radius="md"
-                                    onClick={() => handleSendWhatsApp(b)}
-                                  >
-                                    <IconBrandWhatsapp size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-
-                                <Tooltip label="Resend Confirmation SMS">
-                                  <ActionIcon
-                                    color="orange"
-                                    variant="light"
-                                    size="sm"
-                                    radius="md"
-                                    loading={resendingSmsId === b.id}
-                                    onClick={() => handleResendSms(b)}
-                                  >
-                                    <IconMessageCircle size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-
-                                <Tooltip label="Open Live Pass Link (New Tab)">
-                                  <ActionIcon
-                                    component="a"
-                                    href={`/dandiyaraas/tickets/pass/${b.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    color="cyan"
-                                    variant="light"
-                                    size="sm"
-                                    radius="md"
-                                  >
-                                    <IconExternalLink size={15} />
-                                  </ActionIcon>
-                                </Tooltip>
-
-                                <Tooltip label="Preview Pass Card">
-                                  <ActionIcon
-                                    color="blue"
-                                    variant="light"
-                                    size="sm"
-                                    radius="md"
-                                    onClick={() => setSelectedBooking(b)}
-                                  >
-                                    <IconEye size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-
-                                <Tooltip label="Set Voucher Stall Access Exception">
-                                  <ActionIcon
-                                    color="grape"
-                                    variant="light"
-                                    size="sm"
-                                    radius="md"
-                                    onClick={() => handlePromptRule(b)}
-                                  >
-                                    <IconAdjustments size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-
-                                <Tooltip label="Add / Top-Up Voucher Balance">
-                                  <ActionIcon
-                                    color="yellow"
-                                    variant="light"
-                                    size="sm"
-                                    radius="md"
-                                    onClick={() => handlePromptTopUp(b)}
-                                  >
-                                    <IconCurrencyRupee size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-
-                                <Tooltip label="Delete Ticket Pass">
-                                  <ActionIcon
-                                    color="red"
-                                    variant="light"
-                                    size="sm"
-                                    radius="md"
-                                    onClick={() => handlePromptDelete(b)}
-                                  >
-                                    <IconTrash size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-                              </Group>
-                            </Table.Td>
+                  <>
+                    <Table.ScrollContainer minWidth={950}>
+                      <Table striped highlightOnHover verticalSpacing="sm" style={{ minWidth: 950 }}>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Booking ID</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Attendee Name</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Mobile</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Passes</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Phase</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Amount</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Voucher Bal</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Gate Entry</Table.Th>
+                            <Table.Th style={{ color: '#facc15', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</Table.Th>
                           </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </Table.ScrollContainer>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {paginatedConfirmedBookings.map((b) => (
+                            <ConfirmedBookingRow
+                              key={b.id}
+                              b={b}
+                              downloading={downloadingId === b.id}
+                              resendingSms={resendingSmsId === b.id}
+                              onDownload={handleDirectDownload}
+                              onWhatsApp={handleSendWhatsApp}
+                              onResendSms={handleResendSms}
+                              onPreview={(item) => setSelectedBooking(item)}
+                              onRule={(item) => {
+                                setBookingForRule(item);
+                                setSelectedVoucherRule(item.isCustomVoucherRule ? item.voucherApplicableTo : 'default');
+                              }}
+                              onTopUp={(item) => {
+                                setBookingToTopUp(item);
+                                setTopUpAmount(100);
+                                setTopUpReason('');
+                              }}
+                              onDelete={(item) => setBookingToDelete(item)}
+                            />
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </Table.ScrollContainer>
+
+                    {totalConfirmedPages > 1 && (
+                      <Group justify="space-between" mt="md">
+                        <Text size="xs" c="gray.4">
+                          Page {confirmedPage} of {totalConfirmedPages} ({filteredConfirmedBookings.length} total attendees)
+                        </Text>
+                        <Pagination
+                          value={confirmedPage}
+                          onChange={setConfirmedPage}
+                          total={totalConfirmedPages}
+                          color="yellow"
+                          size="sm"
+                        />
+                      </Group>
+                    )}
+                  </>
                 )}
               </Paper>
             </Stack>
           </Tabs.Panel>
 
-          {/* ========================================================================= */}
           {/* TAB 2: PENDING / INCOMPLETE PAYMENTS */}
-          {/* ========================================================================= */}
           <Tabs.Panel value="pending">
             <Stack gap="md">
               <Alert
@@ -1304,18 +1722,20 @@ export default function AdminTicketBookingsPage() {
                   message: { color: '#d1d5db', fontSize: '0.85rem' },
                 }}
               >
-                These records represent booking attempts where the attendee initiated checkout but did not complete the payment (e.g. dropped off on the Razorpay gateway). 
+                These records represent booking attempts where the attendee initiated checkout but did not complete the payment.
                 <strong> They do NOT possess a valid QR entry pass, cannot enter at the gate, and are not credited stall vouchers.</strong> You can follow up via WhatsApp to assist them in completing their booking.
               </Alert>
 
-              {/* Pending Search */}
               <Paper p="md" radius="lg" style={{ backgroundColor: '#140305', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
                 <Group justify="space-between">
                   <TextInput
                     placeholder="Search pending bookings by Name, Mobile, or ID..."
                     leftSection={<IconSearch size={16} />}
                     value={pendingSearch}
-                    onChange={(e) => setPendingSearch(e.currentTarget.value)}
+                    onChange={(e) => {
+                      setPendingSearch(e.currentTarget.value);
+                      setPendingPage(1);
+                    }}
                     style={{ flex: 1, maxWidth: 450 }}
                   />
                   <Badge color="red" variant="light" size="lg">
@@ -1324,7 +1744,6 @@ export default function AdminTicketBookingsPage() {
                 </Group>
               </Paper>
 
-              {/* Pending Bookings Table */}
               <Paper p="md" radius="lg" style={{ backgroundColor: '#140305', border: '1px solid rgba(234, 179, 8, 0.2)' }}>
                 {loading ? (
                   <Center py={60}>
@@ -1340,92 +1759,113 @@ export default function AdminTicketBookingsPage() {
                     No pending payment attempts found. All recorded checkouts are confirmed!
                   </Text>
                 ) : (
-                  <Table.ScrollContainer minWidth={900}>
-                    <Table striped highlightOnHover verticalSpacing="sm" style={{ minWidth: 900 }}>
-                      <Table.Thead>
-                        <Table.Tr>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Order / Booking Ref</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Customer Name</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Mobile</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Attempted Passes</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Phase</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Expected Amount</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Payment Status</Table.Th>
-                          <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Initiated At</Table.Th>
-                          <Table.Th style={{ color: '#facc15', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</Table.Th>
-                        </Table.Tr>
-                      </Table.Thead>
-                      <Table.Tbody>
-                        {filteredPendingBookings.map((b) => (
-                          <Table.Tr key={b.id}>
-                            <Table.Td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#f87171', whiteSpace: 'nowrap' }}>
-                              {b.bookingNumber}
-                            </Table.Td>
-                            <Table.Td style={{ fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap' }}>{b.fullName}</Table.Td>
-                            <Table.Td style={{ color: '#d1d5db', whiteSpace: 'nowrap' }}>{b.mobile}</Table.Td>
-                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                              <Text size="xs" c="white">
-                                1 Adult{b.childrenCount > 0 ? ` + ${b.childrenCount} Child${b.childrenCount > 1 ? 'ren' : ''}` : ''}
-                              </Text>
-                            </Table.Td>
-                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                              <Badge size="xs" color="gray" variant="light">
-                                {b.phaseName || 'Early Phase'}
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td style={{ fontWeight: 700, color: '#f87171', whiteSpace: 'nowrap' }}>₹{b.totalAmount}</Table.Td>
-                            <Table.Td style={{ whiteSpace: 'nowrap' }}>
-                              <Badge size="xs" color="red" variant="filled">
-                                PAYMENT PENDING
-                              </Badge>
-                            </Table.Td>
-                            <Table.Td style={{ color: '#9ca3af', fontSize: '11px', whiteSpace: 'nowrap' }}>
-                              {b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
-                            </Table.Td>
-                            <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                              <Group gap="xs" justify="flex-end" wrap="nowrap">
-                                <Tooltip label="Mark Payment Confirmed & Issue Pass / SMS">
-                                  <ActionIcon
-                                    color="green"
-                                    variant="filled"
-                                    size="sm"
-                                    radius="md"
-                                    onClick={() => handlePromptConfirmPayment(b)}
-                                  >
-                                    <IconCheck size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-
-                                <Tooltip label="Send WhatsApp Assistance / Booking Link">
-                                  <ActionIcon
-                                    color="green"
-                                    variant="light"
-                                    size="sm"
-                                    radius="md"
-                                    onClick={() => handleSendPendingWhatsApp(b)}
-                                  >
-                                    <IconBrandWhatsapp size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-
-                                <Tooltip label="Delete Abandoned Record">
-                                  <ActionIcon
-                                    color="red"
-                                    variant="light"
-                                    size="sm"
-                                    radius="md"
-                                    onClick={() => handlePromptDelete(b)}
-                                  >
-                                    <IconTrash size={16} />
-                                  </ActionIcon>
-                                </Tooltip>
-                              </Group>
-                            </Table.Td>
+                  <>
+                    <Table.ScrollContainer minWidth={900}>
+                      <Table striped highlightOnHover verticalSpacing="sm" style={{ minWidth: 900 }}>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Order / Booking Ref</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Customer Name</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Mobile</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Attempted Passes</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Phase</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Expected Amount</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Payment Status</Table.Th>
+                            <Table.Th style={{ color: '#facc15', whiteSpace: 'nowrap' }}>Initiated At</Table.Th>
+                            <Table.Th style={{ color: '#facc15', textAlign: 'right', whiteSpace: 'nowrap' }}>Actions</Table.Th>
                           </Table.Tr>
-                        ))}
-                      </Table.Tbody>
-                    </Table>
-                  </Table.ScrollContainer>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {paginatedPendingBookings.map((b) => (
+                            <Table.Tr key={b.id}>
+                              <Table.Td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#f87171', whiteSpace: 'nowrap' }}>
+                                {b.bookingNumber}
+                              </Table.Td>
+                              <Table.Td style={{ fontWeight: 600, color: '#ffffff', whiteSpace: 'nowrap' }}>{b.fullName}</Table.Td>
+                              <Table.Td style={{ color: '#d1d5db', whiteSpace: 'nowrap' }}>{b.mobile}</Table.Td>
+                              <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                                <Text size="xs" c="white">
+                                  1 Adult{b.childrenCount > 0 ? ` + ${b.childrenCount} Child${b.childrenCount > 1 ? 'ren' : ''}` : ''}
+                                </Text>
+                              </Table.Td>
+                              <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                                <Badge size="xs" color="gray" variant="light">
+                                  {b.phaseName || 'Early Phase'}
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td style={{ fontWeight: 700, color: '#f87171', whiteSpace: 'nowrap' }}>₹{b.totalAmount}</Table.Td>
+                              <Table.Td style={{ whiteSpace: 'nowrap' }}>
+                                <Badge size="xs" color="red" variant="filled">
+                                  PAYMENT PENDING
+                                </Badge>
+                              </Table.Td>
+                              <Table.Td style={{ color: '#9ca3af', fontSize: '11px', whiteSpace: 'nowrap' }}>
+                                {b.createdAt ? new Date(b.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                              </Table.Td>
+                              <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                                <Group gap="xs" justify="flex-end" wrap="nowrap">
+                                  <Tooltip label="Mark Payment Confirmed & Issue Pass / SMS">
+                                    <ActionIcon
+                                      color="green"
+                                      variant="filled"
+                                      size="sm"
+                                      radius="md"
+                                      onClick={() => {
+                                        setBookingToConfirm(b);
+                                        setConfirmPaymentId(b.razorpayPaymentId || '');
+                                        setConfirmSendSms(true);
+                                      }}
+                                    >
+                                      <IconCheck size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+
+                                  <Tooltip label="Send WhatsApp Assistance / Booking Link">
+                                    <ActionIcon
+                                      color="green"
+                                      variant="light"
+                                      size="sm"
+                                      radius="md"
+                                      onClick={() => handleSendPendingWhatsApp(b)}
+                                    >
+                                      <IconBrandWhatsapp size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+
+                                  <Tooltip label="Delete Abandoned Record">
+                                    <ActionIcon
+                                      color="red"
+                                      variant="light"
+                                      size="sm"
+                                      radius="md"
+                                      onClick={() => setBookingToDelete(b)}
+                                    >
+                                      <IconTrash size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+                                </Group>
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </Table.ScrollContainer>
+
+                    {totalPendingPages > 1 && (
+                      <Group justify="space-between" mt="md">
+                        <Text size="xs" c="gray.4">
+                          Page {pendingPage} of {totalPendingPages} ({filteredPendingBookings.length} incomplete attempts)
+                        </Text>
+                        <Pagination
+                          value={pendingPage}
+                          onChange={setPendingPage}
+                          total={totalPendingPages}
+                          color="yellow"
+                          size="sm"
+                        />
+                      </Group>
+                    )}
+                  </>
                 )}
               </Paper>
             </Stack>
@@ -1485,7 +1925,7 @@ export default function AdminTicketBookingsPage() {
           )}
         </Modal>
 
-        {/* Hidden Offscreen Container for Background Instant Pass Generation */}
+        {/* Hidden Container for Instant Pass Generation */}
         {directDownloadBooking && (
           <Box
             style={{
@@ -1679,7 +2119,7 @@ export default function AdminTicketBookingsPage() {
                 <IconCheck size={18} />
               </ThemeIcon>
               <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
-                Confirm Payment & Issue Entry Pass
+                Confirm Payment &amp; Issue Entry Pass
               </Text>
             </Group>
           }
@@ -1749,7 +2189,7 @@ export default function AdminTicketBookingsPage() {
 
               <TextInput
                 label="Razorpay Payment ID (Optional)"
-                description="Attach the Razorpay Payment ID (e.g. pay_PXXXXXXXXXXXXX) from your Razorpay Dashboard for financial reconciliation."
+                description="Attach the Razorpay Payment ID from Razorpay Dashboard for financial reconciliation."
                 placeholder="pay_..."
                 value={confirmPaymentId}
                 onChange={(e) => setConfirmPaymentId(e.currentTarget.value)}
@@ -1787,427 +2227,19 @@ export default function AdminTicketBookingsPage() {
                   loading={confirmingPayment}
                   onClick={handleConfirmPayment}
                 >
-                  Confirm Payment & Issue Pass
+                  Confirm Payment &amp; Issue Pass
                 </Button>
               </Group>
             </Stack>
           )}
         </Modal>
 
-        {/* Modal: Issue New Official Customer Pass */}
-        <Modal
+        {/* Isolated Modal: Issue New Official Customer Pass */}
+        <CreateTicketModal
           opened={createModalOpened}
-          onClose={() => !creatingTicket && setCreateModalOpened(false)}
-          title={
-            <Group gap="xs">
-              <ThemeIcon color="yellow" variant="light" size="md" radius="md">
-                <IconTicket size={18} />
-              </ThemeIcon>
-              <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
-                Issue Official Customer Pass
-              </Text>
-            </Group>
-          }
-          size="lg"
-          centered
-          radius="xl"
-          styles={{
-            content: {
-              backgroundColor: '#140305',
-              border: '1px solid rgba(234, 179, 8, 0.35)',
-            },
-            header: {
-              backgroundColor: '#140305',
-              borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
-            },
-          }}
-        >
-          <Stack gap="md" pt="xs">
-            <Alert
-              icon={<IconInfoCircle size={18} />}
-              color="yellow"
-              variant="light"
-              radius="md"
-              styles={{
-                root: { backgroundColor: 'rgba(234, 179, 8, 0.08)', border: '1px solid rgba(234, 179, 8, 0.25)' },
-                message: { color: '#e2e8f0', fontSize: '0.85rem' },
-              }}
-            >
-              Directly generate a confirmed festival entry pass. Prices and vouchers auto-fetch from the selected phase, but you can set <strong>Ticket Price to ₹0</strong> for a complimentary gift pass, or set <strong>Voucher Amount to ₹0</strong> if no stall credits are included.
-            </Alert>
-
-            {/* Attendee Details */}
-            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
-              <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
-                1. ATTENDEE INFORMATION
-              </Text>
-              <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                <TextInput
-                  label="Attendee Full Name"
-                  placeholder="e.g. Priyansh Sharma"
-                  required
-                  value={newFullName}
-                  onChange={(e) => setNewFullName(e.currentTarget.value)}
-                  styles={{
-                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
-                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
-                  }}
-                />
-
-                <TextInput
-                  label="10-Digit Mobile Number"
-                  placeholder="e.g. 9876543210"
-                  required
-                  maxLength={10}
-                  leftSection={<Text size="xs" c="gray.4">+91</Text>}
-                  value={newMobile}
-                  onChange={(e) => setNewMobile(e.currentTarget.value)}
-                  styles={{
-                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
-                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
-                  }}
-                />
-
-                <TextInput
-                  label="Email Address (Optional)"
-                  placeholder="e.g. customer@example.com"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.currentTarget.value)}
-                  styles={{
-                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
-                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
-                  }}
-                />
-
-                <TextInput
-                  label="City / Residential Area"
-                  placeholder="e.g. Saharanpur"
-                  value={newAddress}
-                  onChange={(e) => setNewAddress(e.currentTarget.value)}
-                  styles={{
-                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
-                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
-                  }}
-                />
-              </SimpleGrid>
-            </Paper>
-
-            {/* Accompanying Children (<55") */}
-            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
-              <Group justify="space-between" mb="xs">
-                <Box>
-                  <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.05em' }}>
-                    2. ACCOMPANYING CHILDREN (&lt;10 YRS)
-                  </Text>
-                  <Text size="11px" c="gray.4">
-                    Each pass includes 1 adult. Accompanying children must be under 10 years old (Aadhaar checked at entry).
-                  </Text>
-                </Box>
-                <Button
-                  size="xs"
-                  variant="light"
-                  color="yellow"
-                  leftSection={<IconPlus size={14} />}
-                  onClick={handleAddChild}
-                >
-                  Add Child
-                </Button>
-              </Group>
-
-              {newChildren.length === 0 ? (
-                <Text size="xs" c="gray.5" fs="italic">
-                  No accompanying children added (1 adult pass only).
-                </Text>
-              ) : (
-                <Stack gap="xs" mt="xs">
-                  {newChildren.map((childName, idx) => (
-                    <Group key={idx} gap="xs" wrap="nowrap">
-                      <TextInput
-                        placeholder={`Child #${idx + 1} Full Name`}
-                        value={childName}
-                        onChange={(e) => handleChildNameChange(idx, e.currentTarget.value)}
-                        style={{ flex: 1 }}
-                        styles={{
-                          input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
-                        }}
-                      />
-                      <Tooltip label="Remove Child">
-                        <ActionIcon color="red" variant="subtle" onClick={() => handleRemoveChild(idx)}>
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Group>
-                  ))}
-                </Stack>
-              )}
-            </Paper>
-
-            {/* Phase Tier, Pricing & Voucher Customization */}
-            <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
-              <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
-                3. PHASE TIER, PRICING &amp; STALL VOUCHER
-              </Text>
-
-              <Stack gap="sm">
-                <Select
-                  label="Ticketing Phase Tier"
-                  description="Fetches current phase baseline rates and stall voucher defaults."
-                  data={availablePhases.map((p) => ({
-                    value: p.id,
-                    label: `${p.name} (Adult: ₹${p.adultPrice}, Child: ₹${p.childPrice}, Voucher: ₹${p.voucherAmount ?? 100})`,
-                  }))}
-                  value={newPhaseId}
-                  onChange={handlePhaseChange}
-                  styles={{
-                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
-                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
-                    description: { color: '#9ca3af', fontSize: '0.75rem' },
-                  }}
-                />
-
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                  {/* Total Amount Input with Set to 0 Shortcut */}
-                  <Box>
-                    <NumberInput
-                      label="Ticket Total Price (₹)"
-                      description="Price collected for this booking. Set to ₹0 for gift passes."
-                      min={0}
-                      value={newTotalAmount}
-                      onChange={(val) => setNewTotalAmount(val ?? 0)}
-                      styles={{
-                        input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)', fontWeight: 700 },
-                        label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
-                        description: { color: '#9ca3af', fontSize: '0.75rem' },
-                      }}
-                    />
-                    <Group gap="xs" mt={6} align="center">
-                      <Badge
-                        size="sm"
-                        style={{ cursor: 'pointer' }}
-                        color={Number(newTotalAmount) === 0 ? 'teal' : 'yellow'}
-                        variant={Number(newTotalAmount) === 0 ? 'filled' : 'outline'}
-                        onClick={() => setNewTotalAmount(0)}
-                      >
-                        🎁 Set to ₹0 (Free Gift Pass)
-                      </Badge>
-                      <Text
-                        size="11px"
-                        c="gray.4"
-                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                        onClick={() => {
-                          const p = availablePhases.find((ph) => ph.id === newPhaseId);
-                          const adultP = p?.adultPrice || 499;
-                          const childP = p?.childPrice || 199;
-                          setNewTotalAmount(adultP * newAdultCount + childP * newChildren.length);
-                        }}
-                      >
-                        Reset to Phase Rate
-                      </Text>
-                    </Group>
-                  </Box>
-
-                  {/* Voucher Amount Input with Set to 0 Shortcut */}
-                  <Box>
-                    <NumberInput
-                      label="Included Stall Voucher Amount (₹)"
-                      description="Stall credit included with this ticket. Set to ₹0 for none."
-                      min={0}
-                      value={newVoucherAmount}
-                      onChange={(val) => setNewVoucherAmount(val ?? 0)}
-                      styles={{
-                        input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)', fontWeight: 700 },
-                        label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
-                        description: { color: '#9ca3af', fontSize: '0.75rem' },
-                      }}
-                    />
-                    <Group gap="xs" mt={6} align="center">
-                      <Badge
-                        size="sm"
-                        style={{ cursor: 'pointer' }}
-                        color={Number(newVoucherAmount) === 0 ? 'teal' : 'yellow'}
-                        variant={Number(newVoucherAmount) === 0 ? 'filled' : 'outline'}
-                        onClick={() => setNewVoucherAmount(0)}
-                      >
-                        🚫 Set to ₹0 (No Voucher)
-                      </Badge>
-                      <Text
-                        size="11px"
-                        c="gray.4"
-                        style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                        onClick={() => {
-                          const p = availablePhases.find((ph) => ph.id === newPhaseId);
-                          setNewVoucherAmount(p?.voucherAmount ?? 100);
-                        }}
-                      >
-                        Reset to Phase Default
-                      </Text>
-                    </Group>
-                  </Box>
-                </SimpleGrid>
-
-                {Number(newVoucherAmount) > 0 && (
-                  <Select
-                    label="Stall Voucher Usability Rule"
-                    description="Determine where the customer can spend their voucher credits."
-                    data={[
-                      { value: 'both', label: 'All 35 Stalls (Food & Commercial)' },
-                      { value: 'food', label: 'Food Stalls Only (Stalls 1–15)' },
-                      { value: 'other', label: 'Commercial Stalls Only (Stalls A–T)' },
-                    ]}
-                    value={newVoucherApplicableTo}
-                    onChange={(v) => setNewVoucherApplicableTo(v || 'both')}
-                    styles={{
-                      input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
-                      label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
-                      description: { color: '#9ca3af', fontSize: '0.75rem' },
-                    }}
-                  />
-                )}
-              </Stack>
-            </Paper>
-
-            {/* Optional Ambassador Linking */}
-            {availableAmbassadors.length > 0 && (
-              <Select
-                label="Referred by Ambassador (Optional)"
-                placeholder="Select an ambassador to attribute ticket referral..."
-                clearable
-                data={availableAmbassadors.map((a) => ({
-                  value: a.id,
-                  label: `${a.name} (${a.referralCode || a.mobile})`,
-                }))}
-                value={newReferredByAmbassadorId}
-                onChange={(val) => setNewReferredByAmbassadorId(val || '')}
-                styles={{
-                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
-                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
-                }}
-              />
-            )}
-
-            {/* SMS Dispatch Option */}
-            <Checkbox
-              label={
-                <Text size="xs" c="gray.3">
-                  Dispatch confirmation SMS with digital entry pass link to <strong>+91 {newMobile || '...'}</strong>
-                </Text>
-              }
-              checked={newSendSms}
-              onChange={(e) => setNewSendSms(e.currentTarget.checked)}
-              color="green"
-            />
-
-            <Group justify="flex-end" mt="md">
-              <Button
-                variant="subtle"
-                color="gray"
-                disabled={creatingTicket}
-                onClick={() => setCreateModalOpened(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="btn-auspicious-gold"
-                leftSection={<IconCheck size={18} />}
-                loading={creatingTicket}
-                onClick={handleCreateTicket}
-              >
-                Generate &amp; Confirm Pass
-              </Button>
-            </Group>
-          </Stack>
-        </Modal>
-
-        {/* Modal: Pass Generated Success & Direct Actions */}
-        <Modal
-          opened={!!lastCreatedBooking}
-          onClose={() => setLastCreatedBooking(null)}
-          title={
-            <Group gap="xs">
-              <ThemeIcon color="green" variant="light" size="md" radius="md">
-                <IconCheck size={18} />
-              </ThemeIcon>
-              <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
-                Pass Issued Successfully!
-              </Text>
-            </Group>
-          }
-          size="md"
-          centered
-          radius="lg"
-          styles={{
-            content: {
-              backgroundColor: '#140305',
-              border: '1px solid rgba(234, 179, 8, 0.35)',
-            },
-            header: {
-              backgroundColor: '#140305',
-              borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
-            },
-          }}
-        >
-          {lastCreatedBooking && (
-            <Stack gap="md" pt="xs">
-              <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
-                <SimpleGrid cols={2} spacing="xs">
-                  <Box>
-                    <Text size="11px" c="gray.4">ATTENDEE</Text>
-                    <Text size="sm" fw={700} c="white">{lastCreatedBooking.fullName}</Text>
-                  </Box>
-                  <Box>
-                    <Text size="11px" c="gray.4">BOOKING ID</Text>
-                    <Text size="sm" fw={700} style={{ fontFamily: 'monospace', color: '#fde047' }}>
-                      #{lastCreatedBooking.bookingNumber}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text size="11px" c="gray.4">TOTAL CHARGED</Text>
-                    <Text size="sm" fw={800} c={lastCreatedBooking.totalAmount === 0 ? 'teal.4' : 'white'}>
-                      {lastCreatedBooking.totalAmount === 0 ? '₹0 (Gift Pass)' : `₹${lastCreatedBooking.totalAmount}`}
-                    </Text>
-                  </Box>
-                  <Box>
-                    <Text size="11px" c="gray.4">STALL VOUCHER</Text>
-                    <Text size="sm" fw={800} c={lastCreatedBooking.voucherAmount === 0 ? 'gray.4' : 'green.4'}>
-                      {lastCreatedBooking.voucherAmount === 0 ? 'None (₹0)' : `₹${lastCreatedBooking.voucherAmount}`}
-                    </Text>
-                  </Box>
-                </SimpleGrid>
-              </Paper>
-
-              <Group grow>
-                <Button
-                  color="green"
-                  variant="light"
-                  leftSection={<IconBrandWhatsapp size={18} />}
-                  onClick={() => handleSendWhatsApp(lastCreatedBooking)}
-                >
-                  Send on WhatsApp
-                </Button>
-                <Button
-                  color="yellow"
-                  variant="light"
-                  leftSection={<IconEye size={18} />}
-                  onClick={() => {
-                    setSelectedBooking(lastCreatedBooking);
-                    setLastCreatedBooking(null);
-                  }}
-                >
-                  Preview Pass Card
-                </Button>
-              </Group>
-
-              <Button
-                variant="subtle"
-                color="gray"
-                onClick={() => setLastCreatedBooking(null)}
-                mt="xs"
-              >
-                Done
-              </Button>
-            </Stack>
-          )}
-        </Modal>
+          onClose={() => setCreateModalOpened(false)}
+          onSuccess={fetchBookings}
+        />
       </Stack>
     </Container>
   );
