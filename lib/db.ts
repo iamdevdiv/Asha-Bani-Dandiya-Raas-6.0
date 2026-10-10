@@ -1490,10 +1490,15 @@ export async function updateSetting(key: string, value: string) {
 
       // Synchronize Phase 1 start date if ticket_booking_start_date is updated
       if (key === 'ticket_booking_start_date' && value) {
-        await (prisma as any).ticketPhase.updateMany({
+        const p1 = await (prisma as any).ticketPhase.findFirst({
           where: { phaseNumber: 1 },
-          data: { startDate: value },
         });
+        if (!p1 || !p1.endDate || value <= p1.endDate) {
+          await (prisma as any).ticketPhase.updateMany({
+            where: { phaseNumber: 1 },
+            data: { startDate: value },
+          });
+        }
       }
 
       // Synchronize universal voucher applicability across ticket phases & bookings
@@ -1513,7 +1518,7 @@ export async function updateSetting(key: string, value: string) {
   store.settings[key] = value;
   if (key === 'ticket_booking_start_date' && value && store.ticketPhases) {
     const p1 = store.ticketPhases.find((p) => p.phaseNumber === 1);
-    if (p1) {
+    if (p1 && (!p1.endDate || value <= p1.endDate)) {
       p1.startDate = value;
     }
   }
@@ -2221,16 +2226,113 @@ export async function getCurrentActivePhase() {
 
   const activePhases = phases.filter((p: any) => p.isActive);
   if (activePhases.length === 0) {
-    return phases[0] || INITIAL_TICKET_PHASES[0];
+    return null;
   }
 
-  // Find phase whose date range matches today's IST date
-  const matched = activePhases.find((p: any) => dateStr >= p.startDate && dateStr <= p.endDate);
-  if (matched) return matched;
+  // Find phase whose date range matches today's IST date and is valid
+  const matched = activePhases.find(
+    (p: any) => p.startDate && p.endDate && p.startDate <= p.endDate && dateStr >= p.startDate && dateStr <= p.endDate
+  );
+  return matched || null;
+}
 
-  // Fallback to closest future phase or first active phase
-  const futurePhase = activePhases.find((p: any) => dateStr < p.startDate);
-  return futurePhase || activePhases[0];
+export interface TicketSalesStatus {
+  status: 'upcoming' | 'open' | 'closed';
+  activePhase: any | null;
+  nextPhase?: any | null;
+  startDate: string;
+  startTime: string;
+  message: string;
+}
+
+export async function getTicketSalesStatus(): Promise<TicketSalesStatus> {
+  const [phases, settings] = await Promise.all([
+    getTicketPhases(),
+    getSettings(),
+  ]);
+
+  const { dateStr } = getIndiaCurrentDate();
+  const startDate = settings.ticket_booking_start_date || '2026-09-01';
+  const startTime = settings.ticket_booking_start_time || '00:00';
+  const customMsg = settings.ticket_booking_msg;
+
+  const istNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const [tH, tM] = (startTime || '00:00').split(':').map(Number);
+  const openTarget = new Date(`${startDate}T${String(tH || 0).padStart(2, '0')}:${String(tM || 0).padStart(2, '0')}:00+05:30`);
+
+  const activePhases = phases.filter((p: any) => p.isActive);
+
+  // If no phases are configured as active (e.g. all disabled by admin)
+  if (activePhases.length === 0) {
+    return {
+      status: 'closed',
+      activePhase: null,
+      startDate,
+      startTime,
+      message: 'Ticket bookings are currently closed. All phases are inactive.',
+    };
+  }
+
+  // If all active phases have passed their end dates, sales are closed
+  const allExpired = activePhases.every((p: any) => p.endDate && dateStr > p.endDate);
+  if (allExpired) {
+    return {
+      status: 'closed',
+      activePhase: null,
+      startDate,
+      startTime,
+      message: 'Online ticket bookings for Asha Bani Dandiya Raas 2026 are now closed.',
+    };
+  }
+
+  // If currently before the global opening date/time
+  if (istNow.getTime() < openTarget.getTime()) {
+    return {
+      status: 'upcoming',
+      activePhase: null,
+      startDate,
+      startTime,
+      message: customMsg || `Ticket bookings open on ${startDate} at ${startTime} IST`,
+    };
+  }
+
+  // Find phase currently running
+  const validActivePhases = activePhases.filter((p: any) => p.startDate && p.endDate && p.startDate <= p.endDate);
+  const matched = validActivePhases.find((p: any) => dateStr >= p.startDate && dateStr <= p.endDate);
+  if (matched) {
+    return {
+      status: 'open',
+      activePhase: matched,
+      startDate,
+      startTime,
+      message: `${matched.name} is currently live.`,
+    };
+  }
+
+  // Check if today is before any future valid active phase
+  const futurePhases = validActivePhases
+    .filter((p: any) => dateStr < p.startDate)
+    .sort((a: any, b: any) => a.startDate.localeCompare(b.startDate));
+
+  if (futurePhases.length > 0) {
+    const nextPhase = futurePhases[0];
+    return {
+      status: 'upcoming',
+      activePhase: null,
+      nextPhase,
+      startDate: nextPhase.startDate,
+      startTime: '00:00',
+      message: `Next ticket phase (${nextPhase.name}) opens on ${nextPhase.startDate}.`,
+    };
+  }
+
+  return {
+    status: 'closed',
+    activePhase: null,
+    startDate,
+    startTime,
+    message: 'Online ticket bookings for Asha Bani Dandiya Raas 2026 are now closed.',
+  };
 }
 
 function addDaysToDateStr(dateStr: string, days: number): string {
@@ -2562,6 +2664,9 @@ export async function createTicketBookingRecord(data: {
   discountAmount?: number;
 }) {
   const phase = await getCurrentActivePhase();
+  if (!phase) {
+    throw new Error('Ticket bookings are currently closed.');
+  }
   const adultPrice = phase.adultPrice || 499;
   const childPrice = phase.childPrice || 199;
   const voucherAmount = phase.voucherAmount || 100;
@@ -2678,6 +2783,10 @@ export async function createAdminIssuedTicketBooking(data: {
   }
   if (!phase) {
     phase = await getCurrentActivePhase();
+  }
+  if (!phase) {
+    const allPhases = await getTicketPhases();
+    phase = allPhases[allPhases.length - 1] || INITIAL_TICKET_PHASES[0];
   }
 
   const adultCount = data.adultCount !== undefined ? Math.max(1, Number(data.adultCount)) : 1;

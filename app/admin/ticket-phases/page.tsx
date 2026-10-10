@@ -103,6 +103,17 @@ export default function AdminTicketPhasesPage() {
   }, []);
 
   const handleSaveSettings = async () => {
+    // Validate that global start date is not after Phase 1's end date
+    const phase1 = phases.find((p) => p.phaseNumber === 1);
+    if (phase1 && ticketOpeningDate && phase1.endDate && ticketOpeningDate > phase1.endDate) {
+      notifications.show({
+        title: 'Invalid Opening Date',
+        message: `Global ticket opening date (${ticketOpeningDate}) cannot be after Phase 1 end date (${phase1.endDate}). Please update Phase 1 dates first.`,
+        color: 'red',
+      });
+      return;
+    }
+
     setSavingSettings(true);
     try {
       const res = await fetch('/api/admin/settings', {

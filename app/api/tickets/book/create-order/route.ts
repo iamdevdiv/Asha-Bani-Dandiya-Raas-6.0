@@ -5,6 +5,7 @@ import {
   getAmbassadorById,
   getSettings,
   getCurrentActivePhase,
+  getTicketSalesStatus,
   validateAndApplyCoupon,
   recordCouponUsage,
 } from '@/lib/db';
@@ -63,8 +64,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Check if ticket sales are active
+    const salesStatus = await getTicketSalesStatus();
+    if (salesStatus.status !== 'open') {
+      return NextResponse.json(
+        { success: false, message: salesStatus.message || 'Online ticket bookings are currently closed.' },
+        { status: 400 }
+      );
+    }
+
     // Calculate base total for coupon validation
     const phase = await getCurrentActivePhase();
+    if (!phase) {
+      return NextResponse.json(
+        { success: false, message: 'Ticket bookings are currently closed. No active phase found.' },
+        { status: 400 }
+      );
+    }
     const adultPrice = phase.adultPrice || 499;
     const childPrice = phase.childPrice || 199;
     const baseTotal = adultPrice * 1 + childPrice * validChildren.length;

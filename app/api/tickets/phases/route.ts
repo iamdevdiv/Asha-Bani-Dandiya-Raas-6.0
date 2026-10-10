@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTicketPhases, saveTicketPhase, deleteTicketPhase, getCurrentActivePhase } from '@/lib/db';
+import { getTicketPhases, saveTicketPhase, deleteTicketPhase, getCurrentActivePhase, getTicketSalesStatus } from '@/lib/db';
 import { getAdminFromRequest, getAdminSession } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// GET: Fetch phases (public returns current active phase + all phases)
+// GET: Fetch phases (public returns current active phase + all phases + salesStatus)
 export async function GET(req: NextRequest) {
   try {
     const phases = await getTicketPhases();
     const currentActive = await getCurrentActivePhase();
+    const salesStatus = await getTicketSalesStatus();
     return NextResponse.json({
       success: true,
       phases,
       currentActive,
+      salesStatus,
     });
   } catch (error: any) {
     console.error('Error fetching ticket phases:', error);

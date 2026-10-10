@@ -49,18 +49,14 @@ export default function CustomerHomePage() {
   const [allPhases, setAllPhases] = useState<any[]>([]);
   const [currentPhase, setCurrentPhase] = useState<any>(null);
   const [phasesLoading, setPhasesLoading] = useState<boolean>(true);
-  const [isSalesOpen, setIsSalesOpen] = useState<boolean>(() => {
-    try {
-      const startDate = DEFAULT_SETTINGS.ticket_booking_start_date || '2026-09-01';
-      const startTime = DEFAULT_SETTINGS.ticket_booking_start_time || '00:00';
-      const istNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-      const [tH, tM] = startTime.split(':').map(Number);
-      const openTarget = new Date(`${startDate}T${String(tH || 0).padStart(2, '0')}:${String(tM || 0).padStart(2, '0')}:00+05:30`);
-      return istNow.getTime() >= openTarget.getTime();
-    } catch {
-      return true;
-    }
-  });
+  const [salesStatus, setSalesStatus] = useState<{
+    status: 'upcoming' | 'open' | 'closed';
+    activePhase?: any;
+    nextPhase?: any;
+    startDate?: string;
+    startTime?: string;
+    message?: string;
+  } | null>(null);
 
   useEffect(() => {
     // 1. Capture and persist referral code if present in URL
@@ -78,32 +74,33 @@ export default function CustomerHomePage() {
       .then((data) => {
         if (data.success && data.settings) {
           setSettings(data.settings);
-
-          // Evaluate IST Date/Time
-          const startDate = data.settings.ticket_booking_start_date || '2026-09-01';
-          const startTime = data.settings.ticket_booking_start_time || '00:00';
-          const istNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-          
-          const [tH, tM] = startTime.split(':').map(Number);
-          const openTarget = new Date(`${startDate}T${String(tH || 0).padStart(2, '0')}:${String(tM || 0).padStart(2, '0')}:00+05:30`);
-          
-          setIsSalesOpen(istNow.getTime() >= openTarget.getTime());
         }
       })
       .catch((err) => console.warn('Could not fetch dynamic settings:', err));
 
-    // 3. Fetch active and all ticket phases
+    // 3. Fetch active and all ticket phases & sales status
     fetch('/api/tickets/phases')
       .then((res) => res.json())
       .then((data) => {
         if (data.success) {
           if (data.phases) setAllPhases(data.phases);
-          if (data.currentActive) setCurrentPhase(data.currentActive);
+          if (data.currentActive) {
+            setCurrentPhase(data.currentActive);
+          } else {
+            setCurrentPhase(null);
+          }
+          if (data.salesStatus) {
+            setSalesStatus(data.salesStatus);
+          }
         }
       })
       .catch((err) => console.warn('Could not fetch ticket phases:', err))
       .finally(() => setPhasesLoading(false));
   }, []);
+
+  const isSalesOpen = salesStatus ? salesStatus.status === 'open' : Boolean(currentPhase);
+  const isSalesClosed = salesStatus ? salesStatus.status === 'closed' : (!phasesLoading && !currentPhase);
+  const isSalesUpcoming = salesStatus ? salesStatus.status === 'upcoming' : false;
 
   const bookingNotice = settings.ticket_booking_msg || 'Ticket bookings start from 1 September 2026';
   const eventDate = settings.event_date || '13 October 2026';
@@ -370,10 +367,38 @@ export default function CustomerHomePage() {
                     </Button>
                   </Group>
                 </Stack>
+              ) : isSalesClosed ? (
+                <Stack gap="xs" align="center">
+                  <Badge
+                    color="gray"
+                    variant="filled"
+                    size="md"
+                    style={{ letterSpacing: '0.08em', fontWeight: 800 }}
+                  >
+                    BOOKINGS CONCLUDED
+                  </Badge>
+                  <Text fw={700} size="md" c="white" ta="center">
+                    Online ticket bookings for Asha Bani Dandiya Raas 2026 are now closed.
+                  </Text>
+                  <Text size="xs" c="gray.4" ta="center">
+                    Thank you for the tremendous response! We look forward to seeing everyone at the grand celebration.
+                  </Text>
+                  <Group justify="center" gap="sm" mt="xs">
+                    <Button
+                      variant="default"
+                      size="md"
+                      leftSection={<IconTicket size={20} />}
+                      disabled
+                      style={{ opacity: 0.65 }}
+                    >
+                      Ticket Bookings Closed
+                    </Button>
+                  </Group>
+                </Stack>
               ) : (
                 <Stack gap="xs" align="center">
-                  <Badge color="red" variant="filled" size="md">
-                    ANNOUNCEMENT
+                  <Badge color="yellow" variant="filled" size="md" style={{ color: '#140305', fontWeight: 800 }}>
+                    OPENING SOON
                   </Badge>
                   <Text fw={600} size="sm" c="yellow.2" ta="center">
                     {bookingNotice}
@@ -385,7 +410,7 @@ export default function CustomerHomePage() {
                       leftSection={<IconTicket size={20} />}
                       disabled
                     >
-                      Ticket Booking Opens {settings.ticket_booking_start_date ? new Date(settings.ticket_booking_start_date + 'T00:00:00+05:30').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '1 Sept'}
+                      Ticket Booking Opens {salesStatus?.startDate ? new Date(salesStatus.startDate + 'T00:00:00+05:30').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : (settings.ticket_booking_start_date ? new Date(settings.ticket_booking_start_date + 'T00:00:00+05:30').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '1 Sept')}
                     </Button>
                   </Group>
                 </Stack>
@@ -490,8 +515,9 @@ export default function CustomerHomePage() {
             <SimpleGrid cols={{ base: 1, md: 3 }} spacing={{ base: 'md', sm: 'lg' }}>
               {allPhases.map((p: any) => {
                 const istToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-                const isPhaseActive = isSalesOpen && (currentPhase?.id ? p.id === currentPhase?.id : (istToday >= p.startDate && istToday <= p.endDate));
-                const isPhasePassed = istToday > p.endDate;
+                const isPhaseActive = isSalesOpen && Boolean(currentPhase && currentPhase.id === p.id && p.isActive !== false);
+                const isPhaseDisabled = p.isActive === false;
+                const isPhasePassed = p.endDate ? istToday > p.endDate : false;
 
               const formatPhaseDate = (dateStr: string) => {
                 if (!dateStr) return '';
@@ -535,6 +561,10 @@ export default function CustomerHomePage() {
                       {isPhaseActive ? (
                         <Badge color="green" variant="filled" size="sm" style={{ fontWeight: 800 }}>
                           ● ACTIVE NOW
+                        </Badge>
+                      ) : isPhaseDisabled ? (
+                        <Badge color="red" variant="light" size="sm" style={{ fontWeight: 700 }}>
+                          INACTIVE
                         </Badge>
                       ) : isPhasePassed ? (
                         <Badge color="gray" variant="light" size="sm">
@@ -640,6 +670,10 @@ export default function CustomerHomePage() {
                         rightSection={<IconArrowRight size={16} />}
                       >
                         Book Passes Now
+                      </Button>
+                    ) : isPhaseDisabled ? (
+                      <Button size="md" fullWidth disabled variant="default">
+                        Phase Inactive
                       </Button>
                     ) : isPhasePassed ? (
                       <Button size="md" fullWidth disabled variant="default">

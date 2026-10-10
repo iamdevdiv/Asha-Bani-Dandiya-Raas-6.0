@@ -56,7 +56,8 @@ declare global {
 export default function TicketPurchasePage() {
   const router = useRouter();
   const [loadingPhase, setLoadingPhase] = useState(true);
-  const [phase, setPhase] = useState<any>(INITIAL_TICKET_PHASES[0]);
+  const [phase, setPhase] = useState<any>(null);
+  const [salesStatus, setSalesStatus] = useState<any>(null);
   const [settings, setSettings] = useState<any>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -81,12 +82,19 @@ export default function TicketPurchasePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // 1. Fetch active phase
+    // 1. Fetch active phase & sales status
     fetch('/api/tickets/phases')
       .then((res) => res.json())
       .then((data) => {
-        if (data.success && data.currentActive) {
-          setPhase(data.currentActive);
+        if (data.success) {
+          if (data.currentActive) {
+            setPhase(data.currentActive);
+          } else {
+            setPhase(null);
+          }
+          if (data.salesStatus) {
+            setSalesStatus(data.salesStatus);
+          }
         }
       })
       .catch((err) => console.warn('Could not fetch phases:', err))
@@ -407,6 +415,179 @@ export default function TicketPurchasePage() {
               </Text>
             </Stack>
           </Center>
+        </Container>
+        <Footer />
+      </Box>
+    );
+  }
+
+  if (salesStatus?.status === 'closed' || (!phase && salesStatus?.status !== 'open')) {
+    return (
+      <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Navbar />
+        <Container size="sm" px={{ base: 'md', sm: 'xl' }} py={{ base: 40, sm: 80 }} style={{ flexGrow: 1, width: '100%' }}>
+          <Stack gap="xl" align="center">
+            <Group justify="flex-start" w="100%">
+              <Button
+                component={Link}
+                href="/dandiyaraas"
+                variant="subtle"
+                color="gray"
+                leftSection={<IconArrowLeft size={16} />}
+                size="xs"
+              >
+                Back to Event
+              </Button>
+            </Group>
+
+            <Paper
+              p={{ base: 'xl', sm: 40 }}
+              radius="24px"
+              ta="center"
+              style={{
+                backgroundColor: 'rgba(20, 3, 5, 0.92)',
+                border: '1px solid rgba(234, 179, 8, 0.35)',
+                boxShadow: '0 0 40px rgba(0, 0, 0, 0.6)',
+                backdropFilter: 'blur(16px)',
+                width: '100%',
+                maxWidth: 520,
+              }}
+            >
+              <Stack gap="lg" align="center">
+                <Badge
+                  color="gray"
+                  variant="filled"
+                  size="lg"
+                  style={{ letterSpacing: '0.1em', fontWeight: 800, padding: '8px 18px' }}
+                >
+                  BOOKINGS CONCLUDED
+                </Badge>
+
+                <Title
+                  order={1}
+                  className="gold-gradient-text"
+                  style={{ fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.8rem, 4vw, 2.4rem)' }}
+                >
+                  Ticket Bookings Closed
+                </Title>
+
+                <Text c="gray.3" size="md" lh={1.6}>
+                  Online pass reservations for <b>Asha Bani Dandiya Raas 6.0</b> are now officially closed.
+                </Text>
+
+                <Paper
+                  p="md"
+                  radius="md"
+                  w="100%"
+                  style={{
+                    backgroundColor: 'rgba(234, 179, 8, 0.06)',
+                    border: '1px dashed rgba(250, 204, 21, 0.3)',
+                  }}
+                >
+                  <Stack gap={6} ta="left">
+                    <Text size="xs" fw={700} c="yellow.2">
+                      Already have an entry pass?
+                    </Text>
+                    <Text size="xs" c="gray.4">
+                      Please carry your digital QR pass on the event day. Free Dandiya sticks and included stall vouchers will be handed over directly at the gate entry.
+                    </Text>
+                  </Stack>
+                </Paper>
+
+                <Button
+                  component={Link}
+                  href="/dandiyaraas"
+                  className="btn-auspicious-gold"
+                  size="md"
+                  fullWidth
+                  mt="sm"
+                >
+                  Return to Event Details
+                </Button>
+              </Stack>
+            </Paper>
+          </Stack>
+        </Container>
+        <Footer />
+      </Box>
+    );
+  }
+
+  if (salesStatus?.status === 'upcoming') {
+    const formattedDate = salesStatus.startDate
+      ? new Date(salesStatus.startDate + 'T00:00:00+05:30').toLocaleDateString('en-IN', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : 'Upcoming';
+
+    return (
+      <Box className="festive-background" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <Navbar />
+        <Container size="sm" px={{ base: 'md', sm: 'xl' }} py={{ base: 40, sm: 80 }} style={{ flexGrow: 1, width: '100%' }}>
+          <Stack gap="xl" align="center">
+            <Group justify="flex-start" w="100%">
+              <Button
+                component={Link}
+                href="/dandiyaraas"
+                variant="subtle"
+                color="gray"
+                leftSection={<IconArrowLeft size={16} />}
+                size="xs"
+              >
+                Back to Event
+              </Button>
+            </Group>
+
+            <Paper
+              p={{ base: 'xl', sm: 40 }}
+              radius="24px"
+              ta="center"
+              style={{
+                backgroundColor: 'rgba(20, 3, 5, 0.92)',
+                border: '1px solid rgba(234, 179, 8, 0.35)',
+                boxShadow: '0 0 40px rgba(0, 0, 0, 0.6)',
+                backdropFilter: 'blur(16px)',
+                width: '100%',
+                maxWidth: 520,
+              }}
+            >
+              <Stack gap="lg" align="center">
+                <Badge
+                  color="yellow"
+                  variant="filled"
+                  size="lg"
+                  style={{ letterSpacing: '0.1em', fontWeight: 800, padding: '8px 18px', color: '#140305' }}
+                >
+                  OPENING SOON
+                </Badge>
+
+                <Title
+                  order={1}
+                  className="gold-gradient-text"
+                  style={{ fontFamily: "'Cinzel', serif", fontSize: 'clamp(1.8rem, 4vw, 2.4rem)' }}
+                >
+                  Bookings Open Soon
+                </Title>
+
+                <Text c="gray.3" size="md" lh={1.6}>
+                  Online passes will be available starting from <b>{formattedDate}</b> at <b>{salesStatus.startTime || '00:00'} IST</b>.
+                </Text>
+
+                <Button
+                  component={Link}
+                  href="/dandiyaraas"
+                  className="btn-auspicious-gold"
+                  size="md"
+                  fullWidth
+                  mt="sm"
+                >
+                  Return to Event Details
+                </Button>
+              </Stack>
+            </Paper>
+          </Stack>
         </Container>
         <Footer />
       </Box>

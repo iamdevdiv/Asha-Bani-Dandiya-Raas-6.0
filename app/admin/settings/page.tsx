@@ -117,13 +117,15 @@ export default function AdminSettingsPage() {
       });
 
       const data = await res.json();
-      if (data.success) {
-        notifications.show({
-          title: 'Settings Saved',
-          message: 'Website and event configuration updated successfully.',
-          color: 'green',
-        });
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to update settings');
       }
+
+      notifications.show({
+        title: 'Settings Saved',
+        message: 'Website and event configuration updated successfully.',
+        color: 'green',
+      });
     } catch (err: any) {
       notifications.show({
         title: 'Save Failed',
