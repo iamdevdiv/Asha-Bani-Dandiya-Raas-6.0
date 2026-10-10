@@ -38,28 +38,36 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/tickets/${passId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.booking) {
-          setBooking(data.booking);
-        } else {
-          notifications.show({
-            title: 'Not Found',
-            message: data.message || 'Ticket booking pass not found.',
-            color: 'red',
-          });
-        }
-      })
-      .catch((err) => {
-        console.error('Error fetching ticket pass:', err);
-        notifications.show({
-          title: 'Network Error',
-          message: 'Could not load ticket pass details.',
-          color: 'red',
+    let isMounted = true;
+    const fetchBooking = () => {
+      fetch(`/api/tickets/${passId}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (!isMounted) return;
+          if (data.success && data.booking) {
+            setBooking(data.booking);
+          } else if (!booking) {
+            notifications.show({
+              title: 'Not Found',
+              message: data.message || 'Ticket booking pass not found.',
+              color: 'red',
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('Error fetching ticket pass:', err);
+        })
+        .finally(() => {
+          if (isMounted) setLoading(false);
         });
-      })
-      .finally(() => setLoading(false));
+    };
+
+    fetchBooking();
+    const interval = setInterval(fetchBooking, 4000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [passId]);
 
   const handleCopyLink = () => {
@@ -197,6 +205,7 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
                   </Box>
                 </Group>
 
+                {/* Commented out: Digital voucher redemption disabled - physical vouchers are handed over at gate entry
                 {(booking.voucherBalance ?? 0) > 0 ? (
                   <Button
                     component={Link}
@@ -220,6 +229,46 @@ export default function TicketPassPage({ params }: { params: Promise<{ id: strin
                     Voucher Exhausted (₹0)
                   </Button>
                 )}
+                */}
+
+                {/* Gate Entry Physical Voucher Handover Notice */}
+                <Paper
+                  p="xs"
+                  radius="md"
+                  w="100%"
+                  style={{
+                    backgroundColor: (booking.voucherBalance ?? 0) > 0
+                      ? 'rgba(234, 179, 8, 0.15)'
+                      : 'rgba(34, 197, 94, 0.12)',
+                    border: (booking.voucherBalance ?? 0) > 0
+                      ? '1px solid rgba(250, 204, 21, 0.4)'
+                      : '1px solid rgba(74, 222, 128, 0.4)',
+                  }}
+                >
+                  <Group gap="xs" wrap="nowrap" align="center">
+                    <ThemeIcon
+                      size={28}
+                      radius="md"
+                      color={(booking.voucherBalance ?? 0) > 0 ? 'yellow' : 'green'}
+                      variant="light"
+                      style={{ flexShrink: 0 }}
+                    >
+                      <IconBuildingStore size={16} />
+                    </ThemeIcon>
+                    <Box style={{ flex: 1 }}>
+                      <Text size="xs" fw={700} c={(booking.voucherBalance ?? 0) > 0 ? 'yellow.2' : 'green.3'}>
+                        {(booking.voucherBalance ?? 0) > 0
+                          ? 'Physical Voucher Handover at Gate Entry'
+                          : '✓ Physical Voucher Handed Over at Gate'}
+                      </Text>
+                      <Text size="xs" c="gray.3" style={{ fontSize: '0.74rem' }}>
+                        {(booking.voucherBalance ?? 0) > 0
+                          ? `Your physical stall voucher (₹${booking.voucherBalance ?? booking.voucherAmount ?? 100}) will be given to you in person during gate entry verification.`
+                          : 'Your physical voucher has been collected during gate entry. Digital voucher balance is ₹0.'}
+                      </Text>
+                    </Box>
+                  </Group>
+                </Paper>
               </Group>
             </Paper>
           ) : null}

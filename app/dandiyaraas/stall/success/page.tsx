@@ -221,6 +221,7 @@ function SuccessContent() {
       </SimpleGrid>
 
       {/* Live Voucher Settlements & Payments Received Section */}
+      {/* Commented out: Digital voucher payment disabled, no digital transaction history needed for stall owners
       <Box mb="xl">
         <StallVoucherLiveFeed
           bookingId={booking.id}
@@ -228,6 +229,7 @@ function SuccessContent() {
           brandName={booking.brandName || booking.bookerName}
         />
       </Box>
+      */}
 
       {/* Navigation Buttons */}
       <Group justify="center" gap="md" mt="xl" wrap="wrap">

@@ -47,6 +47,9 @@ interface ScanResult {
   booking?: any;
   checkedInAt?: string;
   checkedInBy?: string;
+  voucherHandoverRequired?: boolean;
+  voucherAlreadyCollected?: boolean;
+  voucherAmount?: number;
 }
 
 export default function VerifierScanPage() {
@@ -260,6 +263,9 @@ export default function VerifierScanPage() {
             booking: data.booking,
             checkedInAt: data.checkedInAt || data.booking?.checkedInAt,
             checkedInBy: data.checkedInBy || data.booking?.checkedInBy,
+            voucherAlreadyCollected: Boolean(data.voucherAlreadyCollected ?? isTicket),
+            voucherHandoverRequired: false,
+            voucherAmount: data.voucherAmount || data.booking?.voucherAmount || 100,
           });
 
           if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -274,6 +280,9 @@ export default function VerifierScanPage() {
             booking: data.booking,
             checkedInAt: data.booking?.checkedInAt || new Date().toISOString(),
             checkedInBy: verifier?.name || data.checkedInBy || 'Gate Verifier',
+            voucherHandoverRequired: Boolean(data.voucherHandoverRequired ?? isTicket),
+            voucherAlreadyCollected: false,
+            voucherAmount: data.voucherAmount || data.booking?.voucherAmount || 100,
           });
 
           setRecentScans((prev) => [
@@ -421,6 +430,39 @@ export default function VerifierScanPage() {
 
                       {isTicket ? (
                         <>
+                          {/* Mandatory Gate Verifier Action: Hand Over Physical Voucher */}
+                          <Alert
+                            color="yellow"
+                            variant="filled"
+                            icon={<IconBuildingStore size={26} color="#140305" />}
+                            title="ACTION REQUIRED: HAND OVER PHYSICAL VOUCHER TO ATTENDEE"
+                            w="100%"
+                            styles={{
+                              root: {
+                                backgroundColor: '#facc15',
+                                color: '#140305',
+                                border: '2px solid #ca8a04',
+                                borderRadius: '14px',
+                                textAlign: 'left',
+                                boxShadow: '0 4px 20px rgba(250, 204, 21, 0.45)',
+                              },
+                              title: {
+                                color: '#140305',
+                                fontWeight: 900,
+                                fontSize: '1rem',
+                                letterSpacing: '0.02em',
+                              },
+                              message: {
+                                color: '#140305',
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                                lineHeight: 1.45,
+                              },
+                            }}
+                          >
+                            Please hand over the physical voucher (Value: <b>₹{scanResult.voucherAmount || scanResult.booking?.voucherAmount || 100}</b>) to the attendee now.
+                          </Alert>
+
                           <Title order={2} c="white" style={{ fontFamily: "'Cinzel', serif", fontSize: '1.8rem' }}>
                             {scanResult.booking?.fullName}
                           </Title>
@@ -486,12 +528,16 @@ export default function VerifierScanPage() {
                                   </Alert>
                                 </>
                               )}
-                              {scanResult.booking?.voucherBalance !== undefined && (
-                                <Group justify="space-between">
-                                  <Text size="xs" c="gray.3">INCLUDED STALL VOUCHER:</Text>
-                                  <Text size="xs" fw={700} c="green.3">₹{scanResult.booking.voucherBalance}</Text>
-                                </Group>
-                              )}
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">PHYSICAL VOUCHER:</Text>
+                                <Badge color="yellow" variant="filled" size="sm" style={{ color: '#140305', fontWeight: 800, backgroundColor: '#facc15' }}>
+                                  HAND OVER ₹{scanResult.voucherAmount || scanResult.booking?.voucherAmount || 100} NOW
+                                </Badge>
+                              </Group>
+                              <Group justify="space-between">
+                                <Text size="xs" c="gray.3">DIGITAL VOUCHER BALANCE:</Text>
+                                <Text size="xs" fw={700} c="green.3">₹0 (Deducted on gate entry)</Text>
+                              </Group>
                               <Divider my={4} color="rgba(255,255,255,0.1)" />
                               <Group justify="space-between">
                                 <Text size="xs" c="gray.4">CHECKED IN AT:</Text>
@@ -612,6 +658,39 @@ export default function VerifierScanPage() {
                         This digital QR pass was already scanned and checked into the venue earlier. Secondary entry is strictly restricted!
                       </Alert>
 
+                      {isTicket && (
+                        <Alert
+                          color="red"
+                          variant="filled"
+                          icon={<IconBuildingStore size={26} color="#ffffff" />}
+                          title="VOUCHER HAS BEEN COLLECTED ALREADY"
+                          w="100%"
+                          styles={{
+                            root: {
+                              backgroundColor: '#991b1b',
+                              border: '2px solid #ef4444',
+                              borderRadius: '14px',
+                              textAlign: 'left',
+                              boxShadow: '0 4px 20px rgba(239, 68, 68, 0.45)',
+                            },
+                            title: {
+                              color: '#ffffff',
+                              fontWeight: 900,
+                              fontSize: '1rem',
+                              letterSpacing: '0.02em',
+                            },
+                            message: {
+                              color: '#fee2e2',
+                              fontWeight: 700,
+                              fontSize: '0.9rem',
+                              lineHeight: 1.45,
+                            },
+                          }}
+                        >
+                          The physical voucher has already been collected for this booking during the first scan.
+                        </Alert>
+                      )}
+
                       {isTicket ? (
                         <Paper
                           w="100%"
@@ -648,6 +727,16 @@ export default function VerifierScanPage() {
                                 </Text>
                               </Group>
                             )}
+                            <Group justify="space-between">
+                              <Text size="xs" c="red.3" fw={700}>PHYSICAL VOUCHER STATUS:</Text>
+                              <Badge color="red" variant="filled" size="sm" style={{ fontWeight: 800 }}>
+                                ALREADY COLLECTED
+                              </Badge>
+                            </Group>
+                            <Group justify="space-between">
+                              <Text size="xs" c="gray.4">DIGITAL VOUCHER BALANCE:</Text>
+                              <Text size="xs" fw={700} c="gray.4">₹0 (Already Deducted)</Text>
+                            </Group>
                             <Divider my={4} color="rgba(255,255,255,0.1)" />
                             <Group justify="space-between">
                               <Text size="xs" c="red.3" fw={700}>FIRST SCANNED AT:</Text>

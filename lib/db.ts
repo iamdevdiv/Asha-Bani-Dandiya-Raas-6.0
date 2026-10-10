@@ -1968,12 +1968,28 @@ export async function verifyAndCheckInBooking(codeOrRef: string, verifierName: s
           };
         }
 
+        const voucherAmount = ticketBooking.voucherAmount ?? 100;
+
         if (ticketBooking.isCheckedIn) {
+          // If already checked in, ensure voucher balance is 0
+          if ((ticketBooking.voucherBalance ?? 0) > 0) {
+            try {
+              await (prisma as any).ticketBooking.update({
+                where: { id: ticketBooking.id },
+                data: { voucherBalance: 0 },
+              });
+              ticketBooking.voucherBalance = 0;
+            } catch {}
+          }
+
           return {
             success: true,
             passType: 'ticket' as const,
             alreadyCheckedIn: true,
-            booking: ticketBooking,
+            booking: { ...ticketBooking, voucherBalance: 0 },
+            voucherAmount,
+            voucherHandoverRequired: false,
+            voucherAlreadyCollected: voucherAmount > 0,
             message: 'DUPLICATE ENTRY ALERT: This customer ticket pass has already been scanned!',
             checkedInAt: ticketBooking.checkedInAt,
             checkedInBy: ticketBooking.checkedInBy || 'Gate Verifier',
@@ -1981,20 +1997,40 @@ export async function verifyAndCheckInBooking(codeOrRef: string, verifierName: s
         }
 
         const now = new Date();
+        const previousVoucherBalance = ticketBooking.voucherBalance ?? voucherAmount;
         const updatedTicket = await (prisma as any).ticketBooking.update({
           where: { id: ticketBooking.id },
           data: {
             isCheckedIn: true,
             checkedInAt: now,
             checkedInBy: verifierName,
+            voucherBalance: 0,
           },
         });
+
+        if (previousVoucherBalance > 0) {
+          try {
+            await (prisma as any).voucherTransaction.create({
+              data: {
+                ticketBookingId: ticketBooking.id,
+                sourceType: 'ticket_booking',
+                sourceReference: ticketBooking.bookingNumber,
+                amount: previousVoucherBalance,
+                type: 'debit',
+                description: `Physical voucher handed over at gate by ${verifierName}`,
+              },
+            });
+          } catch {}
+        }
 
         return {
           success: true,
           passType: 'ticket' as const,
           alreadyCheckedIn: false,
           booking: updatedTicket,
+          voucherAmount,
+          voucherHandoverRequired: voucherAmount > 0,
+          voucherAlreadyCollected: false,
           message: 'TICKET PASS VERIFIED: Entry Approved',
         };
       }
@@ -2076,12 +2112,21 @@ export async function verifyAndCheckInBooking(codeOrRef: string, verifierName: s
       };
     }
 
+    const voucherAmount = ticketBooking.voucherAmount ?? 100;
+
     if (ticketBooking.isCheckedIn) {
+      if ((ticketBooking.voucherBalance ?? 0) > 0) {
+        ticketBooking.voucherBalance = 0;
+        saveFallbackStore(store);
+      }
       return {
         success: true,
         passType: 'ticket' as const,
         alreadyCheckedIn: true,
-        booking: ticketBooking,
+        booking: { ...ticketBooking, voucherBalance: 0 },
+        voucherAmount,
+        voucherHandoverRequired: false,
+        voucherAlreadyCollected: voucherAmount > 0,
         message: 'DUPLICATE ENTRY ALERT: This customer ticket pass has already been scanned!',
         checkedInAt: ticketBooking.checkedInAt,
         checkedInBy: ticketBooking.checkedInBy || 'Gate Verifier',
@@ -2089,9 +2134,25 @@ export async function verifyAndCheckInBooking(codeOrRef: string, verifierName: s
     }
 
     const nowIso = new Date().toISOString();
+    const previousVoucherBalance = ticketBooking.voucherBalance ?? voucherAmount;
     ticketBooking.isCheckedIn = true;
     ticketBooking.checkedInAt = nowIso;
     ticketBooking.checkedInBy = verifierName;
+    ticketBooking.voucherBalance = 0;
+
+    if (previousVoucherBalance > 0) {
+      if (!store.voucherTransactions) store.voucherTransactions = [];
+      store.voucherTransactions.push({
+        id: `vt_${Date.now()}_gate`,
+        ticketBookingId: ticketBooking.id,
+        sourceType: 'ticket_booking',
+        sourceReference: ticketBooking.bookingNumber,
+        amount: previousVoucherBalance,
+        type: 'debit',
+        description: `Physical voucher handed over at gate by ${verifierName}`,
+        createdAt: nowIso,
+      });
+    }
 
     saveFallbackStore(store);
 
@@ -2100,6 +2161,9 @@ export async function verifyAndCheckInBooking(codeOrRef: string, verifierName: s
       passType: 'ticket' as const,
       alreadyCheckedIn: false,
       booking: ticketBooking,
+      voucherAmount,
+      voucherHandoverRequired: voucherAmount > 0,
+      voucherAlreadyCollected: false,
       message: 'TICKET PASS VERIFIED: Entry Approved',
     };
   }
@@ -2954,6 +3018,11 @@ export async function getTicketBookingById(idOrBookingNumber: string) {
 
   if (!rawBooking) return null;
 
+  // Once checked in at gate entry, digital voucher balance is 0 as physical voucher is handed over
+  if (rawBooking.isCheckedIn) {
+    rawBooking.voucherBalance = 0;
+  }
+
   // Check if this booking is linked to an ambassador complimentary ticket
   const ambassador = await getAmbassadorByTicketBookingId(rawBooking.id);
   if (ambassador) {
@@ -2967,7 +3036,7 @@ export async function getTicketBookingById(idOrBookingNumber: string) {
     return {
       ...rawBooking,
       voucherAmount: typeof ambassador.voucherTotalCredited === 'number' ? ambassador.voucherTotalCredited : (rawBooking.voucherAmount ?? 0),
-      voucherBalance: typeof ambassador.voucherBalance === 'number' ? ambassador.voucherBalance : (rawBooking.voucherBalance ?? 0),
+      voucherBalance: rawBooking.isCheckedIn ? 0 : (typeof ambassador.voucherBalance === 'number' ? ambassador.voucherBalance : (rawBooking.voucherBalance ?? 0)),
       voucherApplicableTo: effectiveApplicableTo,
       effectiveVoucherApplicableTo: effectiveApplicableTo,
       rawVoucherRule: rawBooking.voucherApplicableTo,
@@ -2985,6 +3054,7 @@ export async function getTicketBookingById(idOrBookingNumber: string) {
 
   return {
     ...rawBooking,
+    voucherBalance: rawBooking.isCheckedIn ? 0 : (rawBooking.voucherBalance ?? 0),
     isAmbassadorPass: false,
     voucherApplicableTo: effectiveApplicableTo,
     effectiveVoucherApplicableTo: effectiveApplicableTo,

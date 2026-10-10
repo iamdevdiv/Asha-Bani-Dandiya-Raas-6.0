@@ -315,7 +315,7 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
               Stall {booking.stallNumber} • {booking.brandName || booking.bookerName}
             </Title>
             <Text size="md" c="gray.3" maw={650}>
-              Official exhibitor digital pass for Asha Bani Dandiya Raas 2026. Keep this pass ready for gate entry scanning and view your live voucher settlements below.
+              Official exhibitor digital pass for Asha Bani Dandiya Raas 2026. Keep this pass ready for gate entry scanning.
             </Text>
           </Stack>
 
@@ -511,6 +511,7 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
           </SimpleGrid>
 
           {/* Live Voucher Settlements & Payments Received Section */}
+          {/* Commented out: Digital voucher payment disabled, no digital transaction history needed for stall owners
           <Box mb="xl">
             <StallVoucherLiveFeed
               bookingId={booking.id}
@@ -518,6 +519,7 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
               brandName={booking.brandName || booking.bookerName}
             />
           </Box>
+          */}
 
           {/* Navigation Buttons */}
           <Group justify="center" gap="md" mt="xl">

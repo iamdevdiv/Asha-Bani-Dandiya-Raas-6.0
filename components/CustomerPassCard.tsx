@@ -271,10 +271,10 @@ export function CustomerPassCard({
                 <IconBuildingStore size={22} color="#facc15" style={{ flexShrink: 0 }} />
                 <Box style={{ flex: 1 }}>
                   <Text size="xs" fw={800} c="yellow.3">
-                    INCLUDED ₹{voucherAmt} STALL VOUCHER
+                    INCLUDED ₹{voucherAmt} PHYSICAL STALL VOUCHER
                   </Text>
                   <Text size="xs" c="gray.3" style={{ fontSize: '0.72rem', lineHeight: 1.25 }}>
-                    Valid at: <strong style={{ color: '#fef08a' }}>{voucherUsability}</strong>
+                    Collect at gate entry • Valid at: <strong style={{ color: '#fef08a' }}>{voucherUsability}</strong>
                   </Text>
                 </Box>
               </Group>

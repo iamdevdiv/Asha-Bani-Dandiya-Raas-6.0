@@ -431,7 +431,38 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
             </Stack>
           </Paper>
 
-          {/* Payment Section: Strictly Camera QR Scan Flow */}
+          {/* Physical Voucher Handover Notice (Digital Platform Spending Disabled) */}
+          <Paper
+            p={{ base: 'md', sm: 'xl' }}
+            radius="xl"
+            style={{
+              backgroundColor: 'rgba(20, 3, 5, 0.85)',
+              border: '1px solid rgba(234, 179, 8, 0.3)',
+            }}
+          >
+            <Stack gap="md" align="center" ta="center">
+              <ThemeIcon size={64} radius="50%" color="yellow" variant="light">
+                <IconBuildingStore size={36} color="#facc15" />
+              </ThemeIcon>
+              <Title order={2} size="h4" c="white" style={{ fontFamily: "'Cinzel', serif" }}>
+                Physical Voucher Handover at Gate Entry
+              </Title>
+              <Text size="sm" c="gray.3" maw={460}>
+                Digital voucher payments and QR transactions from the web platform have been disabled. Your physical stall voucher will be handed over to you in person at the entry gate desk upon ticket verification.
+              </Text>
+              <Button
+                component={Link}
+                href={wallet.type === 'ticket' ? `/dandiyaraas/tickets/pass/${wallet.id}` : '/dandiyaraas'}
+                className="btn-auspicious-gold"
+                size="md"
+                leftSection={<IconArrowLeft size={18} />}
+              >
+                Back to Official Entry Pass
+              </Button>
+            </Stack>
+          </Paper>
+
+          {/* Commented out: Digital voucher payment flow disabled in favor of physical voucher handover at gate entry
           <Paper
             p={{ base: 'md', sm: 'xl' }}
             radius="xl"
@@ -456,7 +487,6 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
                     : "You have fully utilized your voucher amount. Thank you for celebrating with our exhibitors!"}
                 </Alert>
               ) : !selectedStall ? (
-                /* State 1: Scan Stall QR Code */
                 <Box ta="center" py="md">
                   <ThemeIcon size={64} radius="50%" color="yellow" variant="light" mb="md" mx="auto">
                     <IconQrcode size={36} color="#facc15" />
@@ -476,7 +506,6 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
                   </Button>
                 </Box>
               ) : (
-                /* State 2: Stall Locked via QR - Enter Amount & Pay */
                 (() => {
                   const isSelectedStallFood = selectedStall ? isFoodStall(selectedStall) : false;
                   const isStallEligible = selectedStall
@@ -558,7 +587,6 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
                         </Alert>
                       )}
 
-                      {/* Amount Input */}
                       <NumberInput
                         label="Amount to Pay (₹)"
                         placeholder="Enter amount"
@@ -580,7 +608,6 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
                         }}
                       />
 
-                      {/* Quick Amount Pills */}
                       <Group gap="xs">
                         <Text size="xs" c="gray.4">Quick Amount:</Text>
                         {[50, 100].filter((amt) => amt <= wallet.balance).map((amt) => (
@@ -608,7 +635,6 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
                         )}
                       </Group>
 
-                      {/* Submit Button */}
                       <Button
                         size="lg"
                         className="btn-auspicious-gold"
@@ -627,6 +653,7 @@ export default function StallVoucherWalletPage({ params }: { params: Promise<{ i
               )}
             </Stack>
           </Paper>
+          */}
 
           {/* Transaction History Section */}
           <Paper
