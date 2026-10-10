@@ -281,7 +281,20 @@ export default function CustomerHomePage() {
                 width: '100%',
               }}
             >
-              {isSalesOpen ? (
+              {phasesLoading ? (
+                <Stack gap="xs" align="center" w="100%" py={4}>
+                  <Skeleton height={24} width={180} radius="xl" />
+                  <Skeleton height={22} width={280} radius="md" mt={2} />
+                  <Skeleton height={16} width={220} radius="md" />
+                  <Group gap={6} justify="center" wrap="wrap" mt={4}>
+                    <Skeleton height={26} width={180} radius="md" />
+                    <Skeleton height={26} width={190} radius="md" />
+                  </Group>
+                  <Group justify="center" gap="sm" mt="xs" w="100%">
+                    <Skeleton height={42} width={240} radius="xl" />
+                  </Group>
+                </Stack>
+              ) : isSalesOpen ? (
                 <Stack gap="xs" align="center">
                   <Badge
                     color="green"
@@ -292,59 +305,46 @@ export default function CustomerHomePage() {
                     ● PASSES NOW AVAILABLE
                   </Badge>
 
-                  {phasesLoading ? (
-                    <Stack gap={8} align="center" w="100%" my={4}>
-                      <Skeleton height={26} width={260} radius="md" />
-                      <Skeleton height={18} width={220} radius="md" />
-                      <Group gap={6} justify="center" wrap="wrap" mt={4}>
-                        <Skeleton height={26} width={200} radius="md" />
-                        <Skeleton height={26} width={210} radius="md" />
-                      </Group>
-                    </Stack>
-                  ) : (
-                    <>
-                      <Text fw={800} size="lg" className="gold-gradient-text" ta="center" style={{ fontFamily: "'Cinzel', serif" }}>
-                        {currentPhase?.name || 'Grand Dandiya Entry Passes'}
-                      </Text>
+                  <Text fw={800} size="lg" className="gold-gradient-text" ta="center" style={{ fontFamily: "'Cinzel', serif" }}>
+                    {currentPhase?.name || 'Grand Dandiya Entry Passes'}
+                  </Text>
 
-                      <Text size="sm" c="gray.3" ta="center">
-                        ₹{currentPhase?.adultPrice || 499} / Lady • ₹{currentPhase?.childPrice || 199} / Child (Under 10 Yrs)
-                      </Text>
+                  <Text size="sm" c="gray.3" ta="center">
+                    ₹{currentPhase?.adultPrice || 499} / Lady • ₹{currentPhase?.childPrice || 199} / Child (Under 10 Yrs)
+                  </Text>
 
-                      <Group gap={6} justify="center" wrap="wrap">
-                        <Badge
-                          color="yellow"
-                          variant="light"
-                          size="sm"
-                          leftSection={<IconGift size={13} color="#facc15" style={{ flexShrink: 0 }} />}
-                          style={{
-                            height: 'auto',
-                            padding: '5px 10px',
-                            whiteSpace: 'normal',
-                            lineHeight: 1.25,
-                            textAlign: 'center',
-                          }}
-                        >
-                          Includes ₹{currentPhase?.voucherAmount || 100} Free Stall Voucher
-                        </Badge>
-                        <Badge
-                          color="yellow"
-                          variant="light"
-                          size="sm"
-                          leftSection={<IconSparkles size={13} color="#facc15" style={{ flexShrink: 0 }} />}
-                          style={{
-                            height: 'auto',
-                            padding: '5px 10px',
-                            whiteSpace: 'normal',
-                            lineHeight: 1.25,
-                            textAlign: 'center',
-                          }}
-                        >
-                          Free Dandiya Sticks for All Attendees
-                        </Badge>
-                      </Group>
-                    </>
-                  )}
+                  <Group gap={6} justify="center" wrap="wrap">
+                    <Badge
+                      color="yellow"
+                      variant="light"
+                      size="sm"
+                      leftSection={<IconGift size={13} color="#facc15" style={{ flexShrink: 0 }} />}
+                      style={{
+                        height: 'auto',
+                        padding: '5px 10px',
+                        whiteSpace: 'normal',
+                        lineHeight: 1.25,
+                        textAlign: 'center',
+                      }}
+                    >
+                      Includes ₹{currentPhase?.voucherAmount || 100} Free Stall Voucher
+                    </Badge>
+                    <Badge
+                      color="yellow"
+                      variant="light"
+                      size="sm"
+                      leftSection={<IconSparkles size={13} color="#facc15" style={{ flexShrink: 0 }} />}
+                      style={{
+                        height: 'auto',
+                        padding: '5px 10px',
+                        whiteSpace: 'normal',
+                        lineHeight: 1.25,
+                        textAlign: 'center',
+                      }}
+                    >
+                      Free Dandiya Sticks for All Attendees
+                    </Badge>
+                  </Group>
 
                   <Group justify="center" gap="sm" mt="xs" w="100%">
                     <Button
@@ -378,7 +378,7 @@ export default function CustomerHomePage() {
                     BOOKINGS CONCLUDED
                   </Badge>
                   <Text fw={700} size="md" c="white" ta="center">
-                    Online ticket bookings for Asha Bani Dandiya Raas 2026 are now closed.
+                    Online ticket bookings for Asha Bani Dandiya Raas 6.0 are now closed.
                   </Text>
                   <Text size="xs" c="gray.4" ta="center">
                     Thank you for the tremendous response! We look forward to seeing everyone at the grand celebration.

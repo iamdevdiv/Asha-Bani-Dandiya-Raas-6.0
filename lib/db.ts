@@ -2281,7 +2281,7 @@ export async function getTicketSalesStatus(): Promise<TicketSalesStatus> {
       activePhase: null,
       startDate,
       startTime,
-      message: 'Online ticket bookings for Asha Bani Dandiya Raas 2026 are now closed.',
+      message: 'Online ticket bookings for Asha Bani Dandiya Raas 6.0 are now closed.',
     };
   }
 
@@ -2331,7 +2331,7 @@ export async function getTicketSalesStatus(): Promise<TicketSalesStatus> {
     activePhase: null,
     startDate,
     startTime,
-    message: 'Online ticket bookings for Asha Bani Dandiya Raas 2026 are now closed.',
+    message: 'Online ticket bookings for Asha Bani Dandiya Raas 6.0 are now closed.',
   };
 }
 
