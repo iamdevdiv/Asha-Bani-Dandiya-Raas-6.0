@@ -394,7 +394,8 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
                   })}
                 </Stack>
 
-                {/* Add Member Button */}
+                {/* Add Member Button (disabled for stall owners) */}
+                {/*
                 <Button
                   onClick={() => {
                     setMemberErrors({});
@@ -408,6 +409,7 @@ export default function StallPassPage({ params }: { params: Promise<{ id: string
                 >
                   + Add Team Members (₹{currentPhase?.adultPrice || 499}/pass)
                 </Button>
+                */}
               </Paper>
 
               {/* Logistics & Timing Card */}

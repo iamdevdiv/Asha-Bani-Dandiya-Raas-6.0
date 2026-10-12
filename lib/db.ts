@@ -3318,6 +3318,112 @@ export async function updateTicketBookingVoucherRule(
   return { success: true, booking: b };
 }
 
+export async function updateTicketBooking(
+  id: string,
+  data: {
+    fullName?: string;
+    mobile?: string;
+    email?: string;
+    childrenCount?: number;
+    childrenNames?: string[];
+    phaseId?: string;
+    totalAmount?: number;
+    isComplimentary?: boolean;
+  }
+) {
+  const existing = await getTicketBookingById(id);
+  if (!existing) throw new Error('Ticket booking not found');
+
+  let phase: any = null;
+  if (data.phaseId) {
+    const allPhases = await getTicketPhases();
+    phase = allPhases.find((p: any) => p.id === data.phaseId);
+  }
+
+  const phaseId = phase ? phase.id : (data.phaseId !== undefined ? data.phaseId : existing.phaseId);
+  const phaseName = phase ? phase.name : existing.phaseName;
+  const adultPrice = phase ? (phase.adultPrice || 499) : (existing.adultPrice || 499);
+  const childPrice = phase ? (phase.childPrice || 199) : (existing.childPrice || 199);
+
+  const fullName = data.fullName !== undefined ? data.fullName.trim() : existing.fullName;
+  const mobile = data.mobile !== undefined ? data.mobile.trim() : existing.mobile;
+  const email = data.email !== undefined ? (data.email?.trim() || null) : existing.email;
+
+  const adultCount = existing.adultCount || 1;
+
+  let childrenCount = existing.childrenCount ?? 0;
+  let childrenNamesStr: string | null = existing.childrenNames ?? null;
+
+  if (data.childrenNames !== undefined) {
+    const filtered = data.childrenNames.filter((n: string) => n && n.trim());
+    childrenCount = data.childrenCount !== undefined ? Math.max(0, Number(data.childrenCount)) : filtered.length;
+    childrenNamesStr = filtered.length > 0 ? JSON.stringify(filtered) : null;
+  } else if (data.childrenCount !== undefined) {
+    childrenCount = Math.max(0, Number(data.childrenCount));
+  }
+
+  let totalAmount = existing.totalAmount;
+  if (data.isComplimentary) {
+    totalAmount = 0;
+  } else if (data.totalAmount !== undefined) {
+    totalAmount = Math.max(0, Number(data.totalAmount));
+  } else if (data.phaseId && data.phaseId !== existing.phaseId) {
+    totalAmount = Math.max(0, adultPrice * adultCount + childPrice * childrenCount);
+  }
+
+  // Regenerate QR Code
+  const qrCodeDataUrl = await generateTicketQrCode(
+    existing.bookingNumber,
+    fullName,
+    adultCount,
+    childrenCount
+  );
+
+  const updatePayload = {
+    fullName,
+    mobile,
+    email,
+    adultCount,
+    childrenCount,
+    childrenNames: childrenNamesStr,
+    phaseId,
+    phaseName,
+    adultPrice,
+    childPrice,
+    totalAmount,
+    qrCodeDataUrl,
+    updatedAt: new Date(),
+  };
+
+  const hasPrisma = await checkPrisma();
+  if (hasPrisma) {
+    try {
+      const updated = await (prisma as any).ticketBooking.update({
+        where: { id: existing.id },
+        data: updatePayload,
+      });
+      return updated;
+    } catch (e) {
+      console.warn('Prisma error in updateTicketBooking', e);
+    }
+  }
+
+  const store = loadFallbackStore();
+  if (!store.ticketBookings) store.ticketBookings = [];
+  const idx = store.ticketBookings.findIndex((b: any) => b.id === existing.id || b.bookingNumber === existing.bookingNumber);
+  if (idx !== -1) {
+    store.ticketBookings[idx] = {
+      ...store.ticketBookings[idx],
+      ...updatePayload,
+      updatedAt: new Date().toISOString(),
+    };
+    saveFallbackStore(store);
+    return store.ticketBookings[idx];
+  }
+
+  throw new Error('Ticket booking not found in fallback store');
+}
+
 // =========================================================================
 // 10. STALL VOUCHER WALLET & REDEMPTIONS
 // =========================================================================

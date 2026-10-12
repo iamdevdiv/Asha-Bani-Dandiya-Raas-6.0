@@ -52,6 +52,7 @@ import {
   IconRefresh,
   IconX,
   IconMessageCircle,
+  IconEdit,
 } from '@tabler/icons-react';
 import html2canvas from 'html2canvas';
 import { CustomerPassCard } from '@/components/CustomerPassCard';
@@ -69,6 +70,7 @@ interface TicketRowProps {
   onWhatsApp: (b: any) => void;
   onResendSms: (b: any) => void;
   onPreview: (b: any) => void;
+  onEdit: (b: any) => void;
   onRule: (b: any) => void;
   onTopUp: (b: any) => void;
   onDelete: (b: any) => void;
@@ -82,6 +84,7 @@ const ConfirmedBookingRow = React.memo(function ConfirmedBookingRow({
   onWhatsApp,
   onResendSms,
   onPreview,
+  onEdit,
   onRule,
   onTopUp,
   onDelete,
@@ -219,6 +222,18 @@ const ConfirmedBookingRow = React.memo(function ConfirmedBookingRow({
               onClick={() => onPreview(b)}
             >
               <IconEye size={16} />
+            </ActionIcon>
+          </Tooltip>
+
+          <Tooltip label="Edit Customer Booking Details">
+            <ActionIcon
+              color="indigo"
+              variant="light"
+              size="sm"
+              radius="md"
+              onClick={() => onEdit(b)}
+            >
+              <IconEdit size={16} />
             </ActionIcon>
           </Tooltip>
 
@@ -748,6 +763,392 @@ function CreateTicketModal({ opened, onClose, onSuccess }: CreateTicketModalProp
 }
 
 /* =========================================================================
+   COMPONENT: ISOLATED MODAL - EDIT CUSTOMER TICKET BOOKING
+   ========================================================================= */
+interface EditTicketModalProps {
+  booking: any | null;
+  opened: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function EditTicketModal({ booking, opened, onClose, onSuccess }: EditTicketModalProps) {
+  const [availablePhases, setAvailablePhases] = useState<any[]>([]);
+  const [editFullName, setEditFullName] = useState('');
+  const [editMobile, setEditMobile] = useState('');
+  const [editChildren, setEditChildren] = useState<string[]>([]);
+  const [editPhaseId, setEditPhaseId] = useState<string>('');
+  const [editTotalAmount, setEditTotalAmount] = useState<number | string>(0);
+  const [isComplimentary, setIsComplimentary] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!opened || !booking) return;
+
+    fetch('/api/tickets/phases')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.phases)) {
+          setAvailablePhases(data.phases);
+          if (booking.phaseId) {
+            setEditPhaseId(booking.phaseId);
+          } else if (booking.phaseName) {
+            const found = data.phases.find((p: any) => p.name === booking.phaseName);
+            if (found) setEditPhaseId(found.id);
+          }
+        }
+      })
+      .catch((err) => console.warn('Failed to load phases for ticket editing:', err));
+
+    setEditFullName(booking.fullName || '');
+    setEditMobile(booking.mobile || '');
+    setEditPhaseId(booking.phaseId || '');
+    setEditTotalAmount(booking.totalAmount ?? 0);
+    setIsComplimentary(booking.totalAmount === 0);
+
+    // Parse children names
+    let initChildren: string[] = [];
+    if (Array.isArray(booking.childrenNamesList)) {
+      initChildren = [...booking.childrenNamesList];
+    } else if (Array.isArray(booking.childrenNames)) {
+      initChildren = [...booking.childrenNames];
+    } else if (typeof booking.childrenNames === 'string' && booking.childrenNames.trim()) {
+      try {
+        const parsed = JSON.parse(booking.childrenNames);
+        if (Array.isArray(parsed)) initChildren = parsed;
+        else initChildren = booking.childrenNames.split(',').map((s: string) => s.trim()).filter(Boolean);
+      } catch {
+        initChildren = booking.childrenNames.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
+    } else if (booking.childrenCount > 0) {
+      initChildren = Array.from({ length: booking.childrenCount }, () => '');
+    }
+    setEditChildren(initChildren);
+  }, [opened, booking]);
+
+  const adultCount = booking?.adultCount || 1;
+
+  // Updating the phase automatically updates the price
+  const handlePhaseChange = (newPhaseId: string | null) => {
+    if (!newPhaseId) return;
+    setEditPhaseId(newPhaseId);
+    const selected = availablePhases.find((p) => p.id === newPhaseId);
+    if (selected) {
+      const adultP = selected.adultPrice || 499;
+      const childP = selected.childPrice || 199;
+      const calculated = adultP * adultCount + childP * editChildren.length;
+      setEditTotalAmount(calculated);
+      setIsComplimentary(false);
+    }
+  };
+
+  const handleAddChild = () => {
+    const updated = [...editChildren, ''];
+    setEditChildren(updated);
+    if (!isComplimentary) {
+      const selected = availablePhases.find((p) => p.id === editPhaseId);
+      const adultP = selected?.adultPrice || booking?.adultPrice || 499;
+      const childP = selected?.childPrice || booking?.childPrice || 199;
+      setEditTotalAmount(adultP * adultCount + childP * updated.length);
+    }
+  };
+
+  const handleRemoveChild = (index: number) => {
+    const updated = editChildren.filter((_, idx) => idx !== index);
+    setEditChildren(updated);
+    if (!isComplimentary) {
+      const selected = availablePhases.find((p) => p.id === editPhaseId);
+      const adultP = selected?.adultPrice || booking?.adultPrice || 499;
+      const childP = selected?.childPrice || booking?.childPrice || 199;
+      setEditTotalAmount(adultP * adultCount + childP * updated.length);
+    }
+  };
+
+  const handleChildNameChange = (index: number, name: string) => {
+    const updated = [...editChildren];
+    updated[index] = name;
+    setEditChildren(updated);
+  };
+
+  const handleMarkComplimentary = () => {
+    setIsComplimentary(true);
+    setEditTotalAmount(0);
+  };
+
+  const handleResetToPhaseRate = () => {
+    const selected = availablePhases.find((p) => p.id === editPhaseId);
+    const adultP = selected?.adultPrice || booking?.adultPrice || 499;
+    const childP = selected?.childPrice || booking?.childPrice || 199;
+    const calculated = adultP * adultCount + childP * editChildren.length;
+    setIsComplimentary(false);
+    setEditTotalAmount(calculated);
+  };
+
+  const handleSave = async () => {
+    if (!booking) return;
+
+    if (!editFullName.trim()) {
+      notifications.show({ title: 'Full Name Required', message: 'Please enter attendee name.', color: 'red' });
+      return;
+    }
+
+    const cleanMobile = editMobile.replace(/\D/g, '');
+    if (cleanMobile.length < 10) {
+      notifications.show({ title: 'Invalid Mobile Number', message: 'Please enter a valid 10-digit mobile number.', color: 'red' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/admin/ticket-bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: editFullName.trim(),
+          mobile: cleanMobile,
+          phaseId: editPhaseId || undefined,
+          childrenCount: editChildren.length,
+          childrenNames: editChildren.filter((n) => n && n.trim()),
+          totalAmount: isComplimentary ? 0 : Number(editTotalAmount),
+          isComplimentary,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to update ticket booking');
+      }
+
+      notifications.show({
+        title: 'Booking Updated Successfully',
+        message: `Pass #${booking.bookingNumber} updated for ${editFullName.trim()} (${isComplimentary ? 'Complimentary Pass ₹0' : '₹' + editTotalAmount}).`,
+        color: 'green',
+      });
+
+      onClose();
+      onSuccess();
+    } catch (err: any) {
+      notifications.show({
+        title: 'Update Failed',
+        message: err.message || 'Could not update ticket booking details.',
+        color: 'red',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      opened={opened}
+      onClose={() => !saving && onClose()}
+      title={
+        <Group gap="xs">
+          <ThemeIcon color="blue" variant="light" size="md" radius="md">
+            <IconEdit size={18} />
+          </ThemeIcon>
+          <Text fw={700} className="gold-gradient-text" style={{ fontFamily: "'Cinzel', serif" }}>
+            Edit Customer Booking Details • {booking?.bookingNumber}
+          </Text>
+        </Group>
+      }
+      size="lg"
+      centered
+      radius="xl"
+      styles={{
+        content: {
+          backgroundColor: '#140305',
+          border: '1px solid rgba(234, 179, 8, 0.35)',
+        },
+        header: {
+          backgroundColor: '#140305',
+          borderBottom: '1px solid rgba(234, 179, 8, 0.2)',
+        },
+      }}
+    >
+      {booking && (
+        <Stack gap="md" pt="xs">
+          <Alert
+            icon={<IconInfoCircle size={18} />}
+            color="blue"
+            variant="light"
+            radius="md"
+            styles={{
+              root: { backgroundColor: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)' },
+              message: { color: '#e2e8f0', fontSize: '0.85rem' },
+            }}
+          >
+            Update attendee details, mobile, accompanying children, or ticketing phase. Changing the phase automatically updates the pass pricing. You can also mark the pass as <strong>Complimentary (₹0)</strong>. Digital QR code pass will automatically update.
+          </Alert>
+
+          {/* 1. Attendee Information */}
+          <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+            <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+              1. ATTENDEE CONTACT DETAILS
+            </Text>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              <TextInput
+                label="Customer / Attendee Full Name"
+                placeholder="e.g. Priyansh Sharma"
+                required
+                value={editFullName}
+                onChange={(e) => setEditFullName(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+
+              <TextInput
+                label="10-Digit Mobile Number"
+                placeholder="e.g. 9876543210"
+                required
+                maxLength={10}
+                leftSection={<Text size="xs" c="gray.4">+91</Text>}
+                value={editMobile}
+                onChange={(e) => setEditMobile(e.currentTarget.value)}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                }}
+              />
+            </SimpleGrid>
+          </Paper>
+
+          {/* 2. Accompanying Children */}
+          <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+            <Group justify="space-between" mb="xs">
+              <Box>
+                <Text size="xs" fw={700} c="royalGold.4" style={{ letterSpacing: '0.05em' }}>
+                  2. ACCOMPANYING CHILDREN (&lt;10 YRS)
+                </Text>
+                <Text size="11px" c="gray.4">
+                  Pass includes 1 adult. Accompanying children must be under 10 years old (Aadhaar checked at entry).
+                </Text>
+              </Box>
+              <Button
+                size="xs"
+                variant="light"
+                color="yellow"
+                leftSection={<IconPlus size={14} />}
+                onClick={handleAddChild}
+              >
+                Add Child
+              </Button>
+            </Group>
+
+            {editChildren.length === 0 ? (
+              <Text size="xs" c="gray.5" fs="italic">
+                No accompanying children added (1 adult pass only).
+              </Text>
+            ) : (
+              <Stack gap="xs" mt="xs">
+                {editChildren.map((childName, idx) => (
+                  <Group key={idx} gap="xs" wrap="nowrap">
+                    <TextInput
+                      placeholder={`Child #${idx + 1} Full Name`}
+                      value={childName}
+                      onChange={(e) => handleChildNameChange(idx, e.currentTarget.value)}
+                      style={{ flex: 1 }}
+                      styles={{
+                        input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                      }}
+                    />
+                    <Tooltip label="Remove Child">
+                      <ActionIcon color="red" variant="subtle" onClick={() => handleRemoveChild(idx)}>
+                        <IconTrash size={16} />
+                      </ActionIcon>
+                    </Tooltip>
+                  </Group>
+                ))}
+              </Stack>
+            )}
+          </Paper>
+
+          {/* 3. Phase Tier & Pricing */}
+          <Paper p="sm" radius="md" style={{ backgroundColor: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(234, 179, 8, 0.15)' }}>
+            <Text size="xs" fw={700} c="royalGold.4" mb="xs" style={{ letterSpacing: '0.05em' }}>
+              3. TICKETING PHASE TIER &amp; PRICE
+            </Text>
+
+            <Stack gap="sm">
+              <Select
+                label="Ticketing Phase Tier"
+                description="Selecting a new phase automatically updates the pass price according to phase rates."
+                data={availablePhases.map((p) => ({
+                  value: p.id,
+                  label: `${p.name} (Adult: ₹${p.adultPrice}, Child: ₹${p.childPrice}, Voucher: ₹${p.voucherAmount ?? 100})`,
+                }))}
+                value={editPhaseId}
+                onChange={handlePhaseChange}
+                styles={{
+                  input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)' },
+                  label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                  description: { color: '#9ca3af', fontSize: '0.75rem' },
+                }}
+              />
+
+              <Box>
+                <NumberInput
+                  label="Ticket Total Amount (₹)"
+                  description="Price associated with this booking. Can be set to ₹0 for complimentary passes."
+                  min={0}
+                  value={editTotalAmount}
+                  onChange={(val) => {
+                    const num = val ?? 0;
+                    setEditTotalAmount(num);
+                    setIsComplimentary(Number(num) === 0);
+                  }}
+                  styles={{
+                    input: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(234, 179, 8, 0.25)', fontWeight: 700 },
+                    label: { color: '#fde047', fontWeight: 600, fontSize: '0.85rem' },
+                    description: { color: '#9ca3af', fontSize: '0.75rem' },
+                  }}
+                />
+                <Group gap="xs" mt={6} align="center">
+                  <Badge
+                    size="sm"
+                    style={{ cursor: 'pointer' }}
+                    color={isComplimentary || Number(editTotalAmount) === 0 ? 'teal' : 'yellow'}
+                    variant={isComplimentary || Number(editTotalAmount) === 0 ? 'filled' : 'outline'}
+                    onClick={handleMarkComplimentary}
+                  >
+                    🎁 Mark as Complimentary Pass (₹0)
+                  </Badge>
+                  <Text
+                    size="11px"
+                    c="gray.4"
+                    style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                    onClick={handleResetToPhaseRate}
+                  >
+                    Recalculate Price from Phase
+                  </Text>
+                </Group>
+              </Box>
+            </Stack>
+          </Paper>
+
+          {/* Footer Actions */}
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" disabled={saving} onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              className="btn-auspicious-gold"
+              loading={saving}
+              onClick={handleSave}
+              leftSection={<IconCheck size={16} />}
+            >
+              Save Booking Changes
+            </Button>
+          </Group>
+        </Stack>
+      )}
+    </Modal>
+  );
+}
+
+/* =========================================================================
    PAGE: CUSTOMER TICKET BOOKINGS
    ========================================================================= */
 export default function AdminTicketBookingsPage() {
@@ -807,6 +1208,7 @@ export default function AdminTicketBookingsPage() {
 
   // Manual Ticket Generation Modal
   const [createModalOpened, setCreateModalOpened] = useState(false);
+  const [bookingToEdit, setBookingToEdit] = useState<any | null>(null);
   const [ticketWaTemplate, setTicketWaTemplate] = useState<string>('');
 
   const fetchBookings = useCallback(() => {
@@ -1668,6 +2070,7 @@ export default function AdminTicketBookingsPage() {
                               onWhatsApp={handleSendWhatsApp}
                               onResendSms={handleResendSms}
                               onPreview={(item) => setSelectedBooking(item)}
+                              onEdit={(item) => setBookingToEdit(item)}
                               onRule={(item) => {
                                 setBookingForRule(item);
                                 setSelectedVoucherRule(item.isCustomVoucherRule ? item.voucherApplicableTo : 'default');
@@ -1829,6 +2232,18 @@ export default function AdminTicketBookingsPage() {
                                       onClick={() => handleSendPendingWhatsApp(b)}
                                     >
                                       <IconBrandWhatsapp size={16} />
+                                    </ActionIcon>
+                                  </Tooltip>
+
+                                  <Tooltip label="Edit Customer Booking Details">
+                                    <ActionIcon
+                                      color="indigo"
+                                      variant="light"
+                                      size="sm"
+                                      radius="md"
+                                      onClick={() => setBookingToEdit(b)}
+                                    >
+                                      <IconEdit size={16} />
                                     </ActionIcon>
                                   </Tooltip>
 
@@ -2238,6 +2653,14 @@ export default function AdminTicketBookingsPage() {
         <CreateTicketModal
           opened={createModalOpened}
           onClose={() => setCreateModalOpened(false)}
+          onSuccess={fetchBookings}
+        />
+
+        {/* Isolated Modal: Edit Customer Ticket Booking */}
+        <EditTicketModal
+          opened={!!bookingToEdit}
+          booking={bookingToEdit}
+          onClose={() => setBookingToEdit(null)}
           onSuccess={fetchBookings}
         />
       </Stack>
